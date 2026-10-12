@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+mysql-connector
+requests
+pydantic
+python-multipart
+pandas
+dotenv
+openpyxl
+xlrd
+statsmodels
+bcrypt
+itsdangerous

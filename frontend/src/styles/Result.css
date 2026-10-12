@@ -1,0 +1,1018 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap");
+
+.ResultPage {
+    min-height: 100vh;
+    background: #0b0e1f;
+    padding: 24px 32px 64px;
+    color: #e4e6f0;
+    font-family: "Inter", sans-serif;
+}
+
+.ResultHeader {
+    max-width: 1280px;
+    margin: 0 auto 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.ResultLogo {
+    width: 44px;
+    height: 44px;
+    object-fit: contain;
+}
+
+.ResultTitle {
+    color: #ffffff;
+    font-weight: 600;
+}
+
+.Eyebrow {
+    color: #8a8fb0;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+}
+
+.Muted {
+    color: #8a8fb0;
+}
+
+.ResultBack {
+    background: transparent;
+    color: #c9cbe0;
+    border: 1px solid #2a2f52;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 14px;
+}
+
+.ResultBack:hover {
+    background: #161a35;
+    color: #ffffff;
+    border-color: #3a4070;
+}
+
+.ResultBody {
+    max-width: 1280px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.ResultCard {
+    background: linear-gradient(180deg, #151935 0%, #11142a 100%);
+    border: 1px solid #1f2444;
+    border-radius: 16px;
+    padding: 24px 28px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+}
+
+.StatusPill {
+    background: #13261f;
+    color: #4ade80;
+    border: 1px solid #1d4433;
+    border-radius: 999px;
+    padding: 2px 12px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.Question {
+    color: #ffffff;
+    font-size: 24px;
+    font-weight: 600;
+    margin: 0 0 16px;
+}
+
+.VariableRow {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.Variable {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #0e1124;
+    border: 1px solid #1f2444;
+    border-radius: 10px;
+    padding: 12px 14px;
+    min-width: 0;
+}
+
+.Variable > div {
+    min-width: 0;
+}
+
+.VariableTag {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    flex: none;
+}
+
+.TagY {
+    background: #1e1a46;
+    color: #a99cff;
+}
+
+.TagX {
+    background: #10283a;
+    color: #5cc8ff;
+}
+
+.VariableName {
+    color: #e4e6f0;
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 13px;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.FileRow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.FileChip {
+    background: #0e1124;
+    border: 1px solid #1f2444;
+    color: #8a8fb0;
+    border-radius: 6px;
+    padding: 3px 10px;
+    font-size: 12px;
+    max-width: 300px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.VerdictBadge {
+    display: inline-block;
+    border-radius: 10px;
+    padding: 8px 18px;
+    font-size: 20px;
+    font-weight: 600;
+    background: #1f2444;
+    color: #c9cbe0;
+    border: 1px solid #2a2f52;
+}
+
+.Verdict-robust {
+    background: #10261c;
+    color: #4ade80;
+    border-color: #1d4433;
+}
+
+.Verdict-fragile {
+    background: #2a2210;
+    color: #fbbf24;
+    border-color: #4a3b14;
+}
+
+.Verdict-choice_dependent {
+    background: #2b1418;
+    color: #f87171;
+    border-color: #4d2128;
+}
+
+.VerdictText {
+    color: #c9cbe0;
+    margin: 14px 0 0;
+}
+
+.StatGrid {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.StatBox {
+    background: linear-gradient(180deg, #151935 0%, #11142a 100%);
+    border: 1px solid #1f2444;
+    border-radius: 12px;
+    padding: 14px 16px;
+    transition: border-color 0.2s;
+}
+
+.StatBox:hover {
+    border-color: #3a4070;
+}
+
+.StatLabel {
+    color: #8a8fb0;
+    font-size: 12px;
+    margin: 0 0 4px;
+}
+
+.StatNumber {
+    color: #ffffff;
+    font-size: 22px;
+    font-weight: 600;
+    margin: 0;
+}
+
+.Chart {
+    width: 100%;
+    height: auto;
+    font-family: "Inter", sans-serif;
+    background: #0e1124;
+    border: 1px solid #1f2444;
+    border-radius: 12px;
+}
+
+.PlotArea {
+    fill: #12152b;
+}
+
+.GridLine {
+    stroke: #262b4d;
+    stroke-width: 1;
+    stroke-dasharray: 3 5;
+}
+
+.ZeroLine {
+    stroke: #4a5080;
+    stroke-width: 1.5;
+}
+
+.MiddleLine {
+    stroke: #a99cff;
+    stroke-width: 1.5;
+    stroke-dasharray: 6 5;
+}
+
+.MiddleText {
+    fill: #a99cff;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.GuideLine {
+    stroke: #1f2444;
+    stroke-width: 1;
+    stroke-dasharray: 2 4;
+}
+
+.AxisText {
+    fill: #8a8fb0;
+    font-size: 12px;
+}
+
+.AxisTitle {
+    fill: #8a8fb0;
+    font-size: 12px;
+}
+
+.DotSignificant {
+    fill: #4ade80;
+    stroke: #0e1124;
+    stroke-width: 2;
+    cursor: pointer;
+}
+
+.DotNormal {
+    fill: #5b6185;
+    stroke: #0e1124;
+    stroke-width: 2;
+    cursor: pointer;
+}
+
+.DotSignificant:hover,
+.DotNormal:hover {
+    stroke: #ffffff;
+}
+
+.DotHalo {
+    fill: #4ade80;
+    fill-opacity: 0.15;
+}
+
+.DotHaloOff {
+    fill: transparent;
+}
+
+.MatrixTitle {
+    fill: #8a8fb0;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.MatrixLabel {
+    fill: #c9cbe0;
+    font-size: 12px;
+}
+
+.MatrixStripe {
+    fill: #12152b;
+}
+
+.MatrixPlain {
+    fill: transparent;
+}
+
+.MatrixOn {
+    fill: #a99cff;
+}
+
+.MatrixOff {
+    fill: #262b4d;
+}
+
+.Legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 14px;
+    font-size: 12px;
+    color: #c9cbe0;
+}
+
+.Legend > span {
+    display: inline-flex;
+    align-items: center;
+    background: #0e1124;
+    border: 1px solid #1f2444;
+    border-radius: 999px;
+    padding: 4px 12px;
+}
+
+.LegendDot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 6px;
+}
+
+.DotSignificantBg {
+    background: #4ade80;
+}
+
+.DotNormalBg {
+    background: #5b6185;
+}
+
+.MatrixOnBg {
+    background: #a99cff;
+}
+
+.LegendLine {
+    display: inline-block;
+    width: 18px;
+    border-top: 2px dashed #a99cff;
+    margin-right: 6px;
+    vertical-align: middle;
+}
+
+.TableCount {
+    background: #0e1124;
+    border: 1px solid #1f2444;
+    color: #8a8fb0;
+    border-radius: 999px;
+    padding: 3px 12px;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.AnalystTableWrap {
+    overflow-x: auto;
+    border: 1px solid #1f2444;
+    border-radius: 12px;
+    background: #0e1124;
+}
+
+.AnalystTable {
+    width: 100%;
+    min-width: 820px;
+    border-collapse: collapse;
+    font-size: 13px;
+    color: #e4e6f0;
+}
+
+.AnalystTable th {
+    background: #0b0e1f;
+    color: #8a8fb0;
+    font-weight: 500;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    text-align: left;
+    padding: 12px 14px;
+    border-bottom: 1px solid #1f2444;
+    white-space: nowrap;
+}
+
+.AnalystTable td {
+    padding: 12px 14px;
+    border-bottom: 1px solid #181c38;
+    vertical-align: middle;
+}
+
+.AnalystTable tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.AnalystTable tbody tr:hover td {
+    background: #141833;
+}
+
+.AlignRight {
+    text-align: right !important;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.AnalystNumber {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: #1e1a46;
+    color: #c4baff;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.ChipList {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    max-width: 320px;
+}
+
+.ControlChip {
+    display: inline-block;
+    background: #1e1a46;
+    color: #c4baff;
+    border: 1px solid #2f2870;
+    border-radius: 6px;
+    padding: 1px 8px;
+    font-size: 12px;
+    max-width: 190px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ChoiceText {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    max-width: 200px;
+    color: #c9cbe0;
+    line-height: 1.45;
+}
+
+.EffectCell {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.EffectNumber {
+    flex: none;
+    width: 64px;
+    text-align: right;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.EffectPlus {
+    color: #4ade80;
+}
+
+.EffectMinus {
+    color: #f87171;
+}
+
+.EffectTrack {
+    position: relative;
+    flex: none;
+    width: 120px;
+    height: 8px;
+    background: #1f2444;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.EffectZero {
+    position: absolute;
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: #4a5080;
+}
+
+.EffectBar {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+}
+
+.EffectBarPlus {
+    left: 50%;
+    background: linear-gradient(90deg, #22c55e, #4ade80);
+    border-radius: 0 4px 4px 0;
+}
+
+.EffectBarMinus {
+    right: 50%;
+    background: linear-gradient(90deg, #f87171, #ef4444);
+    border-radius: 4px 0 0 4px;
+}
+
+.EffectPlusBg {
+    background: #4ade80;
+}
+
+.EffectMinusBg {
+    background: #f87171;
+}
+
+.PPill {
+    display: inline-block;
+    border-radius: 999px;
+    padding: 2px 10px;
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+.PGood {
+    background: #10261c;
+    color: #4ade80;
+    border: 1px solid #1d4433;
+}
+
+.PWeak {
+    background: #1f2444;
+    color: #8a8fb0;
+    border: 1px solid #2a2f52;
+}
+
+.ResultError {
+    max-width: 480px;
+    margin: 80px auto;
+    background: #2b1418;
+    border: 1px solid #4d2128;
+    color: #f87171;
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+}
+
+.SummaryCard {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    gap: 28px;
+}
+
+.SummaryRight {
+    border-left: 1px solid #1f2444;
+    padding-left: 28px;
+}
+
+.ChartGrid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 20px;
+    align-items: start;
+}
+
+.ChartGrid > .ResultCard:nth-child(2) {
+    position: sticky;
+    top: 20px;
+}
+
+.CardTop {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.ResultCardTitle {
+    color: #ffffff;
+    font-size: 16px;
+    font-weight: 500;
+    margin: 0;
+}
+
+.DownloadButton {
+    background: #1e1a46;
+    color: #c4baff;
+    border: 1px solid #2f2870;
+    border-radius: 8px;
+    padding: 6px 14px;
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+.DownloadButton:hover {
+    background: #2a2463;
+    color: #ffffff;
+}
+
+.DataPoint {
+    fill: #5cc8ff;
+    fill-opacity: 0.4;
+}
+
+.DataPointBg {
+    background: #5cc8ff;
+}
+
+.SimpleLine {
+    stroke: #4ade80;
+    stroke-width: 2.5;
+}
+
+.LegendSolid {
+    display: inline-block;
+    width: 18px;
+    border-top: 2.5px solid #4ade80;
+    margin-right: 6px;
+    vertical-align: middle;
+}
+
+.ChartNote {
+    color: #8a8fb0;
+    font-size: 12px;
+    margin: 8px 0 0;
+}
+
+
+.GhostButton {
+    background: transparent;
+    color: #c9cbe0;
+    border: 1px solid #2a2f52;
+    border-radius: 8px;
+    padding: 6px 14px;
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+.GhostButton:hover {
+    background: #161a35;
+    color: #ffffff;
+}
+
+.GhostButton:disabled {
+    opacity: 0.4;
+    color: #c9cbe0;
+    border-color: #2a2f52;
+}
+
+.Toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 16px;
+    padding: 14px 16px;
+    background: #0e1124;
+    border: 1px solid #1f2444;
+    border-radius: 10px;
+    margin-bottom: 10px;
+}
+
+.ToolField {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12px;
+    color: #8a8fb0;
+    min-width: 0;
+    flex: 1 1 220px;
+}
+
+.ToolSelect {
+    background-color: #12152b;
+    color: #e4e6f0;
+    border: 1px solid #2a2f52;
+    font-size: 13px;
+}
+
+.ToolSelect:focus {
+    background-color: #12152b;
+    color: #ffffff;
+    border-color: #a99cff;
+    box-shadow: none;
+}
+
+.ToolChecks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    font-size: 13px;
+    color: #c9cbe0;
+    padding-bottom: 6px;
+}
+
+.ToolChecks input {
+    accent-color: #a99cff;
+    margin-right: 6px;
+}
+
+.DrawBar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.DrawButton {
+    background: #2a1530;
+    color: #f9a8d4;
+    border: 1px solid #4a2052;
+    border-radius: 8px;
+    padding: 6px 14px;
+    font-size: 13px;
+}
+
+.DrawButton:hover {
+    color: #ffffff;
+    background: #3a1c42;
+}
+
+.DrawOn {
+    background: #f472b6;
+    color: #1a0b16;
+    border-color: #f472b6;
+}
+
+.ColorDot {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2px solid #12152b;
+    outline: 1px solid #2a2f52;
+    padding: 0;
+}
+
+.ColorDotOn {
+    outline: 2px solid #ffffff;
+}
+
+.DrawCursor {
+    cursor: crosshair;
+    user-select: none;
+}
+
+.ExplorerGrid {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 1fr);
+    gap: 16px;
+    align-items: start;
+}
+
+.FitPanel {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.FitBox {
+    background: #0e1124;
+    border: 1px solid #1f2444;
+    border-radius: 10px;
+    padding: 12px 14px;
+}
+
+.Equation {
+    font-family: ui-monospace, Consolas, monospace;
+    color: #4ade80;
+    font-size: 13px;
+    margin: 0;
+    word-break: break-word;
+}
+
+.FitTrack {
+    height: 6px;
+    background: #1f2444;
+    border-radius: 3px;
+    margin-top: 8px;
+    overflow: hidden;
+}
+
+.FitFill {
+    height: 100%;
+    background: #4ade80;
+}
+
+.ToolSmall {
+    flex: 0 1 230px;
+}
+
+.AverageLine {
+    fill: none;
+    stroke: #fbbf24;
+    stroke-width: 3;
+    stroke-linejoin: round;
+}
+
+.AverageDot {
+    fill: #fbbf24;
+    stroke: #12152b;
+    stroke-width: 2;
+}
+
+.LegendSolid.AverageBg {
+    border-top-color: #fbbf24;
+}
+
+.FitCurve {
+    fill: none;
+    stroke: #4ade80;
+    stroke-width: 3;
+    stroke-linejoin: round;
+}
+
+.MiddleCurve {
+    fill: none;
+    stroke: #a99cff;
+    stroke-width: 2;
+    stroke-dasharray: 7 5;
+}
+
+.ModelTable {
+    margin-top: 14px;
+    background: #0e1124;
+    border: 1px solid #1f2444;
+    border-radius: 10px;
+    padding: 14px 16px;
+}
+
+.ModelRow {
+    display: grid;
+    grid-template-columns: minmax(0, 170px) minmax(0, 1fr) 120px 56px;
+    gap: 12px;
+    align-items: center;
+    width: 100%;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    padding: 8px 10px;
+    color: #e4e6f0;
+    text-align: left;
+    font-size: 13px;
+}
+
+.ModelRow:hover {
+    background: #161a35;
+}
+
+.ModelRowOn {
+    border-color: #4ade80;
+    background: #10261c;
+}
+
+.ModelName {
+    font-weight: 500;
+}
+
+.BestBadge {
+    background: #4ade80;
+    color: #0b0e1f;
+    border-radius: 999px;
+    padding: 1px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-left: 8px;
+}
+
+.ModelFormula {
+    font-family: ui-monospace, Consolas, monospace;
+    color: #8a8fb0;
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ModelBar {
+    height: 6px;
+    background: #1f2444;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.ModelFill {
+    display: block;
+    height: 100%;
+    background: #4ade80;
+}
+
+.ModelScore {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.BarTrack {
+    fill: #ffffff;
+    fill-opacity: 0.03;
+}
+
+.BarUp {
+    fill: #4ade80;
+    fill-opacity: 0.85;
+}
+
+.BarDown {
+    fill: #f87171;
+    fill-opacity: 0.85;
+}
+
+.BarText {
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.TextUp {
+    fill: #4ade80;
+}
+
+.TextDown {
+    fill: #f87171;
+}
+
+@media (max-width: 1100px) {
+    .ChartGrid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .ChartGrid > .ResultCard:nth-child(2) {
+        position: static;
+    }
+
+    .StatGrid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 800px) {
+    .ExplorerGrid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .SummaryCard {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .SummaryRight {
+        border-left: none;
+        padding-left: 0;
+        border-top: 1px solid #1f2444;
+        padding-top: 20px;
+    }
+}
+
+@media (max-width: 600px) {
+    .ModelRow {
+        grid-template-columns: minmax(0, 1fr) 56px;
+    }
+
+    .ModelFormula,
+    .ModelBar {
+        display: none;
+    }
+
+    .StatGrid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .ResultPage {
+        padding: 16px;
+    }
+
+    .ResultCard {
+        padding: 18px;
+    }
+
+    .Question {
+        font-size: 20px;
+    }
+}

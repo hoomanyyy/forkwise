@@ -1,0 +1,120 @@
+.Container{
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 16px;
+}
+.AuthContainerBox{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 30px;
+    padding: 40px 32px;
+    width: 100%;
+    max-width: 600px;
+    background: rgba(18, 15, 49, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    box-shadow: 0 0 60px 8px rgba(63, 50, 167, 0.45);
+}
+
+.ButtonSubmit{
+    color: white;
+    padding: 13px;
+    width: 80%;
+    outline: none;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    background: #3f32a7;
+    box-shadow: inset 0 0 0 0 #2d2376;
+    transition: box-shadow 0.4s, transform 0.1s;
+}
+
+.ButtonSubmit:hover{
+    background: radial-gradient(circle at var(--x) var(--y), #6a5cd6, #3f32a7 80px);
+}
+
+.ButtonSubmit:active{
+    box-shadow: inset 0 0 22px 8px #2d2376;
+    transform: scale(0.98);
+}
+.AuthTitle{
+    color: #ececf6;
+    font-weight: 500;
+    margin: 0;
+}
+.Container{
+    background: radial-gradient(circle at 50% 35%, #241b6b, #0f0c2d 55%);
+}
+
+.LoginBox{
+    max-width: 400px;
+    align-items: stretch;
+    gap: 22px;
+}
+
+.LoginBox .ButtonSubmit{
+    width: 100%;
+}
+
+.AuthSubtitle{
+    color: #9a9ab0;
+    font-size: 14px;
+    margin: 4px 0 0;
+}
+
+.AuthContainerBox .ContainerUsernameEmail{
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    width: 100%;
+}
+
+.AuthContainerBox .EmailContainerInput{
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px !important;
+    background: #0f0c2d;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    color: #8c8b9e;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.AuthContainerBox .EmailContainerInput:focus-within{
+    border-color: #6a5cd6;
+    box-shadow: 0 0 0 3px rgba(106, 92, 214, 0.25);
+}
+
+.AuthContainerBox .EmailInput{
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #ececf6;
+    width: 100%;
+}
+
+.AuthContainerBox .EmailInput::placeholder{
+    color: #6f6e86;
+}
+
+.AuthFooter{
+    color: #9a9ab0;
+    font-size: 14px;
+    text-align: center;
+    margin: 0;
+}
+
+.AuthFooter a{
+    color: #a99cff;
+    text-decoration: none;
+}
+.IconInput input::-ms-reveal,
+.IconInput input::-ms-clear {
+    display: none;
+}

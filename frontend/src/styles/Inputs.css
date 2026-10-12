@@ -1,0 +1,31 @@
+.InputBorder{
+    border-right: none;
+    border-left: none;
+    border-top: none;
+    border-bottom: 1px solid rgba(207, 205, 205, 0.329);
+    outline: none;
+    background: none;
+    color: white;
+    padding: 10px;
+}
+.EmailInput{
+    background: none;
+    outline: none;
+    border: none;
+    width: 95%;
+    color: white;
+}
+.EmailContainerInput{
+    border: 1px solid #cccccc3d;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+.ContainerUsernameEmail{
+    display: flex;
+    gap: 14px;
+    flex-direction: column;
+}
+.sad{
+    background-image: url('');
+}

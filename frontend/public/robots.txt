@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /chat
+Disallow: /runs/
+Disallow: /admin
+Disallow: /auth/
+Disallow: /register
+Disallow: /app.html
+
+Sitemap: https://forkwise.site/sitemap.xml

@@ -1,0 +1,522 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+
+.DashPage {
+    min-height: 100vh;
+    background: #0b0e1f;
+    color: #e4e6f0;
+    font-family: "Inter", sans-serif;
+    padding: 0 32px 64px;
+}
+
+.DashNav {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 18px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+}
+
+.DashBrand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #ffffff;
+    font-weight: 600;
+    font-size: 17px;
+    text-decoration: none;
+}
+
+.DashBrand:hover {
+    color: #ffffff;
+}
+
+.DashLogo {
+    width: 36px;
+    height: 36px;
+    object-fit: contain;
+}
+
+.DashNavRight {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+}
+
+.DashNavLink {
+    color: #a3a8c7;
+    text-decoration: none;
+    font-size: 14px;
+}
+
+.DashNavLink:hover {
+    color: #ffffff;
+}
+
+.DashUser {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-left: 18px;
+    border-left: 1px solid #1f2444;
+}
+
+.DashAvatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #7c6cff;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.DashUserName {
+    color: #e4e6f0;
+    font-size: 14px;
+    text-transform: capitalize;
+}
+
+.DashLogout {
+    background: transparent;
+    color: #8a8fb0;
+    border: 1px solid #2a2f52;
+    border-radius: 8px;
+    padding: 5px 12px;
+    font-size: 13px;
+}
+
+.DashLogout:hover {
+    color: #ffffff;
+    background: #161a35;
+}
+
+.DashBody {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding-top: 12px;
+}
+
+.DashHero {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 20px;
+    flex-wrap: wrap;
+    background: #17133a;
+    border: 1px solid #2f2870;
+    border-radius: 18px;
+    padding: 32px;
+}
+
+.DashEyebrow {
+    color: #a99cff;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+}
+
+.DashTitle {
+    color: #ffffff;
+    font-weight: 700;
+    font-size: 30px;
+    margin-bottom: 8px;
+}
+
+.DashName {
+    text-transform: capitalize;
+}
+
+.DashLead {
+    color: #a3a8c7;
+    max-width: 540px;
+    margin: 0;
+}
+
+.DashNewButton {
+    background: #7c6cff;
+    color: #ffffff;
+    border: none;
+    border-radius: 10px;
+    padding: 11px 20px;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.DashNewButton:hover {
+    background: #8f81ff;
+    color: #ffffff;
+}
+
+.DashStats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.DashStat {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: #12152b;
+    border: 1px solid #1f2444;
+    border-radius: 14px;
+    padding: 16px 18px;
+}
+
+.DashStatIcon {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex: none;
+}
+
+.IconPurple {
+    background: #1e1a46;
+    color: #a99cff;
+}
+
+.IconGreen {
+    background: #10261c;
+    color: #4ade80;
+}
+
+.IconAmber {
+    background: #2a2210;
+    color: #fbbf24;
+}
+
+.IconBlue {
+    background: #10283a;
+    color: #5cc8ff;
+}
+
+.DashStatLabel {
+    color: #8a8fb0;
+    font-size: 13px;
+    margin: 0 0 2px;
+}
+
+.DashStatNumber {
+    color: #ffffff;
+    font-size: 26px;
+    font-weight: 700;
+    margin: 0;
+    line-height: 1.1;
+}
+
+.DashCard {
+    background: #12152b;
+    border: 1px solid #1f2444;
+    border-radius: 16px;
+    padding: 22px 24px;
+}
+
+.DashCardTop {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+}
+
+.DashCardTitle {
+    color: #ffffff;
+    font-weight: 600;
+    margin: 0;
+}
+
+.DashMuted {
+    color: #8a8fb0;
+    font-size: 13px;
+}
+
+.SplitBar {
+    display: flex;
+    height: 12px;
+    border-radius: 6px;
+    overflow: hidden;
+    background: #1f2444;
+}
+
+.SplitBar span {
+    display: block;
+    height: 100%;
+}
+
+.SplitGreen {
+    background: #4ade80;
+}
+
+.SplitAmber {
+    background: #fbbf24;
+}
+
+.SplitRed {
+    background: #f87171;
+}
+
+.SplitBlue {
+    background: #5cc8ff;
+}
+
+.SplitGray {
+    background: #5b6185;
+}
+
+.SplitLegend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px;
+    margin-top: 12px;
+    font-size: 13px;
+    color: #a3a8c7;
+}
+
+.SplitLegend i {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+    margin-right: 6px;
+}
+
+.DashSearch {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #0e1124;
+    border: 1px solid #2a2f52;
+    border-radius: 10px;
+    padding: 0 12px;
+    color: #6b7091;
+    width: 280px;
+    max-width: 100%;
+}
+
+.DashSearch:focus-within {
+    border-color: #7c6cff;
+}
+
+.DashSearch input {
+    flex: 1;
+    min-width: 0;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #ffffff;
+    padding: 8px 0;
+    font-size: 14px;
+}
+
+.DashSearch input::placeholder {
+    color: #5b6185;
+}
+
+.DashFilters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.DashChip {
+    background: transparent;
+    border: 1px solid #2a2f52;
+    color: #a3a8c7;
+    border-radius: 999px;
+    padding: 4px 14px;
+    font-size: 13px;
+}
+
+.DashChip:hover {
+    color: #ffffff;
+    background: #161a35;
+}
+
+.DashChipOn {
+    background: #7c6cff;
+    border-color: #7c6cff;
+    color: #ffffff;
+}
+
+.DashChipOn:hover {
+    background: #8f81ff;
+}
+
+.DashList {
+    display: flex;
+    flex-direction: column;
+}
+
+.DashRow {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 12px;
+    border-top: 1px solid #1f2444;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.DashRow:hover {
+    background: #161a35;
+}
+
+.DashRowId {
+    color: #6b7091;
+    font-size: 13px;
+    width: 40px;
+    flex: none;
+}
+
+.DashRowMain {
+    flex: 1;
+    min-width: 0;
+}
+
+.DashRowQuestion {
+    color: #ffffff;
+    font-weight: 500;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.DashRowMeta {
+    color: #8a8fb0;
+    font-size: 12px;
+    margin: 2px 0 0;
+}
+
+.DashBadge {
+    border-radius: 999px;
+    padding: 3px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    background: #1f2444;
+    color: #c9cbe0;
+    flex: none;
+}
+
+.Badge-robust {
+    background: #10261c;
+    color: #4ade80;
+}
+
+.Badge-fragile {
+    background: #2a2210;
+    color: #fbbf24;
+}
+
+.Badge-choice_dependent {
+    background: #2b1418;
+    color: #f87171;
+}
+
+.Badge-running {
+    background: #10283a;
+    color: #5cc8ff;
+}
+
+.Badge-failed {
+    background: #1f2444;
+    color: #8a8fb0;
+}
+
+.DashArrow {
+    color: #4a5080;
+    font-size: 22px;
+    flex: none;
+}
+
+.DashEmpty {
+    text-align: center;
+    padding: 40px 20px;
+}
+
+.DashEmptyTitle {
+    color: #ffffff;
+    font-weight: 600;
+    font-size: 18px;
+    margin-bottom: 6px;
+}
+
+.DashEmpty .DashMuted {
+    margin-bottom: 18px;
+}
+
+.DashNoMatch {
+    padding: 20px 12px;
+    margin: 0;
+}
+
+@media (max-width: 900px) {
+    .DashStats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 640px) {
+    .DashPage {
+        padding: 0 16px 40px;
+    }
+
+    .DashNavLink,
+    .DashUserName,
+    .DashBrand span {
+        display: none;
+    }
+
+    .DashUser {
+        border-left: none;
+        padding-left: 0;
+    }
+
+    .DashHero {
+        padding: 22px;
+    }
+
+    .DashTitle {
+        font-size: 24px;
+    }
+
+    .DashStat {
+        padding: 12px;
+        gap: 10px;
+    }
+
+    .DashStatIcon {
+        width: 34px;
+        height: 34px;
+        font-size: 15px;
+    }
+
+    .DashRowMeta {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .DashSearch {
+        width: 100%;
+    }
+}
