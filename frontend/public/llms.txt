@@ -14,9 +14,9 @@
 
 ## Pages
 
-- [Home](https://forkwise.site/): what the tool does and an example result
-- [How it works](https://forkwise.site/how-it-works): the six steps of the method and its limits
-- [About](https://forkwise.site/about): the problem, the solution and the findings
-- [FAQ](https://forkwise.site/faq): common questions about results and data
-- [Privacy](https://forkwise.site/privacy): what data is stored and what the AI sees
-- [Contact](https://forkwise.site/contact): reach the team
+- [Home](https://forkwise.online/): what the tool does and an example result
+- [How it works](https://forkwise.online/how-it-works): the six steps of the method and its limits
+- [About](https://forkwise.online/about): the problem, the solution and the findings
+- [FAQ](https://forkwise.online/faq): common questions about results and data
+- [Privacy](https://forkwise.online/privacy): what data is stored and what the AI sees
+- [Contact](https://forkwise.online/contact): reach the team

@@ -8,4 +8,4 @@ Disallow: /auth/
 Disallow: /register
 Disallow: /app.html
 
-Sitemap: https://forkwise.site/sitemap.xml
+Sitemap: https://forkwise.online/sitemap.xml
