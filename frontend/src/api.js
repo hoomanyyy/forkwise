@@ -14,21 +14,24 @@ export async function sendContact(data) {
     const response = await axios.post(`${BASE_URL}/api/contact`, data)
     return response.data
 }
- 
+
 
 export function sendAuthRequestWithWebsocket(data, onAnswer) {
     const ws = new WebSocket(`${WS_BASE_URL}/ws/auth`)
     ws.onopen = () => {
         ws.send(JSON.stringify(data))
     }
+    let answered = false
     ws.onmessage = (event) => {
-        const msg = JSON.parse(event.data)
-        console.log(msg)
-        onAnswer(msg)
+        answered = true
+        onAnswer(JSON.parse(event.data))
         ws.close()
     }
     ws.onerror = () => {
-        onAnswer({ Message: false })
+        if (!answered) {
+            answered = true
+            onAnswer({ Message: false, Error: true })
+        }
     }
 }
 
@@ -46,30 +49,25 @@ export async function adminDelete(name, id) {
     return response.data
 }
 
-export async function sendLoginRequest(data , onAnswer){
-    try{
-        const response = await axios.post(`${BASE_URL}/auth/login`,data,{
+export async function sendLoginRequest(data, onAnswer) {
+    try {
+        const response = await axios.post(`${BASE_URL}/auth/login`, data, {
             withCredentials: true
         })
-        if(response.data.Message == true){
-            console.log("True")
-            onAnswer(response.data)
-        }else{
-            console.log("False")
-            onAnswer(response.data)
-        }
-    }catch(e){
+        onAnswer(response.data)
+    } catch (e) {
         console.log(`ERROR: ${e}`)
+        onAnswer({ Message: false, Error: true })
     }
 }
 
 export async function Logout() {
-    let response = await axios.post(`${BASE_URL}/auth/logout` , {} , {
-        withCredentials: true
-    })
-    if(response.data.Message == true){
-        return true
-    }else{
+    try {
+        const response = await axios.post(`${BASE_URL}/auth/logout`, {}, {
+            withCredentials: true
+        })
+        return response.data.Message === true
+    } catch (e) {
         return false
     }
 }

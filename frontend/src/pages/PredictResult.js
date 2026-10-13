@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react"
 import "bootstrap/dist/css/bootstrap.min.css"
 import "../styles/Result.css"
 import Logo from "../images/logo.svg"
+import Seo from "../components/Seo"
 import { useNavigate, useParams } from "react-router-dom"
 import { getRun } from "../api"
 import { shortName } from "../components/chartTools"
@@ -28,6 +29,9 @@ function verdictMessage(verdict) {
     }
     if (verdict === "choice_dependent") {
         return "The answer changes depending on the choices each analyst made."
+    }
+    if (verdict === "no_effect") {
+        return "Almost no analyst found a real effect. With these choices, the data does not support this link."
     }
     return "There were not enough valid analysts to decide."
 }
@@ -61,6 +65,7 @@ export default function PredictResult() {
     if (error !== "") {
         return (
             <div className="ResultPage">
+                <Seo title="Analysis result | Forkwise" noindex />
                 <div className="ResultError">{error}</div>
             </div>
         )
@@ -69,6 +74,7 @@ export default function PredictResult() {
     if (run === null) {
         return (
             <div className="ResultPage">
+                <Seo title="Analysis result | Forkwise" noindex />
                 <p className="Muted">Loading...</p>
             </div>
         )
@@ -102,6 +108,7 @@ export default function PredictResult() {
 
     return (
         <div className="ResultPage">
+            <Seo title="Analysis result | Forkwise" noindex />
             <header className="ResultHeader">
                 <div className="d-flex align-items-center gap-3">
                     <img src={Logo} alt="Logo" className="ResultLogo" />
@@ -145,7 +152,7 @@ export default function PredictResult() {
                     </div>
                     <div className="SummaryRight">
                         <p className="Eyebrow">Verdict</p>
-                        <span className={"VerdictBadge Verdict-" + run.verdict}>{run.verdict ? run.verdict.replace("_", " ") : "-"}</span>
+                        <span className={"VerdictBadge Verdict-" + run.verdict}>{run.verdict ? run.verdict.replaceAll("_", " ") : "-"}</span>
                         <p className="VerdictText">{verdictMessage(run.verdict)}</p>
                     </div>
                 </section>

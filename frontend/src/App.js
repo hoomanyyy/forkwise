@@ -6,6 +6,10 @@ import HowItWorks from "./pages/HowItWorks"
 import Faq from "./pages/Faq"
 import Contact from "./pages/Contact"
 import Privacy from "./pages/Privacy"
+import Learn from "./pages/Learn"
+import LearnMultiverse from "./pages/LearnMultiverse"
+import LearnSpecCurve from "./pages/LearnSpecCurve"
+import ExampleCoffee from "./pages/ExampleCoffee"
 import NotFound from "./pages/NotFound"
 import Dashboard from "./pages/Dashboard"
 import Chat from "./pages/Chat"
@@ -24,6 +28,10 @@ export default function App() {
                 <Route path="/faq" element={<Faq />} />
                 <Route path="/contact" element={<Contact />} />
                 <Route path="/privacy" element={<Privacy />} />
+                <Route path="/learn" element={<Learn />} />
+                <Route path="/learn/multiverse-analysis" element={<LearnMultiverse />} />
+                <Route path="/learn/specification-curve" element={<LearnSpecCurve />} />
+                <Route path="/examples/coffee-and-heart-risk" element={<ExampleCoffee />} />
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/chat" element={<Chat />} />
                 <Route path="/auth/login" element={<Login />} />

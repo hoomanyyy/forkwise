@@ -272,6 +272,10 @@
     background: #f87171;
 }
 
+.SplitPurple {
+    background: #a5b4fc;
+}
+
 .SplitBlue {
     background: #5cc8ff;
 }
@@ -430,6 +434,11 @@
 .Badge-choice_dependent {
     background: #2b1418;
     color: #f87171;
+}
+
+.Badge-no_effect {
+    background: #1a1d3d;
+    color: #a5b4fc;
 }
 
 .Badge-running {

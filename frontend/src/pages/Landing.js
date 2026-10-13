@@ -197,6 +197,10 @@ export default function Landing() {
                             <h3>Choice dependent</h3>
                             <p>The answer changes with the method. Be careful before you trust it.</p>
                         </div>
+                        <div className="VerdictCard VerdictPurple">
+                            <h3>No effect</h3>
+                            <p>Almost no analyst found a real effect. The link is not in the data.</p>
+                        </div>
                     </div>
                     <div className="FeatureRow">
                         <span>Specification curve</span>

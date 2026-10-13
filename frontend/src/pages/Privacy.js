@@ -36,7 +36,7 @@ export default function Privacy() {
                 <section className="PrivacyCard">
                     <h2>Your files</h2>
                     <p>
-                        The files you upload are saved on our server so Python can analyze them. For each analysis we also
+                        The files you upload are read by Python on our server and deleted right after. For each analysis we
                         save your question, the file names, the results of every analyst and a random sample of up to 1000
                         rows, so you can see the charts again later.
                     </p>

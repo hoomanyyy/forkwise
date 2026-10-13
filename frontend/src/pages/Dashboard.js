@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react"
 import "bootstrap/dist/css/bootstrap.min.css"
 import "../styles/Dashboard.css"
 import Logo from "../images/logo.svg"
+import Seo from "../components/Seo"
 import { Link, useNavigate } from "react-router-dom"
 import { FaChartBar, FaCheckCircle, FaExclamationTriangle, FaSyncAlt, FaSearch, FaPlus } from "react-icons/fa"
 import { sendAuthRequestWithWebsocket, getHistory, Logout } from "../api"
@@ -81,6 +82,7 @@ export default function Home() {
     const robustRuns = history.filter((run) => run.verdict === "robust").length
     const fragileRuns = history.filter((run) => run.verdict === "fragile").length
     const choiceRuns = history.filter((run) => run.verdict === "choice_dependent").length
+    const noEffectRuns = history.filter((run) => run.verdict === "no_effect").length
     const runningRuns = history.filter((run) => run.status === "running").length
     const failedRuns = history.filter((run) => run.status === "failed").length
 
@@ -104,6 +106,7 @@ export default function Home() {
 
     return (
         <div className="DashPage">
+            <Seo title="Dashboard | Forkwise" noindex />
             <nav className="DashNav">
                 <Link to="/" className="DashBrand">
                     <img src={Logo} alt="Logo" className="DashLogo" />
@@ -171,6 +174,7 @@ export default function Home() {
                             <span className="SplitGreen" style={{ width: percent(robustRuns, totalRuns) + "%" }}></span>
                             <span className="SplitAmber" style={{ width: percent(fragileRuns, totalRuns) + "%" }}></span>
                             <span className="SplitRed" style={{ width: percent(choiceRuns, totalRuns) + "%" }}></span>
+                            <span className="SplitPurple" style={{ width: percent(noEffectRuns, totalRuns) + "%" }}></span>
                             <span className="SplitBlue" style={{ width: percent(runningRuns, totalRuns) + "%" }}></span>
                             <span className="SplitGray" style={{ width: percent(failedRuns, totalRuns) + "%" }}></span>
                         </div>
@@ -178,6 +182,7 @@ export default function Home() {
                             <span><i className="SplitGreen"></i>Robust {robustRuns}</span>
                             <span><i className="SplitAmber"></i>Fragile {fragileRuns}</span>
                             <span><i className="SplitRed"></i>Choice dependent {choiceRuns}</span>
+                            <span><i className="SplitPurple"></i>No effect {noEffectRuns}</span>
                             <span><i className="SplitBlue"></i>Running {runningRuns}</span>
                             <span><i className="SplitGray"></i>Failed {failedRuns}</span>
                         </div>
@@ -198,6 +203,7 @@ export default function Home() {
                         <button className={filter === "robust" ? "DashChip DashChipOn" : "DashChip"} onClick={() => setFilter("robust")}>Robust</button>
                         <button className={filter === "fragile" ? "DashChip DashChipOn" : "DashChip"} onClick={() => setFilter("fragile")}>Fragile</button>
                         <button className={filter === "choice_dependent" ? "DashChip DashChipOn" : "DashChip"} onClick={() => setFilter("choice_dependent")}>Choice dependent</button>
+                        <button className={filter === "no_effect" ? "DashChip DashChipOn" : "DashChip"} onClick={() => setFilter("no_effect")}>No effect</button>
                         <button className={filter === "running" ? "DashChip DashChipOn" : "DashChip"} onClick={() => setFilter("running")}>Running</button>
                         <button className={filter === "failed" ? "DashChip DashChipOn" : "DashChip"} onClick={() => setFilter("failed")}>Failed</button>
                     </div>
@@ -222,7 +228,7 @@ export default function Home() {
                                         <p className="DashRowMeta">{countFiles(run.filename)} file(s) · {formatDate(run.created_at)}</p>
                                     </div>
                                     <span className={"DashBadge Badge-" + (run.verdict ? run.verdict : run.status)}>
-                                        {run.verdict ? run.verdict.replace("_", " ") : run.status}
+                                        {run.verdict ? run.verdict.replaceAll("_", " ") : run.status}
                                     </span>
                                     <span className="DashArrow">›</span>
                                 </div>

@@ -4,6 +4,7 @@ import "../styles/Register.css"
 import { FaEnvelope, FaUser, FaLock, FaEye, FaEyeSlash, FaCheck } from "react-icons/fa"
 import { Link, useNavigate } from "react-router-dom"
 import Logo from "../images/logo.svg"
+import Seo from "../components/Seo"
 import { sendAuthRequestWithWebsocket } from "../api"
 
 export default function Register() {
@@ -57,8 +58,8 @@ export default function Register() {
             setError("Please write a real email address.")
             return
         }
-        if (password.length < 6) {
-            setError("Your password needs at least 6 characters.")
+        if (password.length < 8) {
+            setError("Your password needs at least 8 characters.")
             return
         }
 
@@ -77,6 +78,8 @@ export default function Register() {
             if (result.Message === true) {
                 setSuccess("Account created. Taking you to log in...")
                 setTimeout(() => navigate("/auth/login"), 1500)
+            } else if (result.Error === true) {
+                setError("Could not connect to the server. Please try again.")
             } else {
                 setError("Could not create the account. This username or email may already be used.")
             }
@@ -85,6 +88,7 @@ export default function Register() {
 
     return (
         <div className="SignupPage">
+            <Seo title="Create an account | Forkwise" noindex />
             <div className="SignupShell">
                 <aside className="SignupSide">
                     <Link to="/" className="SideBrand">
@@ -135,7 +139,7 @@ export default function Register() {
                         <span>Password</span>
                         <div className="IconInput">
                             <FaLock className="FieldIcon" />
-                            <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 6 characters" />
+                            <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 8 characters" />
                             <button type="button" className="EyeButton" onClick={() => setShowPassword(!showPassword)} aria-label="Show password">
                                 {showPassword ? <FaEyeSlash /> : <FaEye />}
                             </button>

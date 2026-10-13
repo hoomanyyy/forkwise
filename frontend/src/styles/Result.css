@@ -191,6 +191,12 @@
     border-color: #4d2128;
 }
 
+.Verdict-no_effect {
+    background: #1a1d3d;
+    color: #a5b4fc;
+    border-color: #2f3570;
+}
+
 .VerdictText {
     color: #c9cbe0;
     margin: 14px 0 0;

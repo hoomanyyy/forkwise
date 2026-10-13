@@ -30,8 +30,8 @@ const questions = [
         a: "On purpose. We use three different AI models and five personalities, and the answers are a little random. Real scientists also make different choices, and the goal is to see whether your answer survives all of them."
     },
     {
-        q: "What do robust, fragile and choice dependent mean?",
-        a: "Robust: almost every analyst found the same direction and a real effect. Fragile: they agree on the direction, but many could not show the effect is real. Choice dependent: the answer changes with the choices, sometimes even the direction."
+        q: "What do robust, fragile, choice dependent and no effect mean?",
+        a: "Robust: almost every analyst found the same direction and a real effect. Fragile: they agree on the direction, but many could not show the effect is real. Choice dependent: the answer changes with the choices, sometimes even the direction. No effect: almost no analyst found a real effect, so the data does not support the link."
     },
     {
         q: "How many analysts should I choose?",

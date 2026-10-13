@@ -4,6 +4,7 @@ import "../styles/Register.css"
 import { FaUser, FaLock, FaEye, FaEyeSlash, FaCheck } from "react-icons/fa"
 import { Link, useNavigate } from "react-router-dom"
 import Logo from "../images/logo.svg"
+import Seo from "../components/Seo"
 import { sendLoginRequest } from "../api"
 import { sendAuthRequestWithWebsocket } from "../api"
 
@@ -50,6 +51,8 @@ export default function Login() {
             setSending(false)
             if (res.Message === true) {
                 navigate("/dashboard")
+            } else if (res.Error === true) {
+                setError("Could not connect to the server. Please try again.")
             } else {
                 setError("Username or password is wrong.")
             }
@@ -58,6 +61,7 @@ export default function Login() {
 
     return (
         <div className="SignupPage">
+            <Seo title="Log in | Forkwise" noindex />
             <div className="SignupShell">
                 <aside className="SignupSide">
                     <Link to="/" className="SideBrand">

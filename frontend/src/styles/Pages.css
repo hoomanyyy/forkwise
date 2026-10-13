@@ -338,7 +338,7 @@
 
 .MethodVerdicts {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
 }
 
@@ -382,6 +382,15 @@
 
 .MethodRed b {
     color: #f87171;
+}
+
+.MethodPurple {
+    background: #15172e;
+    border-color: #2f3570;
+}
+
+.MethodPurple b {
+    color: #a5b4fc;
 }
 
 .MethodLimits {

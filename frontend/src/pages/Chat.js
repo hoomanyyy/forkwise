@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react"
 import "bootstrap/dist/css/bootstrap.min.css"
 import "../styles/Chat.css"
 import Logo from "../images/logo.svg"
+import Seo from "../components/Seo"
 import { Link, useNavigate } from "react-router-dom"
 import { FaCloudUploadAlt, FaFileAlt, FaTrash, FaCheck, FaRocket } from "react-icons/fa"
 import { sendInformationsAn } from "../api"
@@ -154,6 +155,8 @@ export default function Chat() {
             const result = await sendInformationsAn(formData)
             if (result.Message === true) {
                 navigate(`/runs/${result.row_id}`)
+            } else if (result.Message === "login") {
+                navigate("/auth/login")
             } else {
                 setError(result.error ? result.error : "The server did not return a result.")
             }
@@ -166,6 +169,7 @@ export default function Chat() {
 
     return (
         <div className="ChatPage">
+            <Seo title="New analysis | Forkwise" noindex />
             <nav className="ChatNav">
                 <Link to="/" className="ChatBrand">
                     <img src={Logo} alt="Logo" className="ChatLogo" />

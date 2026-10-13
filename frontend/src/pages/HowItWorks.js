@@ -15,7 +15,7 @@ export default function HowItWorks() {
         <div className="SitePage">
             <Seo
                 title="How It Works: AI Multiverse Analysis in 6 Steps | Forkwise"
-                description="See how Forkwise turns one question into many analyses: AI analysts plan, Python checks and runs every regression, and a judge gives a robust, fragile or choice dependent verdict."
+                description="See how Forkwise turns one question into many analyses: AI analysts plan, Python checks and runs every regression, and a judge gives a robust, fragile, choice dependent or no effect verdict."
                 path="/how-it-works"
             />
             <Navbar />
@@ -109,6 +109,10 @@ export default function HowItWorks() {
                             <h2>The judge gives a verdict</h2>
                             <p>The judge looks at all analysts together and counts two things: how many found the same direction, and how many found a real effect (p below 0.05).</p>
                             <div className="MethodVerdicts">
+                                <div className="MethodVerdict MethodPurple">
+                                    <b>No effect</b>
+                                    <span>20% or fewer found a real effect. The data does not support the link. This is checked first.</span>
+                                </div>
                                 <div className="MethodVerdict MethodGreen">
                                     <b>Robust</b>
                                     <span>At least 90% agree on the direction and at least 80% found a real effect.</span>

@@ -35,6 +35,7 @@ export default function Navbar() {
             <div className={menuOpen ? "NavLinks NavLinksOpen" : "NavLinks"}>
                 <NavLink to="/" end className={linkClass}>Home</NavLink>
                 <NavLink to="/how-it-works" className={linkClass}>How it works</NavLink>
+                <NavLink to="/learn" className={linkClass}>Learn</NavLink>
                 <NavLink to="/about" className={linkClass}>About</NavLink>
                 <NavLink to="/faq" className={linkClass}>FAQ</NavLink>
                 <NavLink to="/contact" className={linkClass}>Contact</NavLink>

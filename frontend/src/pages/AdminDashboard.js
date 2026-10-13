@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from "react"
+import React, { useCallback, useEffect, useState } from "react"
 import "bootstrap/dist/css/bootstrap.min.css"
 import "../styles/Admin.css"
 import Logo from "../images/logo.svg"
+import Seo from "../components/Seo"
 import { Link, useNavigate } from "react-router-dom"
 import { FaUsers, FaChartBar, FaEnvelope, FaExclamationTriangle, FaTrash, FaSearch, FaBroom, FaReply, FaShieldAlt, FaSyncAlt } from "react-icons/fa"
 import { adminGet, adminDelete, sendAuthRequestWithWebsocket } from "../api"
@@ -22,7 +23,7 @@ function dayText(date) {
 
 function runLabel(run) {
     if (run.status === "complete" && run.verdict) {
-        return run.verdict.replace("_", " ")
+        return run.verdict.replaceAll("_", " ")
     }
     return run.status
 }
@@ -43,6 +44,9 @@ function runClass(run) {
     if (run.verdict === "choice_dependent") {
         return "AdminPill AdminPillRed"
     }
+    if (run.verdict === "no_effect") {
+        return "AdminPill AdminPillPurple"
+    }
     return "AdminPill"
 }
 
@@ -60,7 +64,7 @@ export default function AdminDashboard() {
     const [notice, setNotice] = useState("")
     const [working, setWorking] = useState(false)
 
-    async function loadAll() {
+    const loadAll = useCallback(async () => {
         try {
             const s = await adminGet("stats")
             if (s.Message === "login") {
@@ -93,7 +97,7 @@ export default function AdminDashboard() {
         } catch (e) {
             setStatus("error")
         }
-    }
+    }, [navigate])
 
     useEffect(() => {
         sendAuthRequestWithWebsocket({ type: "whoami" }, (res) => {
@@ -102,7 +106,7 @@ export default function AdminDashboard() {
             }
         })
         loadAll()
-    }, [])
+    }, [loadAll])
 
     useEffect(() => {
         if (notice === "") {
@@ -142,6 +146,7 @@ export default function AdminDashboard() {
     if (status === "loading") {
         return (
             <div className="AdminPage">
+                <Seo title="Admin | Forkwise" noindex />
                 <p className="AdminCenter">Loading...</p>
             </div>
         )
@@ -150,6 +155,7 @@ export default function AdminDashboard() {
     if (status === "forbidden" || status === "error") {
         return (
             <div className="AdminPage">
+                <Seo title="Admin | Forkwise" noindex />
                 <div className="AdminBlocked">
                     <FaShieldAlt className="AdminBlockedIcon" />
                     <h2>{status === "forbidden" ? "Admins only" : "Something went wrong"}</h2>
@@ -178,7 +184,7 @@ export default function AdminDashboard() {
         days.push({ text: text, label: date.getDate(), total: total })
     }
 
-    const finished = stats.robust + stats.fragile + stats.choice_dependent
+    const finished = stats.robust + stats.fragile + stats.choice_dependent + stats.no_effect
     function share(value) {
         if (finished === 0) {
             return 0
@@ -203,6 +209,7 @@ export default function AdminDashboard() {
 
     return (
         <div className="AdminPage">
+            <Seo title="Admin | Forkwise" noindex />
             <nav className="AdminNav">
                 <Link to="/" className="AdminBrand">
                     <img src={Logo} alt="Logo" className="AdminLogo" />
@@ -284,11 +291,13 @@ export default function AdminDashboard() {
                             <span className="AdminSplitGreen" style={{ width: share(stats.robust) + "%" }}></span>
                             <span className="AdminSplitAmber" style={{ width: share(stats.fragile) + "%" }}></span>
                             <span className="AdminSplitRed" style={{ width: share(stats.choice_dependent) + "%" }}></span>
+                            <span className="AdminSplitPurple" style={{ width: share(stats.no_effect) + "%" }}></span>
                         </div>
                         <div className="AdminSplitRows">
                             <div><i className="AdminDot AdminSplitGreen"></i>Robust<b>{stats.robust}</b></div>
                             <div><i className="AdminDot AdminSplitAmber"></i>Fragile<b>{stats.fragile}</b></div>
                             <div><i className="AdminDot AdminSplitRed"></i>Choice dependent<b>{stats.choice_dependent}</b></div>
+                            <div><i className="AdminDot AdminSplitPurple"></i>No effect<b>{stats.no_effect}</b></div>
                             <div><i className="AdminDot AdminDotBlue"></i>Running now<b>{stats.running}</b></div>
                         </div>
                     </div>

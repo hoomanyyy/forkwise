@@ -20,6 +20,12 @@ export default function Footer() {
                     <Link to="/register">Sign up</Link>
                 </div>
                 <div className="FooterColumn">
+                    <p className="FooterTitle">Learn</p>
+                    <Link to="/learn/multiverse-analysis">Multiverse analysis</Link>
+                    <Link to="/learn/specification-curve">Specification curve</Link>
+                    <Link to="/examples/coffee-and-heart-risk">Coffee example</Link>
+                </div>
+                <div className="FooterColumn">
                     <p className="FooterTitle">Project</p>
                     <Link to="/about">About</Link>
                     <Link to="/contact">Contact</Link>
