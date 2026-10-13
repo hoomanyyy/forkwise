@@ -1,7 +1,16 @@
 import axios from "axios"
 
-const BASE_URL = process.env.REACT_APP_API_URL || "http://127.0.0.1:5000"
-const WS_BASE_URL = process.env.REACT_APP_WS_URL || "ws://127.0.0.1:5000"
+const onMyComputer = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+
+let BASE_URL = process.env.REACT_APP_API_URL
+let WS_BASE_URL = process.env.REACT_APP_WS_URL
+
+if (!BASE_URL) {
+    BASE_URL = onMyComputer ? "http://127.0.0.1:5000" : "https://api.forkwise.online"
+}
+if (!WS_BASE_URL) {
+    WS_BASE_URL = onMyComputer ? "ws://127.0.0.1:5000" : "wss://api.forkwise.online"
+}
 
 export async function sendInformationsAn(formdata) {
     const response = await axios.post(`${BASE_URL}/api/analyze`, formdata, {
