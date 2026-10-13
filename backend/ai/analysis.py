@@ -6,8 +6,15 @@ import statsmodels.formula.api as smf
 def clean_data(df, outcome, x, answer):
     controls = []
     root = outcome.split("_")[0]
-    for c in answer.get("covariates", []):
-        if root in c:
+    covariates = answer.get("covariates", [])
+    if not isinstance(covariates, list):
+        covariates = []
+    for c in covariates:
+        if not isinstance(c, str):
+            continue
+        if len(root) >= 3 and root in c:
+            continue
+        if c in controls:
             continue
         if c in df.columns and c != outcome and c != x and pd.api.types.is_numeric_dtype(df[c]):
             controls.append(c)
@@ -21,9 +28,16 @@ def clean_data(df, outcome, x, answer):
 
     if answer.get("outliers") == "drop_3sd":
         z = (data - data.mean()) / data.std()
+        z = z.fillna(0)
         data = data[(z.abs() <= 3).all(axis=1)]
 
-    return data, controls
+    useful = []
+    for c in controls:
+        if data[c].std() > 0:
+            useful.append(c)
+    data = data[[outcome, x] + useful].copy()
+
+    return data, useful
 
 
 def draw_line(data, outcome, x, controls):
@@ -43,18 +57,22 @@ def draw_line(data, outcome, x, controls):
 
 
 def analyze_one(df, outcome, x, answer):
-    if answer is None:
+    if not isinstance(answer, dict):
         return None
-    data, controls = clean_data(df, outcome, x, answer)
-    if len(data) < 30:
+    try:
+        data, controls = clean_data(df, outcome, x, answer)
+        if len(data) < 30 or data[x].std() == 0:
+            return None
+        return draw_line(data, outcome, x, controls)
+    except Exception as e:
+        print(f"ERROR: {e}", flush=True)
         return None
-    return draw_line(data, outcome, x, controls)
 
 
 def judge(results):
     valid = [r for r in results if r is not None]
     if len(valid) == 0:
-        return {"verdict": "no valid analysts"}
+        return {"verdict": "no_valid_analysts"}
 
     up = 0
     real = 0
@@ -68,7 +86,9 @@ def judge(results):
     agree = max(up, down) / len(valid)
     significant = real / len(valid)
 
-    if agree >= 0.9 and significant >= 0.8:
+    if significant <= 0.2:
+        verdict = "no_effect"
+    elif agree >= 0.9 and significant >= 0.8:
         verdict = "robust"
     elif agree >= 0.85 and significant >= 0.3:
         verdict = "fragile"
@@ -83,6 +103,7 @@ def judge(results):
         "middle_effect": round(statistics.median(effects), 3),
         "verdict": verdict,
     }
+
 
 def make_chart(df, outcome, x, results):
     columns = [outcome, x]

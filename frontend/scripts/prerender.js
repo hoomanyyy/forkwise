@@ -13,6 +13,10 @@ const pages = [
     { url: "/faq", file: "faq.html" },
     { url: "/contact", file: "contact.html" },
     { url: "/privacy", file: "privacy.html" },
+    { url: "/learn", file: "learn.html" },
+    { url: "/learn/multiverse-analysis", file: "learn/multiverse-analysis.html" },
+    { url: "/learn/specification-curve", file: "learn/specification-curve.html" },
+    { url: "/examples/coffee-and-heart-risk", file: "examples/coffee-and-heart-risk.html" },
     { url: "/page-that-does-not-exist", file: "404.html" }
 ]
 
@@ -24,6 +28,7 @@ function contentType(file) {
     if (file.endsWith(".svg")) return "image/svg+xml"
     if (file.endsWith(".ico")) return "image/x-icon"
     if (file.endsWith(".json")) return "application/json"
+    if (file.endsWith(".csv")) return "text/csv"
     return "text/plain"
 }
 
@@ -44,7 +49,23 @@ const server = http.createServer((req, res) => {
 
 async function run() {
     await new Promise((resolve) => server.listen(PORT, resolve))
-    const browser = await puppeteer.launch({ headless: true, args: ["--no-sandbox"] })
+
+    let browser
+    try {
+        browser = await puppeteer.launch({
+            headless: true,
+            args: ["--no-sandbox"],
+            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined
+        })
+    } catch (e) {
+        server.close()
+        if (process.env.PRERENDER_REQUIRED === "true") {
+            throw e
+        }
+        fs.writeFileSync(path.join(BUILD, "404.html"), shell)
+        console.log("Chrome is not available, so pages were not prerendered. The site still works as a normal React app.")
+        return
+    }
     const page = await browser.newPage()
     await page.setViewport({ width: 1280, height: 900 })
 
@@ -58,7 +79,9 @@ async function run() {
         if (start !== -1 && end !== -1) {
             html = html.slice(0, start) + html.slice(end + "</noscript>".length)
         }
-        fs.writeFileSync(path.join(BUILD, p.file), html)
+        const target = path.join(BUILD, p.file)
+        fs.mkdirSync(path.dirname(target), { recursive: true })
+        fs.writeFileSync(target, html)
         console.log("prerendered", p.url, "->", p.file)
     }
 

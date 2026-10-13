@@ -1,5 +1,4 @@
-from fastapi import FastAPI , Request , WebSocket
-from fastapi import HTTPException
+from fastapi import FastAPI, Request, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.concurrency import run_in_threadpool
 from ai.Model import GptModel
@@ -7,8 +6,8 @@ from database.mysql import Mysql
 import uvicorn
 import os
 import pandas as pd
-from typing import List
 import json
+import uuid
 from starlette.middleware.sessions import SessionMiddleware
 from dotenv import load_dotenv
 
@@ -25,156 +24,176 @@ app.add_middleware(
         "https://www.forkwise.online",
     ],
     allow_credentials=True,
-    allow_methods=["*"], 
-    allow_headers=["*"], 
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.add_middleware(
-    SessionMiddleware,secret_key=os.getenv("SESSION_SECRET_KEY")
+    SessionMiddleware,
+    secret_key=os.getenv("SESSION_SECRET_KEY"),
+    same_site="lax",
+    https_only=os.getenv("HTTPS_ONLY") == "true",
+    max_age=60 * 60 * 24 * 7
 )
 
-UPLOAD_DIR = "./upload"
+UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "upload")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+ANALYST_CHOICES = ["10", "25", "50", "100"]
+MISSING_NUMBERS = ["0", "-1", "-999"]
+
 
 @app.get("/health")
 def health():
+    return {"Message": "ok"}
+
+
+def read_file(path, name):
     try:
-        print("health: ok")
-        return {
-            "Message": "ok"
-        }
-    except Exception as e:
-        print(f"error: {e}")
-        return HTTPException(
-            status_code=400
-        )
-    
-def read_file(file):
-    try:
-        name = file.lower()
+        name = name.lower()
         if name.endswith(".csv"):
-            print("csv")
-            f = pd.read_csv(file)
-            return f
+            return pd.read_csv(path)
 
         if name.endswith(".xlsx") or name.endswith(".xls"):
-            print("excel")
-            f = pd.read_excel(file)
-            return f
-        
+            return pd.read_excel(path)
+
         if name.endswith(".json"):
-            print("json")   
-            with open(file , encoding="utf-8") as f:
+            with open(path, encoding="utf-8") as f:
                 data = json.load(f)
-            content = pd.json_normalize(data)
-            return content
-        
-        if name.endswith(".xml"):
-            print("xml")
-            f = pd.read_xml(file)
-            return f
-        
-        if name.endswith(".html"):
-            print("html")
-            f = pd.read_html(file)
-            return f
-        
+            return pd.json_normalize(data)
+
+        return None
     except Exception as e:
-        print(f"ERROR: {e}")
-        return False
+        print(f"ERROR: {e}", flush=True)
+        return None
+
+
+def clean_missing(table, marker):
+    if marker in MISSING_NUMBERS:
+        number = float(marker)
+        for c in table.select_dtypes("number").columns:
+            table[c] = table[c].replace(number, float("nan"))
+    return table
 
 @app.post("/api/analyze")
 async def analyze(request: Request):
     user_id = request.session.get("user_id")
     if user_id is None:
         return {"Message": "login"}
-    
-    form = await request.form()
 
-    files = form.getlist("files")
-    fileDetails = json.loads(form.get("fileDetails"))
-    print(f"file details: {fileDetails}")
+    try:
+        form = await request.form()
 
-    question = form.get("question")
-    outcome = form.get("outcome")
-    mainVariable = form.get("mainVariable")
-    expectation = form.get("expectation")
-    analysts = form.get("analysts")
-    notes = form.get("notes")
-    relation = form.get("relation")
-    joinColumn = form.get("joinColumn")
+        files = form.getlist("files")
+        fileDetails = json.loads(form.get("fileDetails") or "{}")
 
-    data = [
-        {
-            "question": question,
-            "outcome": outcome,
-            "mainVariable": mainVariable,
-            "expectation": expectation,
-            "notes": notes,
-            "joinColumn": joinColumn
-        }
-    ]    
+        question = (form.get("question") or "").strip()
+        outcome = (form.get("outcome") or "").strip()
+        mainVariable = (form.get("mainVariable") or "").strip()
+        expectation = form.get("expectation") or "unknown"
+        analysts = form.get("analysts") or "10"
+        notes = (form.get("notes") or "").strip()
+        relation = form.get("relation") or "single"
+        joinColumn = form.get("joinColumn") or ""
 
-    file_information = []
-    tables = []
-    
-    for f in files:
+        if len(files) == 0:
+            return {"Message": False, "error": "Please upload at least one file."}
+        if question == "" or outcome == "" or mainVariable == "":
+            return {"Message": False, "error": "Please write the question, the outcome and the main variable."}
+        if len(question) > 500 or len(notes) > 2000:
+            return {"Message": False, "error": "Your question or notes are too long."}
+        if analysts not in ANALYST_CHOICES:
+            analysts = "10"
+
+        file_information = []
+        tables = []
+        main_index = 0
+
+        for f in files:
             file_name = os.path.basename(f.filename)
-            path = os.path.join(UPLOAD_DIR, file_name)
+            details = fileDetails.get(file_name, {})
+            path = os.path.join(UPLOAD_DIR, uuid.uuid4().hex + "_" + file_name)
 
             with open(path, "wb") as fl:
                 fl.write(await f.read())
 
-            content = read_file(path)
-            print(f"file_name: {file_name} \n data: {content}")
-            
-            tables.append(content)
+            content = read_file(path, file_name)
+            os.remove(path)
 
+            if content is None or len(content) == 0:
+                return {"Message": False, "error": f"Could not read {file_name}. Please upload a CSV, Excel or JSON file."}
+
+            content = clean_missing(content, details.get("missing", "empty"))
+
+            if details.get("role") == "main" and main_index == 0:
+                main_index = len(tables)
+
+            tables.append(content)
             file_information.append({
                 "name": file_name,
-                "file_information": fileDetails.get(file_name),
+                "file_information": details,
                 "content": content.to_dict(orient="records")
             })
 
-    print(question)
-    print(outcome)
-    print(mainVariable)
+        combined = tables[main_index]
+        keys = []
 
-    data[0]["files"] = file_information
-    combined = tables[0]
-    keys = []
+        if relation == "join":
+            for k in joinColumn.split(","):
+                if k.strip() != "":
+                    keys.append(k.strip())
+            if len(keys) == 0:
+                return {"Message": False, "error": "Please write the common column that connects the files."}
+            for i in range(len(tables)):
+                if i == main_index:
+                    continue
+                t = tables[i]
+                for k in keys:
+                    if k not in t.columns or k not in combined.columns:
+                        return {"Message": False, "error": f"Column {k} is not in every file."}
+                combined = combined.merge(t, on=keys, how="inner")
 
-    if relation == "join":
-        for k in joinColumn.split(","):
-            keys.append(k.strip())
-        for t in tables[1:]:
-            for k in keys:
-                if k not in t.columns or k not in combined.columns:
-                    return {"Message": False, "error": f"Column {k} is not in every file."}
-            combined = combined.merge(t, on=keys, how="inner")
+        if relation == "stack":
+            combined = pd.concat(tables, ignore_index=True)
 
+        print("combined:", combined.shape, flush=True)
 
-    if relation == "stack":
-        combined = pd.concat(tables, ignore_index=True)
+        number_columns = []
+        for c in combined.select_dtypes("number").columns:
+            if c not in keys:
+                number_columns.append(c)
 
-    print("combined:", combined.shape, flush=True)
+        if len(number_columns) < 2:
+            return {"Message": False, "error": "The data needs at least two number columns."}
+        if len(combined) < 30:
+            return {"Message": False, "error": "The data needs at least 30 rows."}
 
-    number_columns = []
-    for c in combined.select_dtypes("number").columns:
-        if c not in keys:
-            number_columns.append(c)
+        data = [
+            {
+                "question": question,
+                "outcome": outcome,
+                "mainVariable": mainVariable,
+                "expectation": expectation,
+                "notes": notes,
+                "joinColumn": joinColumn,
+                "files": file_information,
+                "combined": combined.to_dict(orient="records")
+            }
+        ]
 
-    data[0]["combined"] = combined.to_dict(orient="records")
-    print("files:", [f["name"] for f in file_information], flush=True)
-    filenames = ", ".join(f["name"] for f in file_information)
+        filenames = ", ".join(f["name"] for f in file_information)
 
-    model = GptModel()
-    outcome, mainVariable = await run_in_threadpool(model.pick_columns, question, outcome, mainVariable, number_columns)
-    if outcome is None:
-        return {"Message": False, "error": "Could not match your outcome and main variable to columns in the file. Please write the column names."}
+        model = GptModel()
+        outcome, mainVariable = await run_in_threadpool(model.pick_columns, question, outcome, mainVariable, number_columns)
+        if outcome is None:
+            return {"Message": False, "error": "Could not match your outcome and main variable to columns in the file. Please write the column names."}
 
-    data[0]["outcome"] = outcome
-    data[0]["mainVariable"] = mainVariable
-    print("columns chosen:", outcome, mainVariable, flush=True)
+        data[0]["outcome"] = outcome
+        data[0]["mainVariable"] = mainVariable
+        print("columns chosen:", outcome, mainVariable, flush=True)
+    except Exception as e:
+        print(f"ERROR: {e}", flush=True)
+        return {"Message": False, "error": "Could not read your data. Please check the files and try again."}
 
     mysql = Mysql()
     row_id = mysql.add_history(user_id=user_id, question=question, filename=filenames, status="running", outcome=outcome, main_variable=mainVariable)
@@ -184,7 +203,7 @@ async def analyze(request: Request):
     try:
         result = await run_in_threadpool(model.Predict, analysts, data)
     except Exception as e:
-        print(f"ERROR: {e}")
+        print(f"ERROR: {e}", flush=True)
         mysql.update_history(row_id=row_id, status="failed")
         return {"Message": False, "error": "The analysis failed. Please try again."}
 
@@ -209,8 +228,14 @@ async def register(websocket: WebSocket):
 
         if data["type"] == "register":
             try:
-                username = data["username"]
-                email = data["email"]
+                username = str(data.get("username", "")).strip()
+                email = str(data.get("email", "")).strip()
+                password = str(data.get("password", ""))
+
+                if username == "" or "@" not in email or len(password) < 8 or len(username) > 50 or len(email) > 150:
+                    await websocket.send_json({"Message": False})
+                    await websocket.close()
+                    return
 
                 isExist = mysql.checkUsernameIfExist(username=username, email=email)
                 if isExist == True:
@@ -218,7 +243,8 @@ async def register(websocket: WebSocket):
                             "Message": False,
                         })
                 else:
-                    name , lastname , password = data["name"] , data["lastname"] , data["password"]
+                    name = str(data.get("name", "")).strip()
+                    lastname = str(data.get("lastname", "")).strip()
                     result = mysql.addUser(
                         username=username,
                         email=email,
@@ -253,22 +279,29 @@ async def register(websocket: WebSocket):
                     "name": websocket.session.get("name"),
                     "lastname": websocket.session.get("lastname")
                 }
-                print(data)
                 await websocket.send_json(data)
 
+        await websocket.close()
+
     except Exception as e:
-        print(f"ERROR: {e}")
-        return await websocket.send_json({
-                 "Message": True,
-            })
+        print(f"ERROR: {e}", flush=True)
+        try:
+            await websocket.send_json({"Message": False})
+            await websocket.close()
+        except Exception:
+            pass
 
 
 
 @app.post("/auth/login")
 async def login(request: Request):
     data = await request.json()
-    result = Mysql().Login(username=data["username"], password=data["password"])
-    if result == False or result["Message"] == False:
+    username = str(data.get("username", "")).strip()
+    password = str(data.get("password", ""))
+    if username == "" or password == "":
+        return {"Message": False}
+    result = Mysql().Login(username=username, password=password)
+    if not result or result["Message"] == False:
         return {"Message": False}
     request.session["user_id"] = result["user_id"]
     request.session["username"] = result["username"]

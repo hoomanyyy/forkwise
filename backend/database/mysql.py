@@ -29,10 +29,10 @@ class Mysql():
 
     def connect_to_mysql(self):
         con = mysql.connector.connect(
-            host=HOST,
-            user=USER,
-            password=PASS,
-            database=NAME
+            host=self.host,
+            user=self.user,
+            password=self.password,
+            database=self.db_name
         )
         return con
     
@@ -140,17 +140,19 @@ class Mysql():
             con = self.connect_to_mysql()
             cursor = con.cursor()
 
-            query = "SELECT * FROM users WHERE username = %s OR email = %s"
+            query = "SELECT id FROM users WHERE username = %s OR email = %s"
             cursor.execute(query , (username , email))
 
             user = cursor.fetchone()
+            con.close()
             if user:
                 return True
             else:
                 return False
-        
+
         except Exception as e:
             print(f"ERROR: {e}")
+            return True
 
     def hash(self , password):
             bytes = password.encode("utf-8")
@@ -162,8 +164,6 @@ class Mysql():
     def verifyHash(self , hashed_password, password):
         userBytes = hashed_password.encode("utf-8")
         result = bcrypt.checkpw(password.encode("utf-8") , userBytes)
-        print("Result")
-
         return result
 
     def addUser(self , username , email , name , lastname, password):
@@ -177,6 +177,7 @@ class Mysql():
             cursor.execute(query , (name , lastname , username , email , hash_password))
 
             con.commit()
+            con.close()
             return True
         
         except Exception as e:
@@ -188,10 +189,11 @@ class Mysql():
             con = self.connect_to_mysql()
             cursor = con.cursor()
 
-            query = "SELECT * FROM users WHERE email = %s OR username = %s"
+            query = "SELECT id, name, last_name, hash_password, email, username FROM users WHERE email = %s OR username = %s"
             cursor.execute(query , (username,username,))
 
             row = cursor.fetchone()
+            con.close()
             if not row:
                 return False
 
@@ -214,6 +216,7 @@ class Mysql():
                 }
         except Exception as e:
             print(f"ERROR: {e}")
+            return False
 
 
     def getHistory(self, user_id):
@@ -290,6 +293,7 @@ class Mysql():
             robust = 0
             fragile = 0
             choice = 0
+            no_effect = 0
             failed = 0
             running = 0
             for g in groups:
@@ -304,6 +308,8 @@ class Mysql():
                     fragile = fragile + g["total"]
                 elif g["verdict"] == "choice_dependent":
                     choice = choice + g["total"]
+                elif g["verdict"] == "no_effect":
+                    no_effect = no_effect + g["total"]
 
             per_day = []
             for d in days:
@@ -316,6 +322,7 @@ class Mysql():
                 "robust": robust,
                 "fragile": fragile,
                 "choice_dependent": choice,
+                "no_effect": no_effect,
                 "failed": failed,
                 "running": running,
                 "messages": messages,

@@ -7,7 +7,7 @@ from ai.analysis import judge , analyze_one, make_chart
 import re
 import json
 
-load_dotenv(override=True)
+load_dotenv()
 
 API_KEY = os.getenv("WORKERS_AI_API_KEY")
 ACCOUNT_ID = os.getenv("CLOUDFLARE_ACCOUNT_ID")
@@ -74,11 +74,15 @@ Answer only with JSON: {{"outcome": "column_name", "mainVariable": "column_name"
             ],
             "max_tokens": 100
         }
-        response = requests.post(self.BASE_URL + self.model_name1, headers=headers, json=body, timeout=60)
-        if response.status_code != 200:
+        try:
+            response = requests.post(self.BASE_URL + self.model_name1, headers=headers, json=body, timeout=60)
+            if response.status_code != 200:
+                return None, None
+            answer = parse_answer(response.json()["result"]["response"])
+        except Exception as e:
+            print(f"ERROR: {e}", flush=True)
             return None, None
 
-        answer = parse_answer(response.json()["result"]["response"])
         if answer is None:
             return None, None
 
@@ -90,25 +94,22 @@ Answer only with JSON: {{"outcome": "column_name", "mainVariable": "column_name"
 
     def Predict(self, analysts , information):
         info = information[0]
-        status = "running"
 
-        print("MODELS:", model1, model2, model3)
-        print("ACCOUNT_ID found:", ACCOUNT_ID is not None, "| API_KEY found:", API_KEY is not None)
+        print("MODELS:", model1, model2, model3, flush=True)
+        print("ACCOUNT_ID found:", ACCOUNT_ID is not None, "| API_KEY found:", API_KEY is not None, flush=True)
 
         url1 = self.BASE_URL + self.model_name1
         url2 = self.BASE_URL + self.model_name2
         url3 = self.BASE_URL + self.model_name3
 
-        info = information[0]
-
         text_information = ""
         for f in info["files"]:
             fi = f["file_information"]
             text_information += f"File: {f['name']}\n"
-            text_information += f"Description: {fi['description']}\n"
-            text_information += f"Source: {fi['source']}\n"
-            text_information += f"One row means: {fi['rowMeaning']}\n"
-            text_information += f"Time period: {fi['period']}\n"
+            text_information += f"Description: {fi.get('description', '')}\n"
+            text_information += f"Source: {fi.get('source', '')}\n"
+            text_information += f"One row means: {fi.get('rowMeaning', '')}\n"
+            text_information += f"Time period: {fi.get('period', '')}\n"
             text_information += self.summarize(f["content"]) + "\n\n"
 
         text_information += "Combined table (this is the table that will be analyzed):\n"
@@ -156,15 +157,18 @@ Answer only with JSON: {{"outcome": "column_name", "mainVariable": "column_name"
                 "temperature": 0.9
             }
 
-            response = requests.post(url, headers=headers, json=body, timeout=60)
-
-            if response.status_code == 200:
-                answer = parse_answer(response.json()["result"]["response"])
-                answers.append(answer)
-                print(f"analyst {i + 1}: ok", flush=True)
-            else:
+            try:
+                response = requests.post(url, headers=headers, json=body, timeout=60)
+                if response.status_code == 200:
+                    answer = parse_answer(response.json()["result"]["response"])
+                    answers.append(answer)
+                    print(f"analyst {i + 1}: ok", flush=True)
+                else:
+                    answers.append(None)
+                    print(f"analyst {i + 1}: ERROR {response.status_code}", flush=True)
+            except Exception as e:
                 answers.append(None)
-                print(f"analyst {i + 1}: ERROR {response.status_code} {response.text}", flush=True)
+                print(f"analyst {i + 1}: ERROR {e}", flush=True)
 
         df = pd.DataFrame(info["combined"])
         results = []

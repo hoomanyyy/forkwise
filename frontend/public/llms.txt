@@ -1,6 +1,6 @@
 # Forkwise
 
-> Forkwise is a free web tool that tests how robust a data finding is. It sends one dataset and one research question to many AI analysts, lets each analyst choose its own method, runs every analysis in Python, and reports whether the answer is robust, fragile or choice dependent. It was built as a student project for the A-ISPC 2026 competition.
+> Forkwise is a free web tool that tests how robust a data finding is. It sends one dataset and one research question to many AI analysts, lets each analyst choose its own method, runs every analysis in Python, and reports whether the answer is robust, fragile, choice dependent or shows no effect. It was built as a student project for the A-ISPC 2026 competition.
 
 ## Key facts
 
@@ -8,7 +8,7 @@
 - AI models: Llama 3.3 70B, Llama 3.1 8B and Mistral Small 3.1, each with five analyst personalities.
 - The AI only chooses the analysis plan (control variables, outlier rule, missing value rule). It never calculates results.
 - Python (pandas and statsmodels) runs an OLS regression for every analyst. The effect is the change in Y for one standard deviation of X.
-- Verdict rules: robust if at least 90% of analysts agree on the direction and at least 80% find p < 0.05; fragile if at least 85% agree and 30% to 80% find p < 0.05; otherwise choice dependent.
+- Verdict rules: no effect if 20% or fewer analysts find p < 0.05 (checked first); robust if at least 90% of analysts agree on the direction and at least 80% find p < 0.05; fragile if at least 85% agree and 30% to 80% find p < 0.05; otherwise choice dependent.
 - Safety checks: columns that do not exist, the outcome itself, and controls whose name contains the outcome are removed before any calculation.
 - Inspiration: Silberzahn et al. (2018), where 29 research teams analysed the same data and reached different conclusions.
 
@@ -18,5 +18,14 @@
 - [How it works](https://forkwise.online/how-it-works): the six steps of the method and its limits
 - [About](https://forkwise.online/about): the problem, the solution and the findings
 - [FAQ](https://forkwise.online/faq): common questions about results and data
+- [Learn](https://forkwise.online/learn): simple guides about the method
+- [What is a multiverse analysis?](https://forkwise.online/learn/multiverse-analysis): the idea, the 29 teams study and how to run one without code
+- [How to read a specification curve](https://forkwise.online/learn/specification-curve): the dots, the choice panel and four common patterns
+- [Coffee and heart risk example](https://forkwise.online/examples/coffee-and-heart-risk): a worked confounding example with downloadable data
 - [Privacy](https://forkwise.online/privacy): what data is stored and what the AI sees
 - [Contact](https://forkwise.online/contact): reach the team
+
+## Example data
+
+- [coffee-heart.csv](https://forkwise.online/examples/coffee-heart.csv): 500 simulated adults, coffee has no real effect, smoking is the confounder
+- [study-hours.csv](https://forkwise.online/examples/study-hours.csv): 400 simulated students, study hours really raise exam scores

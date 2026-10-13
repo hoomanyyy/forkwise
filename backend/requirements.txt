@@ -5,7 +5,7 @@ requests
 pydantic
 python-multipart
 pandas
-dotenv
+python-dotenv
 openpyxl
 xlrd
 statsmodels
