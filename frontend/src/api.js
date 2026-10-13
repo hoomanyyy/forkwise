@@ -5,10 +5,10 @@ const onMyComputer = window.location.hostname === "localhost" || window.location
 let BASE_URL = process.env.REACT_APP_API_URL
 let WS_BASE_URL = process.env.REACT_APP_WS_URL
 
-if (!BASE_URL) {
+if (!BASE_URL || !BASE_URL.startsWith("http")) {
     BASE_URL = onMyComputer ? "http://127.0.0.1:5000" : "https://api.forkwise.online"
 }
-if (!WS_BASE_URL) {
+if (!WS_BASE_URL || !WS_BASE_URL.startsWith("ws")) {
     WS_BASE_URL = onMyComputer ? "ws://127.0.0.1:5000" : "wss://api.forkwise.online"
 }
 
