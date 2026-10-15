@@ -2,11 +2,32 @@ import React, { useState } from "react"
 import "bootstrap/dist/css/bootstrap.min.css"
 import "../styles/Site.css"
 import "../styles/Pages.css"
-import { FaPaperPlane, FaBug, FaQuestionCircle, FaTrophy, FaCheckCircle } from "react-icons/fa"
+import { FaPaperPlane, FaBug, FaQuestionCircle, FaTrophy, FaCheckCircle, FaEnvelope, FaPhoneAlt } from "react-icons/fa"
 import Navbar from "../components/Navbar"
 import Footer from "../components/Footer"
-import Seo from "../components/Seo"
+import Seo, { SITE_URL } from "../components/Seo"
 import { sendContact } from "../api"
+
+const contactSchema = {
+    "@context": "https://schema.org",
+    "@type": "ContactPage",
+    "name": "Contact Forkwise",
+    "url": SITE_URL + "/contact",
+    "mainEntity": {
+        "@type": "Organization",
+        "@id": SITE_URL + "/#organization",
+        "name": "Forkwise",
+        "email": "support@forkwise.online",
+        "telephone": "+1-347-391-5729",
+        "contactPoint": {
+            "@type": "ContactPoint",
+            "contactType": "customer support",
+            "email": "support@forkwise.online",
+            "telephone": "+1-347-391-5729",
+            "availableLanguage": ["English"]
+        }
+    }
+}
 
 export default function Contact() {
     const [name, setName] = useState("")
@@ -64,9 +85,10 @@ export default function Contact() {
     return (
         <div className="SitePage">
             <Seo
-                title="Contact the Forkwise Team"
-                description="Questions, bug reports or feedback about Forkwise? Send the team a message. Judges of A-ISPC 2026 are welcome too."
+                title="Contact Forkwise: Email, Phone and Support"
+                description="Questions, bug reports or feedback about Forkwise? Email support@forkwise.online, call +1 (347) 391-5729 or send the team a message."
                 path="/contact"
+                schema={contactSchema}
             />
             <Navbar />
 
@@ -140,6 +162,15 @@ export default function Contact() {
                     </div>
 
                     <aside className="ContactSide">
+                        <div className="ContactInfo ContactDirect">
+                            <FaEnvelope className="ContactInfoIcon" />
+                            <div>
+                                <h3>Email and phone</h3>
+                                <p>You can also reach us directly.</p>
+                                <a href="mailto:support@forkwise.online" className="ContactLink"><FaEnvelope /> support@forkwise.online</a>
+                                <a href="tel:+13473915729" className="ContactLink"><FaPhoneAlt /> +1 (347) 391-5729</a>
+                            </div>
+                        </div>
                         <div className="ContactInfo">
                             <FaBug className="ContactInfoIcon" />
                             <div>

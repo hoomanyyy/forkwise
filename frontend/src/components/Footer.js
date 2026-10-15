@@ -1,6 +1,7 @@
 import React from "react"
 import { Link } from "react-router-dom"
 import Logo from "../images/logo.svg"
+import { FaEnvelope, FaPhoneAlt } from "react-icons/fa"
 
 export default function Footer() {
     return (
@@ -30,6 +31,11 @@ export default function Footer() {
                     <Link to="/about">About</Link>
                     <Link to="/contact">Contact</Link>
                     <Link to="/privacy">Privacy</Link>
+                </div>
+                <div className="FooterColumn FooterContact">
+                    <p className="FooterTitle">Contact</p>
+                    <a href="mailto:support@forkwise.online"><FaEnvelope /> support@forkwise.online</a>
+                    <a href="tel:+13473915729"><FaPhoneAlt /> +1 (347) 391-5729</a>
                 </div>
             </div>
             <div className="FooterBottom">

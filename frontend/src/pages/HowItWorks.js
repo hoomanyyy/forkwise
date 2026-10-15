@@ -15,7 +15,7 @@ export default function HowItWorks() {
         <div className="SitePage">
             <Seo
                 title="How It Works: AI Multiverse Analysis in 6 Steps | Forkwise"
-                description="See how Forkwise turns one question into many analyses: AI analysts plan, Python checks and runs every regression, and a judge gives a robust, fragile, choice dependent or no effect verdict."
+                description="How Forkwise turns one question into many analyses: AI analysts plan, Python runs every regression, and a judge says if the result is robust or fragile."
                 path="/how-it-works"
             />
             <Navbar />

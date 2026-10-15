@@ -218,6 +218,36 @@
     margin: 0;
 }
 
+.ContactDirect {
+    border-color: #2f2870;
+    background: #17133a;
+}
+
+.ContactDirect p {
+    margin-bottom: 8px;
+}
+
+.ContactLink {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #c4baff;
+    font-size: 15px;
+    font-weight: 500;
+    text-decoration: none;
+    padding: 4px 0;
+    overflow-wrap: anywhere;
+}
+
+.ContactLink:hover {
+    color: #ffffff;
+}
+
+.ContactLink svg {
+    flex: none;
+    font-size: 14px;
+}
+
 .MethodList {
     position: relative;
     display: flex;

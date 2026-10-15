@@ -1,5 +1,3 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
-
 .SitePage {
     min-height: 100vh;
     background: #0b0e1f;
@@ -538,7 +536,7 @@
 
 .FooterTop {
     display: grid;
-    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.4fr);
     gap: 32px;
     margin-bottom: 28px;
 }
@@ -572,6 +570,18 @@
 
 .FooterColumn a:hover {
     color: #ffffff;
+}
+
+.FooterContact a {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    overflow-wrap: anywhere;
+}
+
+.FooterContact svg {
+    flex: none;
+    color: #a99cff;
 }
 
 .FooterBottom {
@@ -844,5 +854,10 @@
 
     .LandingTeamsGrid {
         gap: 7px;
+    }
+}
+@media (max-width: 600px) {
+    .FooterContact {
+        grid-column: 1 / -1;
     }
 }

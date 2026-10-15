@@ -1,5 +1,3 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
-
 .SignupPage {
     min-height: 100vh;
     background: #0b0e1f;
@@ -330,4 +328,40 @@
 .SignupCodeButton:disabled {
     color: #6b7091;
     cursor: default;
+}
+
+.SignupCodeRow .IconInput {
+    min-width: 0;
+    width: auto;
+}
+
+@media (max-width: 600px) {
+    .SignupPage {
+        padding: 16px 12px;
+        align-items: flex-start;
+    }
+
+    .SignupShell {
+        border-radius: 16px;
+    }
+
+    .SignupCard {
+        padding: 24px 18px;
+    }
+
+    .SignupInput,
+    .IconInput input {
+        font-size: 16px;
+    }
+}
+
+@media (max-width: 420px) {
+    .SignupCodeRow {
+        flex-direction: column;
+    }
+
+    .SignupCodeButton {
+        height: 46px;
+        width: 100%;
+    }
 }

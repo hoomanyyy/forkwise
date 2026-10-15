@@ -29,3 +29,9 @@
 
 - [coffee-heart.csv](https://forkwise.online/examples/coffee-heart.csv): 500 simulated adults, coffee has no real effect, smoking is the confounder
 - [study-hours.csv](https://forkwise.online/examples/study-hours.csv): 400 simulated students, study hours really raise exam scores
+
+## Contact
+
+- Email: support@forkwise.online
+- Phone: +1 (347) 391-5729
+- Contact page: https://forkwise.online/contact
