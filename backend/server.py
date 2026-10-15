@@ -296,15 +296,10 @@ async def register(websocket: WebSocket):
                 )
                 if result == True:
                     mysql.delete_otp(email=email)
-                    res = send_register_email(to=email , name=name, username=username)
-                    if res.get("Message") == True:
-                        await websocket.send_json({
-                            "Message": True,
-                        })
-                    else:
-                        await websocket.send_json({
-                            "Message": True
-                        })
+                    await run_in_threadpool(send_register_email, email, name, username)
+                    await websocket.send_json({
+                        "Message": True,
+                    })
                 else:
                     await websocket.send_json({
                         "Message": False,
