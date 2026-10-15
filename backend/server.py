@@ -4,6 +4,10 @@ from fastapi.concurrency import run_in_threadpool
 from ai.Model import GptModel
 from database.mysql import Mysql
 import uvicorn
+import bcrypt
+from datetime import datetime
+from email_service.otp import send_otp
+from email_service.register_email import send_register_email
 import os
 import pandas as pd
 import json
@@ -229,44 +233,90 @@ async def register(websocket: WebSocket):
         if data["type"] == "register":
             try:
                 username = str(data.get("username", "")).strip()
-                email = str(data.get("email", "")).strip()
+                email = str(data.get("email", "")).strip().lower()
                 password = str(data.get("password", ""))
+                submited_otp_code = str(data.get("otp_code" , "")).strip()
 
                 if username == "" or "@" not in email or len(password) < 8 or len(username) > 50 or len(email) > 150:
-                    await websocket.send_json({"Message": False})
+                    await websocket.send_json({
+                        "Message": False,
+                        "error": "Please fill in every field correctly."
+                    })
                     await websocket.close()
                     return
 
                 isExist = mysql.checkUsernameIfExist(username=username, email=email)
                 if isExist == True:
                     await websocket.send_json({
-                            "Message": False,
-                        })
-                else:
-                    name = str(data.get("name", "")).strip()
-                    lastname = str(data.get("lastname", "")).strip()
-                    result = mysql.addUser(
-                        username=username,
-                        email=email,
-                        name=name,
-                        lastname=lastname,
-                        password=password
-                    )
-                    if result == True:
+                        "Message": False,
+                        "error": "This username or email is already used."
+                    })
+                    await websocket.close()
+                    return
+
+                otps = mysql.select_otps(email=email)
+
+                if otps["Message"] == False or otps["expires_at"] <= datetime.now():
+                    await websocket.send_json({
+                        "Message": False,
+                        "error": "Please ask for a verification code first, or ask for a new one if it has expired."
+                    })
+                    await websocket.close()
+                    return
+
+                if otps["attempts"] >= 5:
+                    await websocket.send_json({
+                        "Message": False,
+                        "error": "Too many tries. Please ask for a new code."
+                    })
+                    await websocket.close()
+                    return
+
+                is_valid = bcrypt.checkpw(
+                    submited_otp_code.encode("utf-8"),
+                    otps["otp_hash"].encode("utf-8")
+                )
+
+                if not is_valid:
+                    await websocket.send_json({
+                        "Message": False,
+                        "error": "The verification code is wrong."
+                    })
+                    await websocket.close()
+                    return
+
+                name = str(data.get("name", "")).strip()
+                lastname = str(data.get("lastname", "")).strip()
+                result = mysql.addUser(
+                    username=username,
+                    email=email,
+                    name=name,
+                    lastname=lastname,
+                    password=password
+                )
+                if result == True:
+                    mysql.delete_otp(email=email)
+                    res = send_register_email(to=email , name=name, username=username)
+                    if res.get("Message") == True:
                         await websocket.send_json({
                             "Message": True,
                         })
                     else:
                         await websocket.send_json({
-                            "Message": False,
+                            "Message": True
                         })
-            
+                else:
+                    await websocket.send_json({
+                        "Message": False,
+                        "error": "Could not create the account. Please try again."
+                    })
+
             except Exception as e:
                print(f"ERROR: {e}")
                await websocket.send_json({
                        "Message": False,
                     })
-            
+
         if data["type"] == "whoami":
             user_id = websocket.session.get("user_id")
             if user_id is None:
@@ -280,6 +330,39 @@ async def register(websocket: WebSocket):
                     "lastname": websocket.session.get("lastname")
                 }
                 await websocket.send_json(data)
+
+        if data.get("type") == "send_otp_code":
+            email = str(data.get("email", "")).strip().lower()
+
+            if not email or "@" not in email or "." not in email or len(email) > 150:
+                await websocket.send_json({
+                    "Message": False,
+                    "error": "Please write a real email address."
+                })
+            elif mysql.checkUsernameIfExist(username="", email=email):
+                await websocket.send_json({
+                    "Message": False,
+                    "error": "This email is already used."
+                })
+            elif mysql.otp_sent_recently(email=email):
+                await websocket.send_json({
+                    "Message": False,
+                    "error": "Please wait one minute before asking for a new code."
+                })
+            else:
+                response = await run_in_threadpool(send_otp, email)
+                if response and response.get("Message") is True:
+                    await websocket.send_json({
+                        "Message": True
+                    })
+                else:
+                    await websocket.send_json({
+                        "Message": False,
+                        "error": "Could not send the email. Please try again later."
+                    })
+
+            await websocket.close()
+            return
 
         await websocket.close()
 
@@ -434,6 +517,7 @@ def admin_delete_failed_runs(request: Request):
     if deleted < 0:
         return {"Message": False}
     return {"Message": True, "deleted": deleted}
+
 
 
 if __name__ == "__main__":

@@ -301,3 +301,33 @@
 .IconInput input::-ms-clear {
     display: none;
 }
+.SignupCodeRow {
+    display: flex;
+    gap: 10px;
+}
+
+.SignupCodeRow .IconInput {
+    flex: 1;
+}
+
+.SignupCodeButton {
+    flex: none;
+    background: #1c1f48;
+    border: 1px solid #2f2870;
+    border-radius: 10px;
+    color: #c4baff;
+    font-size: 14px;
+    font-weight: 500;
+    padding: 0 16px;
+    transition: background 0.2s, color 0.2s;
+}
+
+.SignupCodeButton:hover:not(:disabled) {
+    background: #2a2470;
+    color: #ffffff;
+}
+
+.SignupCodeButton:disabled {
+    color: #6b7091;
+    cursor: default;
+}

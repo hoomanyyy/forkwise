@@ -1,6 +1,7 @@
 import mysql.connector
 import os
 from dotenv import load_dotenv
+from datetime import datetime , timedelta
 import bcrypt
 import json
 
@@ -173,8 +174,8 @@ class Mysql():
             con = self.connect_to_mysql()
             cursor = con.cursor()
             
-            query = "INSERT INTO users (`name` , `last_name` , `username` , `email` , `hash_password`) VALUES (%s , %s , %s , %s , %s)"
-            cursor.execute(query , (name , lastname , username , email , hash_password))
+            query = "INSERT INTO users (`name` , `last_name` , `username` , `email` , `hash_password`) VALUES (%s , %s , %s, %s ,%s)"
+            cursor.execute(query , (name , lastname , username , email , hash_password,))
 
             con.commit()
             con.close()
@@ -184,6 +185,48 @@ class Mysql():
             print(f"ERROR: {e}")
             return False
         
+    def add_otpcode(self, email, otp_code):
+        con = None
+
+        try:
+            con = self.connect_to_mysql()
+            cursor = con.cursor()
+
+            otp_hash = bcrypt.hashpw(
+                otp_code.encode("utf-8"),
+                bcrypt.gensalt()
+            ).decode("utf-8")
+
+            query = """
+                DELETE FROM email_verifications
+                WHERE email = %s
+            """
+            cursor.execute(query, (email,))
+
+            query = """
+                INSERT INTO email_verifications
+                    (email, otp_code_hash, attempts, expires_at)
+                VALUES (%s, %s, %s, %s)
+            """
+
+            expires_at = datetime.now() + timedelta(minutes=10)
+
+            cursor.execute(
+                query,
+                (email, otp_hash, 0, expires_at)
+            )
+
+            con.commit()
+            con.close()
+
+            return True
+
+        except Exception as e:
+            print(f"ERROR: {e}")
+            if con:
+                con.rollback()
+            return False
+
     def Login(self , username , password):
         try:
             con = self.connect_to_mysql()
@@ -217,6 +260,58 @@ class Mysql():
         except Exception as e:
             print(f"ERROR: {e}")
             return False
+
+
+    def select_otps(self , email):
+        try:
+            con = self.connect_to_mysql()
+            cursor = con.cursor(dictionary=True)
+
+            query = "SELECT otp_code_hash, attempts, expires_at FROM `email_verifications` WHERE email = %s"
+            cursor.execute(query , (email,))
+
+            data = cursor.fetchone()
+            con.close()
+
+            if not data:
+                return {
+                    "Message": False
+                }
+
+            return {
+                "Message": True,
+                "otp_hash": data["otp_code_hash"],
+                "attempts": data["attempts"],
+                "expires_at": data["expires_at"]
+            }
+
+        except Exception as e:
+            print(f"ERROR: {e}")
+            return {
+                "Message": False
+            }
+
+    def delete_otp(self, email):
+        try:
+            con = self.connect_to_mysql()
+            cursor = con.cursor()
+
+            cursor.execute("DELETE FROM email_verifications WHERE email = %s", (email,))
+
+            con.commit()
+            con.close()
+            return True
+
+        except Exception as e:
+            print(f"ERROR: {e}")
+            return False
+
+    def otp_sent_recently(self, email):
+        otps = self.select_otps(email=email)
+        if otps["Message"] == False:
+            return False
+        sent_at = otps["expires_at"] - timedelta(minutes=10)
+        return datetime.now() - sent_at < timedelta(seconds=60)
 
 
     def getHistory(self, user_id):

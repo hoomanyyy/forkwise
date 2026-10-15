@@ -1,7 +1,7 @@
 import React, { useState , useEffect } from "react"
 import "bootstrap/dist/css/bootstrap.min.css"
 import "../styles/Register.css"
-import { FaEnvelope, FaUser, FaLock, FaEye, FaEyeSlash, FaCheck } from "react-icons/fa"
+import { FaEnvelope, FaUser , FaLock,FaShieldAlt ,FaEye, FaEyeSlash, FaCheck } from "react-icons/fa"
 import { Link, useNavigate } from "react-router-dom"
 import Logo from "../images/logo.svg"
 import Seo from "../components/Seo"
@@ -18,6 +18,9 @@ export default function Register() {
     const [error, setError] = useState("")
     const [success, setSuccess] = useState("")
     const [sending, setSending] = useState(false)
+    const [code, setCode] = useState("")
+    const [codeSending, setCodeSending] = useState(false)
+    const [codeWait, setCodeWait] = useState(0)
 
     let strength = "Too short"
     let strengthClass = "Weak"
@@ -45,6 +48,37 @@ export default function Register() {
         getMe();
     }, [navigate]);
 
+    useEffect(() => {
+        if (codeWait <= 0) {
+            return
+        }
+        const timer = setTimeout(() => setCodeWait(codeWait - 1), 1000)
+        return () => clearTimeout(timer)
+    }, [codeWait]);
+
+    function SendCode() {
+        setError("")
+        setSuccess("")
+
+        if (!email.includes("@") || !email.includes(".")) {
+            setError("Please write your email first.")
+            return
+        }
+
+        setCodeSending(true)
+        sendAuthRequestWithWebsocket({ type: "send_otp_code", email: email.trim() }, (result) => {
+            setCodeSending(false)
+            if (result.Message === true) {
+                setSuccess("We sent an 8 digit code to your email.")
+                setCodeWait(60)
+            } else if (result.Error === true) {
+                setError("Could not connect to the server. Please try again.")
+            } else {
+                setError(result.error || "Could not send the code. Please try again.")
+            }
+        })
+    }
+
     function HandleSubmit(e) {
         e.preventDefault()
         setError("")
@@ -62,6 +96,10 @@ export default function Register() {
             setError("Your password needs at least 8 characters.")
             return
         }
+        if (code.trim().length !== 8) {
+            setError("Please write the 8 digit code from your email.")
+            return
+        }
 
         const data = {
             type: "register",
@@ -69,7 +107,8 @@ export default function Register() {
             password: password,
             email: email.trim(),
             name: name.trim(),
-            lastname: lastName.trim()
+            lastname: lastName.trim(),
+            otp_code: code.trim()
         }
 
         setSending(true)
@@ -81,7 +120,7 @@ export default function Register() {
             } else if (result.Error === true) {
                 setError("Could not connect to the server. Please try again.")
             } else {
-                setError("Could not create the account. This username or email may already be used.")
+                setError(result.error || "Could not create the account. This username or email may already be used.")
             }
         })
     }
@@ -128,13 +167,25 @@ export default function Register() {
                     </label>
 
                     <label className="SignupField">
+                        <span>Verification code</span>
+                        <div className="SignupCodeRow">
+                            <div className="IconInput">
+                                <FaShieldAlt className="FieldIcon" />
+                                <input value={code} onChange={(e) => setCode(e.target.value.replace(/[^0-9]/g, ""))} placeholder="8 digit code" inputMode="numeric" maxLength={8} autoComplete="one-time-code" />
+                            </div>
+                            <button type="button" className="SignupCodeButton" onClick={SendCode} disabled={codeSending || codeWait > 0}>
+                                {codeSending ? "Sending..." : codeWait > 0 ? "Send again in " + codeWait + "s" : "Send code"}
+                            </button>
+                        </div>
+                    </label>
+
+                    <label className="SignupField">
                         <span>Username</span>
                         <div className="IconInput">
                             <FaUser className="FieldIcon" />
                             <input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="max_arleston" />
                         </div>
                     </label>
-
                     <label className="SignupField">
                         <span>Password</span>
                         <div className="IconInput">
