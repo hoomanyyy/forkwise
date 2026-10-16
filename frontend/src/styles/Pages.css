@@ -616,3 +616,132 @@
         font-size: 88px;
     }
 }
+.DownloadCard {
+    display: grid;
+    grid-template-columns: 88px minmax(0, 1fr) auto;
+    gap: 24px;
+    align-items: center;
+    background: linear-gradient(135deg, #1b1645 0%, #12152b 100%);
+    border: 1px solid #2f2870;
+    border-radius: 20px;
+    padding: 28px;
+    margin-bottom: 20px;
+}
+
+.DownloadIcon {
+    width: 88px;
+    height: 88px;
+    border-radius: 22px;
+    background: #0b0e1f;
+    padding: 12px;
+    border: 1px solid #2f2870;
+}
+
+.DownloadInfo h2 {
+    color: #ffffff;
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.DownloadInfo p {
+    color: #a3a8c7;
+    font-size: 14px;
+    margin-bottom: 16px;
+}
+
+.ApkButton {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.DownloadSoon {
+    display: inline-block;
+    color: #fbbf24;
+    font-size: 14px;
+}
+
+.DownloadQr {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    max-width: 140px;
+    text-align: center;
+}
+
+.DownloadQr img {
+    border-radius: 10px;
+    background: #ffffff;
+    padding: 6px;
+}
+
+.DownloadQr span {
+    color: #8a8fb0;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.DownloadFeatures {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 12px;
+    margin-bottom: 36px;
+}
+
+.DownloadFeatures div {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    background: #12152b;
+    border: 1px solid #1f2444;
+    border-radius: 14px;
+    padding: 18px;
+}
+
+.DownloadFeatures svg {
+    color: #a99cff;
+    font-size: 20px;
+    margin-bottom: 6px;
+}
+
+.DownloadFeatures b {
+    color: #ffffff;
+    font-weight: 600;
+}
+
+.DownloadFeatures span {
+    color: #a3a8c7;
+    font-size: 14px;
+}
+
+.DownloadTitle {
+    color: #ffffff;
+    font-size: 26px;
+    font-weight: 700;
+    margin-bottom: 18px;
+}
+
+.DownloadNote {
+    margin-top: 24px;
+}
+
+.PrivacyCard h2 svg,
+.PageCall h2 svg {
+    vertical-align: -3px;
+    margin-right: 6px;
+}
+
+@media (max-width: 720px) {
+    .DownloadCard {
+        grid-template-columns: minmax(0, 1fr);
+        text-align: center;
+        justify-items: center;
+        padding: 24px 18px;
+    }
+
+    .DownloadQr {
+        display: none;
+    }
+}

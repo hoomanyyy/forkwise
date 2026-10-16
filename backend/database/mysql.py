@@ -306,6 +306,35 @@ class Mysql():
             print(f"ERROR: {e}")
             return False
 
+    def email_exists(self, email):
+        try:
+            con = self.connect_to_mysql()
+            cursor = con.cursor()
+            cursor.execute("SELECT id FROM users WHERE LOWER(email) = %s", (email,))
+            user = cursor.fetchone()
+            con.close()
+            return user is not None
+        except Exception as e:
+            print(f"ERROR: {e}")
+            return False
+
+    def update_password(self, email, password):
+        con = None
+        try:
+            hash_password = self.hash(password)
+            con = self.connect_to_mysql()
+            cursor = con.cursor()
+            cursor.execute("UPDATE users SET hash_password = %s WHERE LOWER(email) = %s", (hash_password, email))
+            con.commit()
+            changed = cursor.rowcount > 0
+            con.close()
+            return changed
+        except Exception as e:
+            print(f"ERROR: {e}")
+            if con:
+                con.rollback()
+            return False
+
     def otp_sent_recently(self, email):
         otps = self.select_otps(email=email)
         if otps["Message"] == False:

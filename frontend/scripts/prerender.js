@@ -13,6 +13,7 @@ const pages = [
     { url: "/faq", file: "faq.html" },
     { url: "/contact", file: "contact.html" },
     { url: "/privacy", file: "privacy.html" },
+    { url: "/download", file: "download.html" },
     { url: "/learn", file: "learn.html" },
     { url: "/learn/multiverse-analysis", file: "learn/multiverse-analysis.html" },
     { url: "/learn/specification-curve", file: "learn/specification-curve.html" },
@@ -29,6 +30,7 @@ function contentType(file) {
     if (file.endsWith(".ico")) return "image/x-icon"
     if (file.endsWith(".json")) return "application/json"
     if (file.endsWith(".csv")) return "text/csv"
+    if (file.endsWith(".apk")) return "application/vnd.android.package-archive"
     return "text/plain"
 }
 

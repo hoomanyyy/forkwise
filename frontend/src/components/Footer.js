@@ -18,6 +18,7 @@ export default function Footer() {
                     <p className="FooterTitle">Product</p>
                     <Link to="/how-it-works">How it works</Link>
                     <Link to="/faq">FAQ</Link>
+                    <Link to="/download">Android app</Link>
                     <Link to="/register">Sign up</Link>
                 </div>
                 <div className="FooterColumn">

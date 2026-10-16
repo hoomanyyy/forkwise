@@ -413,6 +413,96 @@ async def register(websocket: WebSocket):
             await websocket.close()
             return
 
+        if data.get("type") == "send_reset_code":
+            email = str(data.get("email", "")).strip().lower()
+
+            if not email or "@" not in email or "." not in email or len(email) > 150:
+                await websocket.send_json({
+                    "Message": False,
+                    "error": "Please write a real email address."
+                })
+            elif mysql.otp_sent_recently(email=email):
+                await websocket.send_json({
+                    "Message": False,
+                    "error": "Please wait one minute before asking for a new code."
+                })
+            elif not mysql.email_exists(email=email):
+                await websocket.send_json({
+                    "Message": True
+                })
+            else:
+                response = await run_in_threadpool(send_otp, email, "reset")
+                if response and response.get("Message") is True:
+                    await websocket.send_json({
+                        "Message": True
+                    })
+                else:
+                    await websocket.send_json({
+                        "Message": False,
+                        "error": "Could not send the email. Please try again later."
+                    })
+
+            await websocket.close()
+            return
+
+        if data.get("type") == "reset_password":
+            email = str(data.get("email", "")).strip().lower()
+            password = str(data.get("password", ""))
+            submited_otp_code = str(data.get("otp_code", "")).strip()
+
+            if "@" not in email or len(password) < 8 or len(submited_otp_code) != 8:
+                await websocket.send_json({
+                    "Message": False,
+                    "error": "Please write the code and a new password with at least 8 characters."
+                })
+                await websocket.close()
+                return
+
+            otps = mysql.select_otps(email=email)
+
+            if otps["Message"] == False or otps["expires_at"] <= datetime.now() or not mysql.email_exists(email=email):
+                await websocket.send_json({
+                    "Message": False,
+                    "error": "This code is wrong or has expired. Please ask for a new one."
+                })
+                await websocket.close()
+                return
+
+            if otps["attempts"] >= 5:
+                await websocket.send_json({
+                    "Message": False,
+                    "error": "Too many tries. Please ask for a new code."
+                })
+                await websocket.close()
+                return
+
+            is_valid = bcrypt.checkpw(
+                submited_otp_code.encode("utf-8"),
+                otps["otp_hash"].encode("utf-8")
+            )
+
+            if not is_valid:
+                await websocket.send_json({
+                    "Message": False,
+                    "error": "The code is wrong."
+                })
+                await websocket.close()
+                return
+
+            if mysql.update_password(email=email, password=password):
+                mysql.delete_otp(email=email)
+                await websocket.send_json({
+                    "Message": True
+                })
+            else:
+                await websocket.send_json({
+                    "Message": False,
+                    "error": "Could not change the password. Please try again."
+                })
+
+            await websocket.close()
+            return
+
         await websocket.close()
 
     except Exception as e:

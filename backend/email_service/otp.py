@@ -9,12 +9,23 @@ key = os.getenv("RESEND_API_KEY")
 
 BASE_URL = "https://api.resend.com/emails"
 
-def send_otp(to):
+def send_otp(to, purpose="register"):
     if not key:
         print("ERROR: RESEND_API_KEY is not set", flush=True)
         return False
 
     otp_code = secrets.randbelow(90000000) + 10000000
+
+    if purpose == "reset":
+        title = "Reset your password"
+        intro = "Use this code to choose a new password for your Forkwise account."
+        ignore = "If you did not ask to reset your password, you can safely ignore this email. Your password will not change."
+        subject = "Reset your Forkwise password"
+    else:
+        title = "Verify your email"
+        intro = "Use this code to finish creating your Forkwise account."
+        ignore = "If you did not try to create an account, you can safely ignore this email."
+        subject = "Your Forkwise verification code"
 
     headers = {
         "Authorization": f"Bearer {key}",
@@ -28,7 +39,7 @@ def send_otp(to):
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="color-scheme" content="dark">
   <meta name="supported-color-schemes" content="dark">
-  <title>Your Forkwise verification code</title>
+  <title>{subject}</title>
 </head>
 <body style="margin:0;padding:0;background-color:#0b0e1f;font-family:Arial,Helvetica,sans-serif;color:#ffffff;">
 
@@ -62,11 +73,11 @@ def send_otp(to):
             <td style="padding:28px 32px 8px;">
 
               <h1 style="font-size:24px;line-height:1.3;margin:0 0 12px;color:#ffffff;font-weight:700;">
-                Verify your email
+                {title}
               </h1>
 
               <p style="font-size:15px;line-height:1.7;color:#a3a8c7;margin:0 0 24px;">
-                Use this code to finish creating your Forkwise account.
+                {intro}
               </p>
 
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
@@ -94,7 +105,7 @@ def send_otp(to):
               </p>
 
               <p style="font-size:14px;line-height:1.7;color:#6f7499;margin:16px 0 0;">
-                If you did not try to create an account, you can safely ignore this email.
+                {ignore}
               </p>
 
             </td>
@@ -126,15 +137,16 @@ def send_otp(to):
 </html>
     """
     text = (
-        f"Your Forkwise verification code is: {otp_code}\n\n"
+        f"{title}\n\n"
+        f"Your Forkwise code is: {otp_code}\n\n"
         "This code expires in 10 minutes. Do not share it with anyone.\n"
-        "If you did not try to create an account, you can ignore this email.\n\n"
+        f"{ignore}\n\n"
         "https://forkwise.online"
     )
     data = {
         "from": "Forkwise <noreply@forkwise.online>",
         "to": [f"{to}"],
-        "subject": "Your Forkwise verification code",
+        "subject": subject,
         "html": html,
         "text": text,
     }

@@ -29,7 +29,7 @@ export function WelcomePage({ onLogin, onRegister }) {
     )
 }
 
-export function LoginPage({ onBack, onDone, onRegister }) {
+export function LoginPage({ onBack, onDone, onRegister, onForgot }) {
     const [username, setUsername] = useState("")
     const [password, setPassword] = useState("")
     const [show, setShow] = useState(false)
@@ -76,6 +76,8 @@ export function LoginPage({ onBack, onDone, onRegister }) {
                         </button>
                     </div>
                 </label>
+
+                <button type="button" className="AuthForgot" onClick={() => { tap(); onForgot() }}>Forgot your password?</button>
 
                 {error !== "" && <div className="AppError">{error}</div>}
 
@@ -245,6 +247,139 @@ export function RegisterPage({ onBack, onDone, onLogin }) {
 
                     <button type="submit" className="AppButton" disabled={sending}>
                         {sending ? <span className="AppSpinner"></span> : "Create account"}
+                    </button>
+                </form>
+            )}
+        </div>
+    )
+}
+
+export function ForgotPage({ onBack, onDone, onLogin }) {
+    const [step, setStep] = useState(1)
+    const [email, setEmail] = useState("")
+    const [code, setCode] = useState("")
+    const [password, setPassword] = useState("")
+    const [show, setShow] = useState(false)
+    const [error, setError] = useState("")
+    const [info, setInfo] = useState("")
+    const [sending, setSending] = useState(false)
+    const [wait, setWait] = useState(0)
+
+    useEffect(() => {
+        if (wait <= 0) {
+            return
+        }
+        const timer = setTimeout(() => setWait(wait - 1), 1000)
+        return () => clearTimeout(timer)
+    }, [wait])
+
+    async function sendCode() {
+        setError("")
+        setInfo("")
+        if (!email.includes("@") || !email.includes(".")) {
+            setError("Please write the email of your account.")
+            return
+        }
+        setSending(true)
+        const result = await sendAuthMessage({ type: "send_reset_code", email: email.trim() })
+        setSending(false)
+        if (result.Message === true) {
+            setStep(2)
+            setWait(60)
+            setInfo("If an account uses " + email.trim() + ", we sent an 8 digit code to it.")
+        } else if (result.Error) {
+            setError("Could not connect to the server. Check your internet.")
+        } else {
+            setError(result.error || "Could not send the code. Please try again.")
+        }
+    }
+
+    async function changePassword(e) {
+        e.preventDefault()
+        setError("")
+        if (code.length !== 8) {
+            setError("Please write the 8 digit code from your email.")
+            return
+        }
+        if (password.length < 8) {
+            setError("Your new password needs at least 8 characters.")
+            return
+        }
+        setSending(true)
+        const result = await sendAuthMessage({
+            type: "reset_password",
+            email: email.trim(),
+            otp_code: code,
+            password: password
+        })
+        if (result.Message !== true) {
+            setSending(false)
+            if (result.Error) {
+                setError("Could not connect to the server. Check your internet.")
+            } else {
+                setError(result.error || "Could not change the password.")
+            }
+            return
+        }
+        const logged = await login(email.trim(), password)
+        setSending(false)
+        if (logged.Message === true) {
+            saveLogin(logged.token, logged.user)
+            onDone(logged.user)
+        } else {
+            onLogin()
+        }
+    }
+
+    return (
+        <div className="AppScreen AppSlideIn">
+            <TopBar title="" onBack={step === 2 ? () => { setStep(1); setError(""); setInfo(""); setCode("") } : onBack} />
+
+            {step === 1 && (
+                <div className="AppFadeIn">
+                    <h1 className="AuthPageTitle">Reset your password</h1>
+                    <p className="AuthPageText">Write the email you used to sign up. We will send you a code.</p>
+                    <label className="AppField">
+                        <span className="AppLabel">Email</span>
+                        <input className="AppInput" type="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} autoCapitalize="none" autoCorrect="off" placeholder="you@example.com" />
+                    </label>
+                    {error !== "" && <div className="AppError">{error}</div>}
+                    <button className="AppButton" onClick={sendCode} disabled={sending}>
+                        {sending ? <span className="AppSpinner"></span> : <><FiMail /> Send me a code</>}
+                    </button>
+                    <p className="AuthSwitch">
+                        Remember it now? <button onClick={onLogin}>Log in</button>
+                    </p>
+                </div>
+            )}
+
+            {step === 2 && (
+                <form className="AppFadeIn" onSubmit={changePassword} noValidate>
+                    <h1 className="AuthPageTitle">Choose a new password</h1>
+                    {info !== "" && <div className="AppSuccess">{info}</div>}
+
+                    <label className="AppField">
+                        <span className="AppLabel">Code from your email</span>
+                        <input className="AppInput AuthCode" value={code} onChange={(e) => setCode(e.target.value.replace(/[^0-9]/g, ""))} inputMode="numeric" maxLength={8} autoComplete="one-time-code" placeholder="00000000" />
+                    </label>
+                    <button type="button" className="AuthResend" disabled={wait > 0 || sending} onClick={sendCode}>
+                        {wait > 0 ? "Send again in " + wait + "s" : "Send the code again"}
+                    </button>
+
+                    <label className="AppField">
+                        <span className="AppLabel">New password</span>
+                        <div className="AuthPassword">
+                            <input className="AppInput" type={show ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 8 characters" autoComplete="new-password" />
+                            <button type="button" className="AuthEye" onClick={() => setShow(!show)} aria-label="Show password">
+                                {show ? <FiEyeOff /> : <FiEye />}
+                            </button>
+                        </div>
+                    </label>
+
+                    {error !== "" && <div className="AppError">{error}</div>}
+
+                    <button type="submit" className="AppButton" disabled={sending}>
+                        {sending ? <span className="AppSpinner"></span> : "Change password"}
                     </button>
                 </form>
             )}

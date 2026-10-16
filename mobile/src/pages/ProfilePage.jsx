@@ -1,5 +1,5 @@
 import React from "react"
-import { FiGlobe, FiBookOpen, FiHelpCircle, FiShield, FiMail, FiPhone, FiLogOut, FiChevronRight, FiGithub } from "react-icons/fi"
+import { FiGlobe, FiBookOpen, FiHelpCircle, FiShield, FiMail, FiPhone, FiLogOut, FiChevronRight } from "react-icons/fi"
 import { TopBar, UsageRing } from "../components/Parts"
 import { WEBSITE } from "../api"
 import { openLink, tap } from "../native"
@@ -10,7 +10,6 @@ const LINKS = [
     { icon: FiHelpCircle, label: "How it works", url: WEBSITE + "/how-it-works" },
     { icon: FiGlobe, label: "Website", url: WEBSITE },
     { icon: FiShield, label: "Privacy", url: WEBSITE + "/privacy" },
-    { icon: FiGithub, label: "Source code", url: "https://github.com/hoomanyyy/forkwise" }
 ]
 
 export default function ProfilePage({ user, usage, onLogout }) {

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react"
 import { getSavedUser, getToken, getMe, getHistory, clearLogin } from "./api"
 import { setupNative, onBackButton, exitApp } from "./native"
 import { BottomNav } from "./components/Parts"
-import { WelcomePage, LoginPage, RegisterPage } from "./pages/AuthPages"
+import { WelcomePage, LoginPage, RegisterPage, ForgotPage } from "./pages/AuthPages"
 import HomePage from "./pages/HomePage"
 import NewPage from "./pages/NewPage"
 import HistoryPage from "./pages/HistoryPage"
@@ -41,7 +41,9 @@ export default function App() {
                 return
             }
             if (!s.user) {
-                if (s.authScreen !== "welcome") {
+                if (s.authScreen === "forgot") {
+                    setAuthScreen("login")
+                } else if (s.authScreen !== "welcome") {
                     setAuthScreen("welcome")
                 } else {
                     exitApp()
@@ -75,7 +77,6 @@ export default function App() {
         const me = await getMe()
         if (me.Message === true) {
             setUsage(me.usage)
-            setUser((old) => (old ? { ...old, ...me.user } : old))
         }
     }
 
@@ -118,8 +119,9 @@ export default function App() {
         return (
             <div className="AppShell">
                 {authScreen === "welcome" && <WelcomePage onLogin={() => setAuthScreen("login")} onRegister={() => setAuthScreen("register")} />}
-                {authScreen === "login" && <LoginPage onBack={() => setAuthScreen("welcome")} onDone={setUser} onRegister={() => setAuthScreen("register")} />}
+                {authScreen === "login" && <LoginPage onBack={() => setAuthScreen("welcome")} onDone={setUser} onRegister={() => setAuthScreen("register")} onForgot={() => setAuthScreen("forgot")} />}
                 {authScreen === "register" && <RegisterPage onBack={() => setAuthScreen("welcome")} onDone={setUser} onLogin={() => setAuthScreen("login")} />}
+                {authScreen === "forgot" && <ForgotPage onBack={() => setAuthScreen("login")} onDone={setUser} onLogin={() => setAuthScreen("login")} />}
             </div>
         )
     }

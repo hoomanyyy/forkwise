@@ -169,6 +169,16 @@
     padding: 6px 4px;
 }
 
+.AuthForgot {
+    display: block;
+    margin: -6px 0 16px auto;
+    background: none;
+    border: none;
+    color: #a99cff;
+    font-size: 14px;
+    padding: 6px 4px;
+}
+
 .AuthResend:disabled {
     color: var(--faint);
 }

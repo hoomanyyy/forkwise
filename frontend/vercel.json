@@ -29,11 +29,32 @@
       "destination": "/app.html"
     },
     {
+      "source": "/forgot-password",
+      "destination": "/app.html"
+    },
+    {
       "source": "/runs/:id",
       "destination": "/app.html"
     }
   ],
   "headers": [
+    {
+      "source": "/downloads/(.*).apk",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/vnd.android.package-archive"
+        },
+        {
+          "key": "Content-Disposition",
+          "value": "attachment; filename=\"forkwise.apk\""
+        },
+        {
+          "key": "Cache-Control",
+          "value": "no-cache"
+        }
+      ]
+    },
     {
       "source": "/static/(.*)",
       "headers": [

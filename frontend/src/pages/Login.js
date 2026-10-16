@@ -100,6 +100,10 @@ export default function Login() {
                         </div>
                     </label>
 
+                    <div className="SignupForgot">
+                        <Link to="/forgot-password">Forgot your password?</Link>
+                    </div>
+
                     {error !== "" && <div className="SignupError">{error}</div>}
 
                     <button
