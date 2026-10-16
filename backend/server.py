@@ -13,6 +13,7 @@ import pandas as pd
 import json
 import uuid
 from starlette.middleware.sessions import SessionMiddleware
+from itsdangerous import URLSafeTimedSerializer
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -26,6 +27,9 @@ app.add_middleware(
         "http://127.0.0.1:3000",
         "https://forkwise.online",
         "https://www.forkwise.online",
+        "https://localhost",
+        "http://localhost",
+        "capacitor://localhost",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -44,6 +48,47 @@ UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "upload")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 ANALYST_CHOICES = ["10", "25", "50", "100"]
+DAILY_LIMIT = int(os.getenv("DAILY_LIMIT", "5"))
+TOKEN_DAYS = 30
+
+token_maker = URLSafeTimedSerializer(os.getenv("SESSION_SECRET_KEY") or "dev-secret", salt="forkwise-mobile")
+
+
+def make_token(user):
+    return token_maker.dumps({
+        "user_id": user["user_id"],
+        "username": user["username"],
+        "name": user["name"],
+        "lastname": user["lastname"]
+    })
+
+
+def get_user(request):
+    user_id = request.session.get("user_id")
+    if user_id is not None:
+        return {
+            "user_id": user_id,
+            "username": request.session.get("username"),
+            "name": request.session.get("name"),
+            "lastname": request.session.get("lastname")
+        }
+
+    header = request.headers.get("Authorization", "")
+    if not header.startswith("Bearer "):
+        return None
+    try:
+        return token_maker.loads(header[7:], max_age=TOKEN_DAYS * 24 * 60 * 60)
+    except Exception:
+        return None
+
+
+def get_usage(mysql, user_id):
+    used = mysql.count_today(user_id=user_id)
+    unlimited = mysql.is_admin(user_id)
+    left = DAILY_LIMIT - used
+    if left < 0:
+        left = 0
+    return {"used": used, "limit": DAILY_LIMIT, "left": left, "unlimited": unlimited}
 MISSING_NUMBERS = ["0", "-1", "-999"]
 
 
@@ -81,9 +126,18 @@ def clean_missing(table, marker):
 
 @app.post("/api/analyze")
 async def analyze(request: Request):
-    user_id = request.session.get("user_id")
-    if user_id is None:
+    user = get_user(request)
+    if user is None:
         return {"Message": "login"}
+    user_id = user["user_id"]
+
+    usage = get_usage(Mysql(), user_id)
+    if not usage["unlimited"] and usage["left"] <= 0:
+        return {
+            "Message": False,
+            "limit": True,
+            "error": f"You can run {DAILY_LIMIT} analyses per day. Please come back tomorrow."
+        }
 
     try:
         form = await request.form()
@@ -387,6 +441,34 @@ async def login(request: Request):
     request.session["lastname"] = result["lastname"]
     return {"Message": True}
 
+@app.post("/auth/mobile/login")
+async def mobile_login(request: Request):
+    data = await request.json()
+    username = str(data.get("username", "")).strip()
+    password = str(data.get("password", ""))
+    if username == "" or password == "":
+        return {"Message": False}
+    result = Mysql().Login(username=username, password=password)
+    if not result or result["Message"] == False:
+        return {"Message": False}
+    user = {
+        "user_id": result["user_id"],
+        "username": result["username"],
+        "name": result["name"],
+        "lastname": result["lastname"]
+    }
+    return {"Message": True, "token": make_token(user), "user": user}
+
+
+@app.get("/api/me")
+def me(request: Request):
+    user = get_user(request)
+    if user is None:
+        return {"Message": "login"}
+    usage = get_usage(Mysql(), user["user_id"])
+    return {"Message": True, "user": user, "usage": usage}
+
+
 @app.post("/auth/logout")
 def logout(request: Request):
     request.session.clear()
@@ -394,9 +476,10 @@ def logout(request: Request):
 
 @app.get("/api/runs/{run_id}")
 def get_run(run_id: int, request: Request):
-    user_id = request.session.get("user_id")
-    if user_id is None:
+    user = get_user(request)
+    if user is None:
         return {"Message": "login"}
+    user_id = user["user_id"]
     result = Mysql().get_run(history_id=run_id, user_id=user_id)
     if result is None:
         return {"Message": False}
@@ -405,10 +488,10 @@ def get_run(run_id: int, request: Request):
 
 @app.get("/api/get/history")
 def get_History(request: Request):
-    user_id = request.session.get("user_id")
-    if user_id is None:
+    user = get_user(request)
+    if user is None:
         return {"Message": "login"}
-    return Mysql().getHistory(user_id=user_id)
+    return Mysql().getHistory(user_id=user["user_id"])
 
 
 @app.post("/api/contact")

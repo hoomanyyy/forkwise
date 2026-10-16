@@ -1,0 +1,130 @@
+.ProfCard {
+    text-align: center;
+    padding: 12px 0 8px;
+}
+
+.ProfAvatar {
+    width: 84px;
+    height: 84px;
+    margin: 0 auto 12px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #8b7bff, #3fb6f5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 34px;
+    font-weight: 700;
+    box-shadow: 0 10px 30px rgba(124, 108, 255, 0.35);
+}
+
+.ProfName {
+    font-size: 22px;
+    font-weight: 700;
+    margin: 0 0 2px;
+}
+
+.ProfUser {
+    color: var(--muted);
+    margin: 0;
+    font-size: 14px;
+}
+
+.ProfUsage {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 14px 16px;
+    margin-top: 18px;
+}
+
+.ProfUsage b {
+    font-size: 15px;
+}
+
+.ProfUsage p {
+    margin: 4px 0 0;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.ProfList {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    overflow: hidden;
+}
+
+.ProfItem {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    background: none;
+    border: none;
+    border-bottom: 1px solid var(--line);
+    color: var(--text);
+    text-decoration: none;
+    text-align: left;
+    font-size: 15px;
+}
+
+.ProfItem:last-child {
+    border-bottom: none;
+}
+
+.ProfItem:active {
+    background: var(--surface-2);
+}
+
+.ProfIcon {
+    width: 36px;
+    height: 36px;
+    border-radius: 11px;
+    background: var(--accent-soft);
+    color: #c4baff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 17px;
+    flex: none;
+}
+
+.ProfText {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.ProfArrow {
+    color: var(--faint);
+    font-size: 18px;
+    flex: none;
+}
+
+.ProfLogout {
+    width: 100%;
+    height: 52px;
+    margin-top: 22px;
+    border-radius: 16px;
+    border: 1px solid rgba(248, 113, 113, 0.4);
+    background: rgba(248, 113, 113, 0.08);
+    color: #fca5a5;
+    font-size: 16px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.ProfVersion {
+    text-align: center;
+    color: var(--faint);
+    font-size: 12px;
+    margin-top: 18px;
+}

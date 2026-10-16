@@ -1,0 +1,35 @@
+.HistSearch {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 50px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 25px;
+    padding: 0 18px;
+    color: var(--faint);
+    margin-bottom: 12px;
+    font-size: 18px;
+}
+
+.HistSearch input {
+    flex: 1;
+    min-width: 0;
+    background: none;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-size: 16px;
+}
+
+.HistSearch input::placeholder {
+    color: #5b6185;
+}
+
+.HistFilters {
+    margin-bottom: 16px;
+}
+
+.HistSpin svg {
+    animation: AppSpin 0.9s linear infinite;
+}

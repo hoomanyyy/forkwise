@@ -314,6 +314,21 @@ class Mysql():
         return datetime.now() - sent_at < timedelta(seconds=60)
 
 
+    def count_today(self, user_id):
+        try:
+            con = self.connect_to_mysql()
+            cursor = con.cursor()
+
+            query = "SELECT COUNT(*) FROM history WHERE user_id = %s AND created_at >= CURDATE() AND status != 'failed'"
+            cursor.execute(query, (user_id,))
+            row = cursor.fetchone()
+            con.close()
+
+            return row[0]
+        except Exception as e:
+            print(f"ERROR: {e}")
+            return 0
+
     def getHistory(self, user_id):
         try:
             con = self.connect_to_mysql()

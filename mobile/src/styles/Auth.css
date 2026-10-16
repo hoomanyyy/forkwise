@@ -1,0 +1,180 @@
+.AuthWelcome {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    padding-bottom: calc(var(--safe-bottom) + 24px);
+    overflow: hidden;
+}
+
+.AuthGlow {
+    position: absolute;
+    top: -120px;
+    left: 50%;
+    width: 420px;
+    height: 420px;
+    margin-left: -210px;
+    background: radial-gradient(circle, rgba(124, 108, 255, 0.35) 0%, rgba(63, 182, 245, 0.12) 45%, transparent 70%);
+    pointer-events: none;
+}
+
+.AuthHero {
+    position: relative;
+    text-align: center;
+    margin-top: 14vh;
+}
+
+.AuthLogo {
+    width: 88px;
+    height: 88px;
+    border-radius: 24px;
+    box-shadow: 0 12px 40px rgba(124, 108, 255, 0.35);
+}
+
+.AuthTitle {
+    font-size: 34px;
+    font-weight: 700;
+    margin: 20px 0 8px;
+}
+
+.AuthTagline {
+    color: var(--muted);
+    font-size: 16px;
+    line-height: 1.5;
+    margin: 0 auto;
+    max-width: 280px;
+}
+
+.AuthList {
+    position: relative;
+    list-style: none;
+    padding: 0;
+    margin: 36px auto 0;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    max-width: 300px;
+}
+
+.AuthList li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: #d6d8ea;
+    font-size: 15px;
+}
+
+.AuthList svg {
+    flex: none;
+    color: #4ade80;
+    background: rgba(74, 222, 128, 0.14);
+    border-radius: 50%;
+    padding: 4px;
+    width: 24px;
+    height: 24px;
+}
+
+.AuthActions {
+    position: relative;
+    margin-top: auto;
+    padding-top: 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.AuthPageTitle {
+    font-size: 28px;
+    font-weight: 700;
+    margin: 4px 4px 6px;
+}
+
+.AuthPageText {
+    color: var(--muted);
+    font-size: 15px;
+    margin: 0 4px 24px;
+}
+
+.AuthPassword {
+    position: relative;
+}
+
+.AuthPassword .AppInput {
+    padding-right: 52px;
+}
+
+.AuthEye {
+    position: absolute;
+    right: 4px;
+    top: 4px;
+    width: 44px;
+    height: 44px;
+    border: none;
+    background: none;
+    color: var(--muted);
+    font-size: 19px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.AuthSwitch {
+    text-align: center;
+    color: var(--muted);
+    font-size: 14px;
+    margin-top: 22px;
+}
+
+.AuthSwitch button {
+    background: none;
+    border: none;
+    color: #a99cff;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 6px;
+}
+
+.AuthSteps {
+    display: flex;
+    gap: 6px;
+    margin: 0 4px 18px;
+}
+
+.AuthSteps span {
+    flex: 1;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--line);
+    transition: background 0.3s;
+}
+
+.AuthSteps .AuthStepOn {
+    background: var(--accent);
+}
+
+.AuthCode {
+    font-size: 24px;
+    letter-spacing: 8px;
+    text-align: center;
+    font-weight: 600;
+    height: 60px;
+}
+
+.AuthResend {
+    display: block;
+    margin: -6px 0 16px auto;
+    background: none;
+    border: none;
+    color: #a99cff;
+    font-size: 14px;
+    padding: 6px 4px;
+}
+
+.AuthResend:disabled {
+    color: var(--faint);
+}
+
+.AuthRow {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 10px;
+}
