@@ -160,7 +160,7 @@ export default function ForgotPassword() {
                             e.currentTarget.style.setProperty("--y", e.clientY - box.top + "px")
                         }}
                     >
-                        {sending ? "Logging in..." : "Log in"}
+                        {sending ? "Sending ..." : "Send"}
                     </button>
 
                     {step === 2 && (
