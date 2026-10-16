@@ -150,10 +150,17 @@ export default function ForgotPassword() {
                     {error !== "" && <div className="SignupError">{error}</div>}
                     {success !== "" && <div className="SignupSuccess">{success}</div>}
 
-                    <button type="submit" className="SignupButton" disabled={sending || step === 3}>
-                        {step === 1
-                            ? (sending ? "Sending..." : "Send me a code")
-                            : (sending ? "Saving..." : "Change password")}
+                    <button
+                        type="submit"
+                        className="SignupButton"
+                        disabled={sending}
+                        onMouseMove={(e) => {
+                            const box = e.currentTarget.getBoundingClientRect()
+                            e.currentTarget.style.setProperty("--x", e.clientX - box.left + "px")
+                            e.currentTarget.style.setProperty("--y", e.clientY - box.top + "px")
+                        }}
+                    >
+                        {sending ? "Logging in..." : "Log in"}
                     </button>
 
                     {step === 2 && (
