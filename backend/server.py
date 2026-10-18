@@ -687,6 +687,18 @@ def admin_delete_failed_runs(request: Request):
     return {"Message": True, "deleted": deleted}
 
 
+@app.post("/api/vellumup")
+def vellumup():
+    try:
+        return {
+            "ok": True,
+            "Message": "everything is fine"
+        }
+    except Exception as e:
+        return {
+            "ok": False,
+            "Message": f"we got an error: {e}"
+        }
 
 if __name__ == "__main__":
     uvicorn.run("server:app" , port=5000 , reload=True)
