@@ -9,31 +9,11 @@
   },
   "rewrites": [
     {
-      "source": "/dashboard",
-      "destination": "/app.html"
+      "source": "/downloads/(.*)",
+      "destination": "/downloads/$1"
     },
     {
-      "source": "/chat",
-      "destination": "/app.html"
-    },
-    {
-      "source": "/register",
-      "destination": "/app.html"
-    },
-    {
-      "source": "/admin",
-      "destination": "/app.html"
-    },
-    {
-      "source": "/auth/login",
-      "destination": "/app.html"
-    },
-    {
-      "source": "/forgot-password",
-      "destination": "/app.html"
-    },
-    {
-      "source": "/runs/:id",
+      "source": "/((?!assets|static|downloads|download|about|how-it-works|learn|examples|faq|contact|privacy).*)",
       "destination": "/app.html"
     }
   ],
@@ -82,69 +62,6 @@
         {
           "key": "Permissions-Policy",
           "value": "camera=(), microphone=(), geolocation=()"
-        }
-      ]
-    },
-    {
-      "source": "/app.html",
-      "headers": [
-        {
-          "key": "X-Robots-Tag",
-          "value": "noindex, nofollow"
-        }
-      ]
-    },
-    {
-      "source": "/dashboard",
-      "headers": [
-        {
-          "key": "X-Robots-Tag",
-          "value": "noindex, nofollow"
-        }
-      ]
-    },
-    {
-      "source": "/chat",
-      "headers": [
-        {
-          "key": "X-Robots-Tag",
-          "value": "noindex, nofollow"
-        }
-      ]
-    },
-    {
-      "source": "/register",
-      "headers": [
-        {
-          "key": "X-Robots-Tag",
-          "value": "noindex, nofollow"
-        }
-      ]
-    },
-    {
-      "source": "/admin",
-      "headers": [
-        {
-          "key": "X-Robots-Tag",
-          "value": "noindex, nofollow"
-        }
-      ]
-    },
-    {
-      "source": "/auth/:path*",
-      "headers": [
-        {
-          "key": "X-Robots-Tag",
-          "value": "noindex, nofollow"
-        }
-      ]
-    },
-    {
-      "source": "/runs/:path*",
-      "headers": [
-        {
-          "key": "X-Robots-Tag",
-          "value": "noindex, nofollow"
         }
       ]
     }
