@@ -596,3 +596,21 @@ class Mysql():
         except Exception as e:
             print(f"ERROR: {e}")
             return -1
+
+    def select_all_emails(self):
+        try:
+            con = self.connect_to_mysql()
+            cursor = con.cursor()
+            
+            query = "SELECT email FROM `users`"
+            cursor.execute(query)
+
+            data = cursor.fetchall()
+            if not data:
+                return False
+            
+            else:
+                return data
+            
+        except Exception as e:
+            print(f"ERROR: {e}")

@@ -762,3 +762,55 @@
         padding: 18px;
     }
 }
+.AdminEmailFormCard {
+    width: 1200px;
+    margin: 40px auto;
+}
+
+.AdminEmailForm {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.AdminEmailInputGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.AdminEmailInputGroup label {
+    color: #8a8fb0;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.AdminEmailInput,
+.AdminTextarea {
+    background: #0e1124;
+    border: 1px solid #2a2f52;
+    border-radius: 10px;
+    color: #ffffff;
+    padding: 10px 14px;
+    font-size: 14px;
+    outline: none;
+    font-family: inherit;
+    width: 100%;
+}
+
+.AdminEmailInput:focus,
+.AdminTextarea:focus {
+    border-color: #7c6cff;
+}
+
+.AdminTextarea {
+    min-height: 120px;
+    resize: vertical;
+}
+
+.AdminEmailFooter {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 12px;
+}

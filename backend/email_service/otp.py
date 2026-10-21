@@ -61,8 +61,8 @@ def send_otp(to, purpose="register"):
 
           <tr>
             <td style="padding:28px 32px 0;">
-              <a href="https://forkwise.online" style="text-decoration:none;">
-                <img src="https://forkwise.online/email-logo.png" width="36" height="36" alt="Forkwise"
+              <a href="https://forkwiseai.com" style="text-decoration:none;">
+                <img src="https://forkwiseai.com/email-logo.png" width="36" height="36" alt="Forkwise"
                   style="vertical-align:middle;border:0;border-radius:9px;">
                 <span style="vertical-align:middle;font-size:20px;font-weight:700;color:#ffffff;padding-left:10px;">Forkwise</span>
               </a>
@@ -119,7 +119,7 @@ def send_otp(to, purpose="register"):
                     <p style="font-size:12px;line-height:1.7;color:#6f7499;margin:0;">
                       Forkwise · Many AI analysts, one honest answer
                       <br>
-                      <a href="https://forkwise.online" style="color:#a99cff;text-decoration:none;">forkwise.online</a>
+                      <a href="https://forkwiseai.com" style="color:#a99cff;text-decoration:none;">forkwiseai.com</a>
                     </p>
                   </td>
                 </tr>
@@ -141,10 +141,10 @@ def send_otp(to, purpose="register"):
         f"Your Forkwise code is: {otp_code}\n\n"
         "This code expires in 10 minutes. Do not share it with anyone.\n"
         f"{ignore}\n\n"
-        "https://forkwise.online"
+        "https://forkwiseai.com"
     )
     data = {
-        "from": "Forkwise <noreply@forkwise.online>",
+        "from": "Forkwise <noreply@forkwiseai.com>",
         "to": [f"{to}"],
         "subject": subject,
         "html": html,

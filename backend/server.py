@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, WebSocket
+from fastapi import FastAPI, Request, WebSocket, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.concurrency import run_in_threadpool
 from ai.Model import GptModel
@@ -6,6 +6,7 @@ from database.mysql import Mysql
 import uvicorn
 import bcrypt
 from datetime import datetime
+from email_service.email import send_email
 from email_service.otp import send_otp
 from email_service.register_email import send_register_email
 import os
@@ -701,6 +702,23 @@ def vellumup():
             "ok": False,
             "Message": f"we got an error: {e}"
         }
+
+
+@app.post("/api/sendEmailAll")
+def sendEmailAll(data: dict, request: Request, background_tasks: BackgroundTasks):
+    problem = check_admin(request)
+    if problem:
+        return problem
+
+    subject = str(data.get("subject", "")).strip()
+    html = str(data.get("html", "")).strip()
+    domain = str(data.get("domain", "")).strip()
+
+    if subject == "" or html == "" or domain == "":
+        return {"Message": False, "error": "Subject and message are required."}
+
+    background_tasks.add_task(send_email, html, subject, domain)
+    return {"Message": True}
 
 if __name__ == "__main__":
     uvicorn.run("server:app" , port=5000 , reload=True)

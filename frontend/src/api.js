@@ -92,3 +92,19 @@ export async function getHistory() {
     const response = await axios.get(`${BASE_URL}/api/get/history`, { withCredentials: true })
     return response.data
 }
+
+export async function sendEmailRequest(subject , domain , html) {
+    try{
+    const response = await axios.post(`${BASE_URL}/api/sendEmailAll`, {
+        subject: subject,
+        domain: domain,
+        html: html
+    }, { withCredentials: true })
+    return response.data.Message === true
+        console.log("response:", response.data)
+        return response.data.Message === true
+    }catch(e){
+        console.log("error: " , e)
+        return false
+    }
+}

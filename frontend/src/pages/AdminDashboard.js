@@ -5,7 +5,7 @@ import Logo from "../images/logo.svg"
 import Seo from "../components/Seo"
 import { Link, useNavigate } from "react-router-dom"
 import { FaUsers, FaChartBar, FaEnvelope, FaExclamationTriangle, FaTrash, FaSearch, FaBroom, FaReply, FaShieldAlt, FaSyncAlt } from "react-icons/fa"
-import { adminGet, adminDelete, sendAuthRequestWithWebsocket } from "../api"
+import { adminGet, adminDelete, sendAuthRequestWithWebsocket , sendEmailRequest } from "../api"
 
 function formatDate(text) {
     if (!text) {
@@ -63,6 +63,10 @@ export default function AdminDashboard() {
     const [confirm, setConfirm] = useState(null)
     const [notice, setNotice] = useState("")
     const [working, setWorking] = useState(false)
+    const [emailTo, setEmailTo] = useState("")
+    const [emailBody, setEmailBody] = useState("")
+    const [sendingEmail, setSendingEmail] = useState(false)
+    const [ subject , setSubject ] = useState("")
 
     const loadAll = useCallback(async () => {
         try {
@@ -121,7 +125,26 @@ export default function AdminDashboard() {
             setConfirm(null)
         }
     }
-
+    async function handleSendEmail(e) {
+        e.preventDefault()
+        if (!subject.trim() || !emailBody.trim()) {
+            setNotice("Please fill in the subject and the message.")
+            return
+        }
+        setSendingEmail(true)
+            let response = await sendEmailRequest(subject , "hello@forkwise.online" , emailBody)        
+            if(response == true){
+            setSendingEmail(false)
+            setEmailTo("")
+            setEmailBody("")
+            setNotice("Email sent successfully!")
+        }else{
+            setSendingEmail(false)
+            setEmailTo("")
+            setEmailBody("")
+            setNotice("Email didnt sent succesfully")
+        }
+    }
     async function confirmDelete() {
         setWorking(true)
         try {
@@ -461,7 +484,47 @@ export default function AdminDashboard() {
                     </div>
                 </div>
             )}
-
+<section className="AdminCard AdminEmailFormCard">
+    <div className="AdminCardTitle" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+        <FaEnvelope /> Send Direct Email
+    </div>
+    <form onSubmit={handleSendEmail} className="AdminEmailForm">
+        <div className="AdminEmailInputGroup">
+            <label>Recipient Email</label>
+            <input 
+                type="email" 
+                className="AdminEmailInput" 
+                placeholder="example@domain.com" 
+                value={emailTo} 
+                onChange={(e) => setEmailTo(e.target.value)} 
+            />
+        </div>
+        <div className="AdminEmailInputGroup">
+            <label>subject</label>
+            <input 
+                type="text" 
+                className="AdminEmailInput" 
+                placeholder="Mobile android application is ready" 
+                value={subject} 
+                onChange={(e) => setSubject(e.target.value)} 
+            />
+        </div>
+        <div className="AdminEmailInputGroup">
+            <label>Message Content</label>
+            <textarea 
+                className="AdminTextarea" 
+                placeholder="Write your message here..." 
+                value={emailBody} 
+                onChange={(e) => setEmailBody(e.target.value)}
+            />
+        </div>
+        <div className="AdminEmailFooter">
+            <button type="submit" className="btn AdminButton" disabled={sendingEmail}>
+                {sendingEmail ? "Sending..." : "Send Email"}
+            </button>
+        </div>
+    </form>
+</section>
             {notice !== "" && <div className="AdminNotice">{notice}</div>}
         </div>
     )
