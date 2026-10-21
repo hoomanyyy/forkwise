@@ -141,7 +141,7 @@ index 50ba81e..9cf232b 100644
          "This code expires in 10 minutes. Do not share it with anyone.\n"
 -        "If you did not try to create an account, you can ignore this email.\n\n"
 +        f"{ignore}\n\n"
-         "https://forkwise.online"
+         "https://forkwiseai.com"
      )
      data = {
          "from": "Forkwise <noreply@forkwise.online>",
@@ -270,13 +270,13 @@ index 769f7a7..65b58dc 100644
      <priority>1.0</priority>
    </url>
 +  <url>
-+    <loc>https://forkwise.online/download</loc>
++    <loc>https://forkwiseai.com/download</loc>
 +    <lastmod>2026-10-16</lastmod>
 +    <changefreq>monthly</changefreq>
 +    <priority>0.8</priority>
 +  </url>
    <url>
-     <loc>https://forkwise.online/how-it-works</loc>
+     <loc>https://forkwiseai.com/how-it-works</loc>
      <lastmod>2026-10-15</lastmod>
 diff --git a/frontend/scripts/prerender.js b/frontend/scripts/prerender.js
 index 1134de8..ad2a89a 100644
@@ -359,8 +359,8 @@ index 0000000..c71d741
 +    "operatingSystem": "Android 6.0 or newer",
 +    "applicationCategory": "EducationalApplication",
 +    "softwareVersion": VERSION,
-+    "downloadUrl": "https://forkwise.online" + APK_URL,
-+    "url": "https://forkwise.online/download",
++    "downloadUrl": "https://forkwiseai.com" + APK_URL,
++    "url": "https://forkwiseai.com/download",
 +    "description": "Run a multiverse analysis on your phone. Many AI analysts study your data and Forkwise tells you how robust the answer is.",
 +    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
 +}

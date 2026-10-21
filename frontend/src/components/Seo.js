@@ -1,6 +1,6 @@
 import { useEffect } from "react"
 
-export const SITE_URL = "https://forkwise.online"
+export const SITE_URL = "https://forkwiseai.com"
 export const SITE_NAME = "Forkwise"
 
 function setMeta(attribute, key, content) {

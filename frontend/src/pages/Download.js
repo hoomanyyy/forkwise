@@ -19,8 +19,8 @@ const schema = {
     "operatingSystem": "Android 6.0 or newer",
     "applicationCategory": "EducationalApplication",
     "softwareVersion": VERSION,
-    "downloadUrl": "https://forkwise.online" + APK_URL,
-    "url": "https://forkwise.online/download",
+    "downloadUrl": "https://forkwiseai.com" + APK_URL,
+    "url": "https://forkwiseai.com/download",
     "description": "Run a multiverse analysis on your phone. Many AI analysts study your data and Forkwise tells you how robust the answer is.",
     "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
 }

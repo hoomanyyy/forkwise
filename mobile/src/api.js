@@ -2,10 +2,10 @@ let API_URL = import.meta.env.VITE_API_URL
 let WS_URL = import.meta.env.VITE_WS_URL
 
 if (!API_URL || !API_URL.startsWith("http")) {
-    API_URL = "https://api.forkwise.online"
+    API_URL = "https://api.forkwiseai.com"
 }
 if (!WS_URL || !WS_URL.startsWith("ws")) {
-    WS_URL = "wss://api.forkwise.online"
+    WS_URL = "wss://api.forkwiseai.com"
 }
 
 const TOKEN_KEY = "forkwise_token"
@@ -147,4 +147,4 @@ export function sendAuthMessage(data) {
     })
 }
 
-export const WEBSITE = "https://forkwise.online"
+export const WEBSITE = "https://forkwiseai.com"

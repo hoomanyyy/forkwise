@@ -14,24 +14,24 @@
 
 ## Pages
 
-- [Home](https://forkwise.online/): what the tool does and an example result
-- [How it works](https://forkwise.online/how-it-works): the six steps of the method and its limits
-- [About](https://forkwise.online/about): the problem, the solution and the findings
-- [FAQ](https://forkwise.online/faq): common questions about results and data
-- [Learn](https://forkwise.online/learn): simple guides about the method
-- [What is a multiverse analysis?](https://forkwise.online/learn/multiverse-analysis): the idea, the 29 teams study and how to run one without code
-- [How to read a specification curve](https://forkwise.online/learn/specification-curve): the dots, the choice panel and four common patterns
-- [Coffee and heart risk example](https://forkwise.online/examples/coffee-and-heart-risk): a worked confounding example with downloadable data
-- [Privacy](https://forkwise.online/privacy): what data is stored and what the AI sees
-- [Contact](https://forkwise.online/contact): reach the team
+- [Home](https://forkwiseai.com/): what the tool does and an example result
+- [How it works](https://forkwiseai.com/how-it-works): the six steps of the method and its limits
+- [About](https://forkwiseai.com/about): the problem, the solution and the findings
+- [FAQ](https://forkwiseai.com/faq): common questions about results and data
+- [Learn](https://forkwiseai.com/learn): simple guides about the method
+- [What is a multiverse analysis?](https://forkwiseai.com/learn/multiverse-analysis): the idea, the 29 teams study and how to run one without code
+- [How to read a specification curve](https://forkwiseai.com/learn/specification-curve): the dots, the choice panel and four common patterns
+- [Coffee and heart risk example](https://forkwiseai.com/examples/coffee-and-heart-risk): a worked confounding example with downloadable data
+- [Privacy](https://forkwiseai.com/privacy): what data is stored and what the AI sees
+- [Contact](https://forkwiseai.com/contact): reach the team
 
 ## Example data
 
-- [coffee-heart.csv](https://forkwise.online/examples/coffee-heart.csv): 500 simulated adults, coffee has no real effect, smoking is the confounder
-- [study-hours.csv](https://forkwise.online/examples/study-hours.csv): 400 simulated students, study hours really raise exam scores
+- [coffee-heart.csv](https://forkwiseai.com/examples/coffee-heart.csv): 500 simulated adults, coffee has no real effect, smoking is the confounder
+- [study-hours.csv](https://forkwiseai.com/examples/study-hours.csv): 400 simulated students, study hours really raise exam scores
 
 ## Contact
 
 - Email: info@forkwiseai.com
 - Phone: +1 (347) 391-5729
-- Contact page: https://forkwise.online/contact
+- Contact page: https://forkwiseai.com/contact

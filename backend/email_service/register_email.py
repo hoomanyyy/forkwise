@@ -51,8 +51,8 @@ def send_register_email(to, name, username):
 
           <tr>
             <td style="padding:28px 32px 0;">
-              <a href="https://forkwise.online" style="text-decoration:none;">
-                <img src="https://forkwise.online/email-logo.png" width="36" height="36" alt="Forkwise"
+              <a href="https://forkwiseai.com" style="text-decoration:none;">
+                <img src="https://forkwiseai.com/email-logo.png" width="36" height="36" alt="Forkwise"
                   style="vertical-align:middle;border:0;border-radius:9px;">
                 <span style="vertical-align:middle;font-size:20px;font-weight:700;color:#ffffff;padding-left:10px;">Forkwise</span>
               </a>
@@ -96,7 +96,7 @@ def send_register_email(to, name, username):
               <table role="presentation" cellspacing="0" cellpadding="0" style="margin:28px 0 0;">
                 <tr>
                   <td align="center" bgcolor="#7c6cff" style="background-color:#7c6cff;border-radius:10px;">
-                    <a href="https://forkwise.online/dashboard"
+                    <a href="https://forkwiseai.com/dashboard"
                       style="display:inline-block;padding:13px 26px;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:10px;">
                       Open your dashboard
                     </a>
@@ -106,9 +106,9 @@ def send_register_email(to, name, username):
 
               <p style="font-size:14px;line-height:1.7;color:#6f7499;margin:24px 0 0;">
                 New to this? Read
-                <a href="https://forkwise.online/learn/multiverse-analysis" style="color:#a99cff;text-decoration:none;">what a multiverse analysis is</a>
+                <a href="https://forkwiseai.com/learn/multiverse-analysis" style="color:#a99cff;text-decoration:none;">what a multiverse analysis is</a>
                 or try the
-                <a href="https://forkwise.online/examples/coffee-and-heart-risk" style="color:#a99cff;text-decoration:none;">coffee example</a>.
+                <a href="https://forkwiseai.com/examples/coffee-and-heart-risk" style="color:#a99cff;text-decoration:none;">coffee example</a>.
               </p>
 
             </td>
@@ -122,9 +122,9 @@ def send_register_email(to, name, username):
                     <p style="font-size:12px;line-height:1.7;color:#6f7499;margin:0;">
                       You got this email because you created an account on Forkwise.
                       If this was not you, please tell us on the
-                      <a href="https://forkwise.online/contact" style="color:#a99cff;text-decoration:none;">contact page</a>.
+                      <a href="https://forkwiseai.com/contact" style="color:#a99cff;text-decoration:none;">contact page</a>.
                       <br>
-                      <a href="https://forkwise.online" style="color:#a99cff;text-decoration:none;">forkwise.online</a>
+                      <a href="https://forkwiseai.com" style="color:#a99cff;text-decoration:none;">forkwise.online</a>
                     </p>
                   </td>
                 </tr>
@@ -148,7 +148,7 @@ def send_register_email(to, name, username):
         "1. Upload a CSV, Excel or JSON file\n"
         "2. Ask one question about your data\n"
         "3. Get a clear verdict in a few minutes\n\n"
-        "Open your dashboard: https://forkwise.online/dashboard"
+        "Open your dashboard: https://forkwiseai.com/dashboard"
     )
 
     data = {

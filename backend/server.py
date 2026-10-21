@@ -26,8 +26,6 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "http://127.0.0.1:3000",
-        "https://forkwise.online",
-        "https://www.forkwise.online",
         "https://forkwiseai.com",
         "https://www.forkwiseai.com",
         "https://localhost",
