@@ -4,16 +4,13 @@
   "outputDirectory": "build",
   "cleanUrls": true,
   "trailingSlash": false,
-  "git": {
-    "deploymentEnabled": false
-  },
   "rewrites": [
     {
       "source": "/downloads/(.*)",
       "destination": "/downloads/$1"
     },
     {
-      "source": "/((?!assets|static|downloads|download|about|how-it-works|learn|examples|faq|contact|privacy).*)",
+      "source": "/((?!assets|static|downloads).*)",
       "destination": "/app.html"
     }
   ],
