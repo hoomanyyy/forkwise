@@ -17,12 +17,12 @@ const contactSchema = {
         "@type": "Organization",
         "@id": SITE_URL + "/#organization",
         "name": "Forkwise",
-        "email": "support@forkwise.online",
+        "email": "info@forkwiseai.com",
         "telephone": "+1-347-391-5729",
         "contactPoint": {
             "@type": "ContactPoint",
             "contactType": "customer support",
-            "email": "support@forkwise.online",
+            "email": "info@forkwiseai.com",
             "telephone": "+1-347-391-5729",
             "availableLanguage": ["English"]
         }
@@ -86,7 +86,7 @@ export default function Contact() {
         <div className="SitePage">
             <Seo
                 title="Contact Forkwise: Email, Phone and Support"
-                description="Questions, bug reports or feedback about Forkwise? Email support@forkwise.online, call +1 (347) 391-5729 or send the team a message."
+                description="Questions, bug reports or feedback about Forkwise? Email info@forkwiseai.com, call +1 (347) 391-5729 or send the team a message."
                 path="/contact"
                 schema={contactSchema}
             />
@@ -167,7 +167,7 @@ export default function Contact() {
                             <div>
                                 <h3>Email and phone</h3>
                                 <p>You can also reach us directly.</p>
-                                <a href="mailto:support@forkwise.online" className="ContactLink"><FaEnvelope /> support@forkwise.online</a>
+                                <a href="mailto:info@forkwiseai.com" className="ContactLink"><FaEnvelope /> info@forkwiseai.com</a>
                                 <a href="tel:+13473915729" className="ContactLink"><FaPhoneAlt /> +1 (347) 391-5729</a>
                             </div>
                         </div>

@@ -55,9 +55,9 @@ export default function ProfilePage({ user, usage, onLogout }) {
 
             <div className="AppSectionTitle"><span>Support</span></div>
             <div className="ProfList">
-                <a className="ProfItem" href="mailto:support@forkwise.online">
+                <a className="ProfItem" href="mailto:info@forkwiseai.com">
                     <span className="ProfIcon"><FiMail /></span>
-                    <span className="ProfText">support@forkwise.online</span>
+                    <span className="ProfText">info@forkwiseai.com</span>
                     <FiChevronRight className="ProfArrow" />
                 </a>
                 <a className="ProfItem" href="tel:+13473915729">

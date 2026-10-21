@@ -35,7 +35,7 @@ export default function Footer() {
                 </div>
                 <div className="FooterColumn FooterContact">
                     <p className="FooterTitle">Contact</p>
-                    <a href="mailto:support@forkwise.online"><FaEnvelope /> support@forkwise.online</a>
+                    <a href="mailto:info@forkwiseai.com"><FaEnvelope /> info@forkwiseai.com</a>
                     <a href="tel:+13473915729"><FaPhoneAlt /> +1 (347) 391-5729</a>
                 </div>
             </div>
