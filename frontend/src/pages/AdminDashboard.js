@@ -133,7 +133,7 @@ export default function AdminDashboard() {
         }
         setSendingEmail(true)
             let response = await sendEmailRequest(subject , "hello@forkwise.online" , emailBody)        
-            if(response == true){
+            if(response === true){
             setSendingEmail(false)
             setEmailTo("")
             setEmailBody("")
