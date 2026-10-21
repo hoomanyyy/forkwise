@@ -6,10 +6,10 @@ let BASE_URL = process.env.REACT_APP_API_URL
 let WS_BASE_URL = process.env.REACT_APP_WS_URL
 
 if (!BASE_URL || !BASE_URL.startsWith("http")) {
-    BASE_URL = onMyComputer ? "http://127.0.0.1:5000" : "https://api.forkwise.online"
+    BASE_URL = onMyComputer ? "http://127.0.0.1:5000" : "https://api.forkwiseai.com"
 }
 if (!WS_BASE_URL || !WS_BASE_URL.startsWith("ws")) {
-    WS_BASE_URL = onMyComputer ? "ws://127.0.0.1:5000" : "wss://api.forkwise.online"
+    WS_BASE_URL = onMyComputer ? "ws://127.0.0.1:5000" : "wss://api.forkwiseai.com"
 }
 
 export async function sendInformationsAn(formdata) {

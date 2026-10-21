@@ -9,12 +9,32 @@
   },
   "rewrites": [
     {
-      "source": "/downloads/(.*)",
-      "destination": "/downloads/$1"
+      "source": "/dashboard",
+      "destination": "/app"
     },
     {
-      "source": "/((?!assets|static|downloads).*)",
-      "destination": "/app.html"
+      "source": "/chat",
+      "destination": "/app"
+    },
+    {
+      "source": "/register",
+      "destination": "/app"
+    },
+    {
+      "source": "/forgot-password",
+      "destination": "/app"
+    },
+    {
+      "source": "/admin",
+      "destination": "/app"
+    },
+    {
+      "source": "/auth/login",
+      "destination": "/app"
+    },
+    {
+      "source": "/runs/:id",
+      "destination": "/app"
     }
   ],
   "headers": [
