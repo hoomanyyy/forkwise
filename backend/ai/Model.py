@@ -130,9 +130,9 @@ Answer only with JSON: {{"outcome": "column_name", "mainVariable": "column_name"
                         4. missing: "drop_rows" or "median_impute".
                         5. reason: one or two sentences explaining your choices.
 
-                        Do not calculate anything. Answer only with JSON in this exact shape:
-                        {{"covariates": ["col_a", "col_b"], "model_family": "ols", "outliers": "keep", "missing": "drop_rows"}}
-                """
+                        Answer only with JSON in this exact shape (reason is required):
+                        {{"covariates": ["col_a", "col_b"], "model_family": "ols", "outliers": "keep", "missing": "drop_rows", "reason": "I controlled for GDP and infant mortality because..."}}
+                        """
 
         headers = {"Authorization": f"Bearer {self.APY_KEY}"}
         urls = [url1, url2, url3]
