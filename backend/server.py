@@ -718,5 +718,6 @@ def sendEmailAll(data: dict, request: Request, background_tasks: BackgroundTasks
     background_tasks.add_task(send_email, html, subject, domain)
     return {"Message": True}
 
+
 if __name__ == "__main__":
     uvicorn.run("server:app" , port=5000 , reload=True)
