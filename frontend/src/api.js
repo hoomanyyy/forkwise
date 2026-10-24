@@ -106,3 +106,28 @@ export async function sendEmailRequest(subject, domain, html) {
         return false
     }
 }
+
+export async function sendGenerateRequest(user_prompt, run_id) {
+    try {
+        const response = await axios.post(`${BASE_URL}/api/chat/generate`, {
+            run_id: run_id,
+            user_prompt: user_prompt
+        }, { withCredentials: true })
+
+        if (response.data.ok === true) {
+            return { ok: true, text: response.data.model_output }
+        }
+        return { ok: false, error: response.data.detail || "Something went wrong." }
+    } catch (e) {
+        return { ok: false, error: "Could not connect to the server." }
+    }
+}
+
+export async function getChatHistory(run_id) {
+    try {
+        const response = await axios.get(`${BASE_URL}/api/chat/${run_id}`, { withCredentials: true })
+        return response.data
+    } catch (e) {
+        return { Message: false }
+    }
+}

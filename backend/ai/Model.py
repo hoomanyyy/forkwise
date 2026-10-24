@@ -186,3 +186,73 @@ Answer only with JSON: {{"outcome": "column_name", "mainVariable": "column_name"
             "verdict": verdict,
             "chart": chart
         }
+    
+    def Generate(self , an_results , user_prompt, history=None):
+        try:
+            headers = {"Authorization": f"Bearer {self.APY_KEY}"}
+            system_role_prompt = f"""You are Forkwise AI Analyst, an expert in statistics and robustness testing.
+                Explain the user's actual Forkwise analysis results in simple words.
+
+                Rules:
+                - Use the results below as the only source of truth.
+                - Never invent numbers, coefficients or p-values.
+                - If the results do not have enough information, say so.
+                - Never say a result proves causation.
+                - Answer in the same language as the user.
+                - Be short and clear.
+
+                Charts:
+                When the user asks for a chart, a graph or a plot, or when a chart would explain your answer better, write ONE chart block inside your answer in exactly this format:
+                [[chart: {{"type": "bar", "title": "Effect of each analyst", "labels": ["1", "2", "3"], "values": [0.5, -0.2, 0.8]}}]]
+
+                Chart rules:
+                - type is "bar" or "line".
+                - labels and values must have the same length.
+                - Use only numbers from the results below, for example the effect or p_value of each analyst.
+                - Write the JSON on one line, then write your explanation after it.
+                - Never write more than one chart block.
+
+                Analysis results:
+                {json.dumps(an_results, default=str)}
+                
+                old chat: {history}
+            """
+
+            data = {"messages": [
+                {"role": "system", "content": system_role_prompt},
+                {"role": "user", "content": user_prompt}
+            ], "max_tokens": 600}
+            
+            response = requests.post(self.BASE_URL + self.model_name1 , headers=headers , json=data , timeout=30)
+            status_code = response.status_code
+
+            if (status_code == 200) or (status_code == 201):
+                print("REQUESTED SUCCESSFULLY: " , status_code)
+                rdata = response.json()
+                
+                success = rdata["success"]
+                error = rdata["errors"]
+
+                if success == True:
+                    print("SUCCESS: " , True)
+                    out = rdata.get("result")["response"]
+                    print("OUTPUT SUCCESSFULLY RENDERD")
+                    return {
+                        "out": out,
+                        "error": error
+                    }
+                else:
+                    return {
+                        "error": error,
+                    }
+            else:
+                print("STATUS CODE ERRORd")
+                return {
+                    "error": "status code error",
+                    "status_code": status_code
+                }
+        except Exception as e:
+            print(f"ERROR: {e}")
+            return {
+                "error": "faild"
+            }

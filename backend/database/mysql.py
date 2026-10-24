@@ -614,3 +614,61 @@ class Mysql():
             
         except Exception as e:
             print(f"ERROR: {e}")
+
+    def add_to_chatHistory(self , question , awnser , run_id):
+        try:
+            con = self.connect_to_mysql()
+            cursor = con.cursor()
+
+            query = "INSERT INTO `chat_history` (`history_id` , `question` , `awnser`) VALUES (%s , %s , %s)"
+            cursor.execute(query, (run_id , question , awnser))
+
+            con.commit()
+            print("added to chat_history")
+
+            return True
+
+        except Exception as e:
+            print(f"ERROR: {e}")
+            return False
+
+    def getHistory_by_id(self, run_id, user_id):
+        try:
+            con = self.connect_to_mysql()
+            cursor = con.cursor(dictionary=True)
+
+            query = "SELECT question, verdict, analysts, agree, significant, middle_effect, outcome, main_variable FROM history WHERE id = %s AND user_id = %s"
+            cursor.execute(query, (run_id, user_id))
+            row1 = cursor.fetchall()
+
+            if len(row1) == 0:
+                con.close()
+                return {"error": "No data found"}
+
+            query2 = "SELECT analyst_number, covariates, outliers, missing, reason, effect, p_value FROM analyst_results WHERE history_id = %s"
+            cursor.execute(query2, (run_id,))
+            row2 = cursor.fetchall()
+            con.close()
+
+            return {
+                "data": [{"history": row1}, {"analyst_results": row2}],
+                "error": ""
+            }
+
+        except Exception as e:
+            print(f"ERROR: {e}")
+            return {"error": "failed"}
+        
+    def get_chat_history(self, run_id, user_id):
+        try:
+            con = self.connect_to_mysql()
+            cursor = con.cursor(dictionary=True)
+
+            query = "SELECT c.question, c.awnser FROM chat_history c JOIN history h ON h.id = c.history_id WHERE c.history_id = %s AND h.user_id = %s ORDER BY c.id ASC LIMIT 50"
+            cursor.execute(query, (run_id, user_id))
+            rows = cursor.fetchall()
+            con.close()
+            return rows
+        except Exception as e:
+            print(f"ERROR: {e}")
+            return []

@@ -719,5 +719,53 @@ def sendEmailAll(data: dict, request: Request, background_tasks: BackgroundTasks
     return {"Message": True}
 
 
+@app.post("/api/chat/generate")
+def GenerateOut(data: dict, request: Request):
+    try:
+        user = get_user(request)
+        if user is None:
+            return {"ok": False, "detail": "User is not Login"}
+
+        user_prompt = str(data.get("user_prompt") or "").strip()
+        run_id = data.get("run_id")
+
+        if user_prompt == "" or len(user_prompt) > 1000:
+            return {"ok": False, "detail": "Write a message under 1000 characters."}
+
+        mysql = Mysql()
+        run_data = mysql.getHistory_by_id(run_id=run_id, user_id=user["user_id"])
+
+        if run_data["error"]:
+            print(f"ERROR: {run_data['error']}")
+            return {"ok": False, "detail": "Analysis not found."}
+
+        old_history = mysql.get_chat_history(run_id=run_id , user_id=user["user_id"])
+
+        model = GptModel()
+        o = model.Generate(user_prompt=user_prompt, an_results=run_data , history=old_history)
+
+        if o.get("error") or not o.get("out"):
+            return {"ok": False, "detail": "Failed to generate model response"}
+
+        mysql.add_to_chatHistory(run_id=run_id, question=user_prompt, awnser=o["out"])
+        return {"ok": True, "model_output": o["out"]}
+
+    except Exception as e:
+        print(f"ERROR: {e}")
+        return {"ok": False, "detail": "Something went wrong."}
+    
+@app.get("/api/chat/{run_id}")
+def getChatOldHistory(request: Request , run_id: int):
+    user = get_user(request)
+    if user is None:
+        return {"ok": False, "detail": "User is not Login"}
+    
+    mysql = Mysql()
+    history  =mysql.get_chat_history(user_id=user["user_id"] , run_id=run_id)
+    return {
+        "Message": True , "messages": history
+    }
+
+
 if __name__ == "__main__":
     uvicorn.run("server:app" , port=5000 , reload=True)

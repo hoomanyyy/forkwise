@@ -9,6 +9,7 @@ import { shortName } from "../components/chartTools"
 import DataExplorer from "../components/DataExplorer"
 import CorrelationChart from "../components/CorrelationChart"
 import SpecCurve from "../components/SpecCurve"
+import RunChat from "../components/RunChat"
 
 function formatP(p) {
     if (p === null) {
@@ -323,8 +324,8 @@ export default function PredictResult() {
         <span><span className="LegendDot DotSignificantBg"></span>p below 0.05 means the effect is probably real</span>
     </div>
 </section>
-
             </div>
+            {run.status === "complete" && <RunChat runId={run.id} />}
         </div>
     )
 }
