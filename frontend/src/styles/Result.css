@@ -1060,3 +1060,40 @@
     color: #c9cbe0;
     white-space: pre-wrap;
 }
+.CardTopRight {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.ExportButton {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #7c6cff;
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.ExportButton:hover {
+    background: #8f81ff;
+}
+
+.ExportButton:disabled {
+    opacity: 0.6;
+}
+
+.ExportLocked {
+    background: transparent;
+    color: #8a8fb0;
+    border: 1px solid #2a2f52;
+}
+
+.ExportLocked:hover {
+    background: #161a35;
+    color: #ffffff;
+}

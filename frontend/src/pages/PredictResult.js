@@ -4,7 +4,8 @@ import "../styles/Result.css"
 import Logo from "../images/logo.svg"
 import Seo from "../components/Seo"
 import { useNavigate, useParams } from "react-router-dom"
-import { getRun } from "../api"
+import { FaDownload, FaLock } from "react-icons/fa"
+import { getRun, getMe, downloadRunCsv } from "../api"
 import { shortName } from "../components/chartTools"
 import DataExplorer from "../components/DataExplorer"
 import CorrelationChart from "../components/CorrelationChart"
@@ -44,6 +45,9 @@ export default function PredictResult() {
     const [analysts, setAnalysts] = useState([])
     const [error, setError] = useState("")
     const [openReason, setOpenReason] = useState(null)
+    const [canExport, setCanExport] = useState(false)
+    const [exporting, setExporting] = useState(false)
+    const [exportError, setExportError] = useState("")
 
     useEffect(() => {
         async function load() {
@@ -63,6 +67,28 @@ export default function PredictResult() {
         }
         load()
     }, [id, navigate])
+
+    useEffect(() => {
+        async function loadPlan() {
+            const data = await getMe()
+            if (data.Message === true) {
+                setCanExport(data.usage.unlimited || data.usage.plan.can_export)
+            }
+        }
+        loadPlan()
+    }, [])
+
+    async function HandleExport() {
+        setExportError("")
+        setExporting(true)
+        const result = await downloadRunCsv(id)
+        setExporting(false)
+        if (result.upgrade) {
+            navigate("/plans")
+        } else if (!result.ok) {
+            setExportError(result.error)
+        }
+    }
 
     if (error !== "") {
         return (
@@ -193,6 +219,7 @@ export default function PredictResult() {
                         mainVariable={run.main_variable}
                         middleEffect={run.middle_effect}
                         runId={run.id}
+                        canExport={canExport}
                     />
                 ) : (
                     <section className="ResultCard">
@@ -202,128 +229,136 @@ export default function PredictResult() {
                 )}
 
                 <div className="ChartGrid">
-                    <SpecCurve analysts={analysts} middleEffect={run.middle_effect} runId={run.id} />
+                    <SpecCurve analysts={analysts} middleEffect={run.middle_effect} runId={run.id} canExport={canExport} />
                     {chart && chart.columns && (
-                        <CorrelationChart chart={chart} outcome={run.outcome} runId={run.id} />
+                        <CorrelationChart chart={chart} outcome={run.outcome} runId={run.id} canExport={canExport} />
                     )}
                 </div>
-<section className="ResultCard">
-    <div className="CardTop">
-        <div>
-            <p className="Eyebrow mb-1">Analyst choices</p>
-            <p className="ResultCardTitle">What each analyst chose</p>
-        </div>
-        <span className="TableCount">{analysts.length} analysts</span>
-    </div>
 
-    <div className="AnalystTableWrap">
-        <table className="AnalystTable">
-            <thead>
-                <tr>
-                    <th>#</th>
-                    <th>Controls</th>
-                    <th>Outliers</th>
-                    <th>Missing</th>
-                    <th>Effect</th>
-                    <th>p value</th>
-                    <th>Reason</th>
-                    <th className="AlignRight">Rows</th>
-                </tr>
-            </thead>
-            <tbody>
-                {analysts.map((a) => (
-                    <tr key={a.analyst_number}>
-                        <td>
-                            <span className="AnalystNumber">{a.analyst_number}</span>
-                        </td>
-                        <td>
-                            {a.covariates.length === 0 ? (
-                                <span className="Muted">None</span>
-                            ) : (
-                                <div className="ChipList">
-                                    {a.covariates.map((c) => (
-                                        <span className="ControlChip" key={c} title={c}>
-                                            {shortName(c, 24)}
-                                        </span>
-                                    ))}
-                                </div>
-                            )}
-                        </td>
-                        <td>
-                            <span className="ChoiceText" title={a.outliers}>
-                                {a.outliers === null ? "-" : a.outliers}
-                            </span>
-                        </td>
-                        <td>
-                            <span className="ChoiceText" title={a.missing}>
-                                {a.missing === null ? "-" : a.missing}
-                            </span>
-                        </td>
-                        <td>
-                            {a.effect === null ? (
-                                <span className="Muted">-</span>
-                            ) : (
-                                <div className="EffectCell">
-                                    <span className={a.effect >= 0 ? "EffectNumber EffectPlus" : "EffectNumber EffectMinus"}>
-                                        {Number(a.effect).toFixed(3)}
-                                    </span>
-                                    <span className="EffectTrack">
-                                        <span className="EffectZero"></span>
-                                        <span
-                                            className={a.effect >= 0 ? "EffectBar EffectBarPlus" : "EffectBar EffectBarMinus"}
-                                            style={{ width: (Math.abs(a.effect) / biggestSize) * 50 + "%" }}
-                                        ></span>
-                                    </span>
-                                </div>
-                            )}
-                        </td>
-                        <td>
-                            <span className={a.p_value !== null && a.p_value < 0.05 ? "PPill PGood" : "PPill PWeak"}>
-                                {formatP(a.p_value)}
-                            </span>
-                        </td>
-                        <td>
-                            {a.reason ? (
-                                <button
-                                    className="btn btn-sm ReasonToggle"
-                                    onClick={() =>
-                                        setOpenReason(
-                                            openReason === a.analyst_number ? null : a.analyst_number
-                                        )
-                                    }
-                                >
-                                    {openReason === a.analyst_number ? "Hide" : "Show"}
+                <section className="ResultCard">
+                    <div className="CardTop">
+                        <div>
+                            <p className="Eyebrow mb-1">Analyst choices</p>
+                            <p className="ResultCardTitle">What each analyst chose</p>
+                        </div>
+                        <div className="CardTopRight">
+                            <span className="TableCount">{analysts.length} analysts</span>
+                            {canExport ? (
+                                <button className="ExportButton" onClick={HandleExport} disabled={exporting}>
+                                    <FaDownload /> {exporting ? "Exporting..." : "Export CSV"}
                                 </button>
                             ) : (
-                                <span className="Muted">—</span>
+                                <button className="ExportButton ExportLocked" onClick={() => navigate("/plans")}>
+                                    <FaLock /> Export CSV (Pro)
+                                </button>
                             )}
-                        </td>
-                        <td className="AlignRight Muted">
-                            {a.rows_used === null ? "-" : a.rows_used.toLocaleString()}
-                        </td>
-                    </tr>
-                ))}
-            </tbody>
-        </table>
-    </div>
+                        </div>
+                    </div>
 
-    {openReason !== null && (
-        <div className="ReasonBox mt-3">
-            <p className="Eyebrow mb-1">
-                Analyst #{openReason} — Why this choice?
-            </p>
-            <p className="ReasonText">
-                {analysts.find((a) => a.analyst_number === openReason)?.reason || "No reason provided."}
-            </p>
-        </div>
-    )}
+                    {exportError !== "" && <div className="ResultError mb-3">{exportError}</div>}
 
-    <div className="Legend">
-        <span><span className="LegendDot EffectPlusBg"></span>Positive effect</span>
-        <span><span className="LegendDot EffectMinusBg"></span>Negative effect</span>
-        <span><span className="LegendDot DotSignificantBg"></span>p below 0.05 means the effect is probably real</span>
-    </div>
-</section>
+                    <div className="AnalystTableWrap">
+                        <table className="AnalystTable">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Controls</th>
+                                    <th>Outliers</th>
+                                    <th>Missing</th>
+                                    <th>Effect</th>
+                                    <th>p value</th>
+                                    <th>Reason</th>
+                                    <th className="AlignRight">Rows</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {analysts.map((a) => (
+                                    <tr key={a.analyst_number}>
+                                        <td>
+                                            <span className="AnalystNumber">{a.analyst_number}</span>
+                                        </td>
+                                        <td>
+                                            {a.covariates.length === 0 ? (
+                                                <span className="Muted">None</span>
+                                            ) : (
+                                                <div className="ChipList">
+                                                    {a.covariates.map((c) => (
+                                                        <span className="ControlChip" key={c} title={c}>
+                                                            {shortName(c, 24)}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </td>
+                                        <td>
+                                            <span className="ChoiceText" title={a.outliers}>
+                                                {a.outliers === null ? "-" : a.outliers}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span className="ChoiceText" title={a.missing}>
+                                                {a.missing === null ? "-" : a.missing}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            {a.effect === null ? (
+                                                <span className="Muted">-</span>
+                                            ) : (
+                                                <div className="EffectCell">
+                                                    <span className={a.effect >= 0 ? "EffectNumber EffectPlus" : "EffectNumber EffectMinus"}>
+                                                        {Number(a.effect).toFixed(3)}
+                                                    </span>
+                                                    <span className="EffectTrack">
+                                                        <span className="EffectZero"></span>
+                                                        <span
+                                                            className={a.effect >= 0 ? "EffectBar EffectBarPlus" : "EffectBar EffectBarMinus"}
+                                                            style={{ width: (Math.abs(a.effect) / biggestSize) * 50 + "%" }}
+                                                        ></span>
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </td>
+                                        <td>
+                                            <span className={a.p_value !== null && a.p_value < 0.05 ? "PPill PGood" : "PPill PWeak"}>
+                                                {formatP(a.p_value)}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            {a.reason ? (
+                                                <button
+                                                    className="btn btn-sm ReasonToggle"
+                                                    onClick={() => setOpenReason(openReason === a.analyst_number ? null : a.analyst_number)}
+                                                >
+                                                    {openReason === a.analyst_number ? "Hide" : "Show"}
+                                                </button>
+                                            ) : (
+                                                <span className="Muted">—</span>
+                                            )}
+                                        </td>
+                                        <td className="AlignRight Muted">
+                                            {a.rows_used === null ? "-" : a.rows_used.toLocaleString()}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {openReason !== null && (
+                        <div className="ReasonBox mt-3">
+                            <p className="Eyebrow mb-1">Analyst #{openReason} — Why this choice?</p>
+                            <p className="ReasonText">
+                                {analysts.find((a) => a.analyst_number === openReason)?.reason || "No reason provided."}
+                            </p>
+                        </div>
+                    )}
+
+                    <div className="Legend">
+                        <span><span className="LegendDot EffectPlusBg"></span>Positive effect</span>
+                        <span><span className="LegendDot EffectMinusBg"></span>Negative effect</span>
+                        <span><span className="LegendDot DotSignificantBg"></span>p below 0.05 means the effect is probably real</span>
+                    </div>
+                </section>
             </div>
             {run.status === "complete" && <RunChat runId={run.id} />}
         </div>

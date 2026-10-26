@@ -527,3 +527,65 @@
         width: 100%;
     }
 }
+.DashPlan {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+}
+
+.DashPlanName {
+    background: #1e1a46;
+    color: #c4baff;
+    border-radius: 999px;
+    padding: 3px 12px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.DashUpgrade {
+    color: #a99cff;
+    font-size: 13px;
+    font-weight: 500;
+    text-decoration: none;
+}
+
+.DashUpgrade:hover {
+    color: #ffffff;
+}
+.InvoicePlan {
+    color: #ffffff;
+    font-size: 22px;
+    font-weight: 700;
+    margin: 0 0 4px;
+}
+
+.InvoicePrice {
+    color: #ffffff;
+    font-weight: 600;
+    flex: none;
+}
+
+.InvoiceRow {
+    cursor: default;
+}
+
+.InvoiceRow:hover {
+    background: transparent;
+}
+
+.Badge-finished {
+    background: #10261c;
+    color: #4ade80;
+}
+
+.Badge-waiting {
+    background: #2a2210;
+    color: #fbbf24;
+}
+
+.Badge-partially_paid {
+    background: #2b1418;
+    color: #f87171;
+}

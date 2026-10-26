@@ -5,7 +5,7 @@ import Logo from "../images/logo.svg"
 import Seo from "../components/Seo"
 import { Link, useNavigate } from "react-router-dom"
 import { FaChartBar, FaCheckCircle, FaExclamationTriangle, FaSyncAlt, FaSearch, FaPlus } from "react-icons/fa"
-import { sendAuthRequestWithWebsocket, getHistory, Logout } from "../api"
+import { sendAuthRequestWithWebsocket, getHistory, getMe, Logout } from "../api"
 
 function formatDate(text) {
     if (!text) {
@@ -47,6 +47,7 @@ export default function Home() {
     const [loading, setLoading] = useState(true)
     const [search, setSearch] = useState("")
     const [filter, setFilter] = useState("all")
+    const [usage, setUsage] = useState(null)
 
     useEffect(() => {
         sendAuthRequestWithWebsocket({ type: "whoami" }, (res) => {
@@ -70,7 +71,14 @@ export default function Home() {
             }
             setLoading(false)
         }
+        async function loadPlan() {
+            const data = await getMe()
+            if (data.Message === true) {
+                setUsage(data.usage)
+            }
+        }
         loadHistory()
+        loadPlan()
     }, [])
 
     async function HandleLogout() {
@@ -114,6 +122,7 @@ export default function Home() {
                 </Link>
                 <div className="DashNavRight">
                     <Link to="/" className="DashNavLink">Home</Link>
+                    <Link to="/plans" className="DashNavLink">Plans</Link>
                     <Link to="/about" className="DashNavLink">About</Link>
                     <div className="DashUser">
                         <span className="DashAvatar">{initial}</span>
@@ -129,6 +138,17 @@ export default function Home() {
                         <p className="DashEyebrow">Dashboard</p>
                         <h2 className="DashTitle">{greeting()}, <span className="DashName">{name}</span></h2>
                         <p className="DashLead">Upload your data, ask one question, and let many AI analysts test how strong the answer really is.</p>
+                        {usage && (
+                            <div className="DashPlan">
+                                <span className="DashPlanName">{usage.unlimited ? "Admin" : usage.plan.plan_type} plan</span>
+                                <span className="DashMuted">
+                                    {usage.unlimited ? "No daily limit" : usage.used + " of " + usage.limit + " analyses used today"}
+                                </span>
+                                {!usage.unlimited && usage.plan.plan_type !== "Premium" && (
+                                    <Link to="/plans" className="DashUpgrade">Upgrade</Link>
+                                )}
+                            </div>
+                        )}
                     </div>
                     <button className="btn DashNewButton" onClick={() => navigate("/chat")}><FaPlus /> New analysis</button>
                 </section>

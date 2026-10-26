@@ -131,3 +131,83 @@ export async function getChatHistory(run_id) {
         return { Message: false }
     }
 }
+
+export async function getPlans(){
+    try{
+       let response = await axios.get(`${BASE_URL}/api/plans` , {
+            withCredentials: true
+        })
+        if (!response.data){
+            return {
+                Message: false
+            }
+        }
+        return response.data
+    }catch(e){
+        console.log("ERROR: " , e)
+        return {
+            Message: false
+        }
+    }
+}
+
+export async function getMe() {
+    try {
+        const response = await axios.get(`${BASE_URL}/api/me`, { withCredentials: true })
+        return response.data
+    } catch (e) {
+        return { Message: false }
+    }
+}
+
+export async function downloadRunCsv(run_id) {
+    try {
+        const response = await axios.get(`${BASE_URL}/api/runs/${run_id}/export`, {
+            withCredentials: true,
+            responseType: "blob"
+        })
+
+        const file = response.data
+
+        if (!file.type.includes("csv")) {
+            return { ok: false, upgrade: true }
+        }
+
+        const link = document.createElement("a")
+        link.href = URL.createObjectURL(file)
+        link.download = "forkwise-run-" + run_id + ".csv"
+        link.click()
+
+        return { ok: true }
+    } catch (e) {
+        return { ok: false, error: "Could not connect to the server." }
+    }
+}
+
+export async function CreatePay(plan_id) {
+    try{
+        let response = await axios.post(`${BASE_URL}/api/create/invoice` , {
+            plan_id: plan_id,
+        } , {
+            withCredentials: true
+        })
+        return response.data || { Message: false, detail: "Empty response from the server." }    }catch
+    (e){
+        console.log("ERROR: " , e)
+        return {
+            Message: false , detail: "Could not connect to the server."
+        }
+    }
+}
+
+export async function getInvoices() {
+    let response = await axios.get(`${BASE_URL}/api/get/invoices`, {withCredentials: true})
+    if(!response.data){
+        return {
+            Message: false,
+            error: true,
+            detail: "Empty response from the server."
+        }
+    }
+    return response.data
+}

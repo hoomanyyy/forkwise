@@ -357,7 +357,22 @@ class Mysql():
         except Exception as e:
             print(f"ERROR: {e}")
             return 0
+        
+    def count_chat_today(self, user_id):
+        try:
+            con = self.connect_to_mysql()
+            cursor = con.cursor(dictionary=True)
 
+            query = "SELECT COUNT(*) AS total FROM chat_history WHERE created_at >= CURDATE() AND history_id IN (SELECT id FROM history WHERE user_id = %s)"
+            cursor.execute(query, (user_id,))
+            row = cursor.fetchone()
+            con.close()
+
+            return row["total"]
+        except Exception as e:
+            print(f"ERROR: {e}")
+            return 0
+        
     def getHistory(self, user_id):
         try:
             con = self.connect_to_mysql()
@@ -672,3 +687,52 @@ class Mysql():
         except Exception as e:
             print(f"ERROR: {e}")
             return []
+        
+    def get_plans(self):
+        con = self.connect_to_mysql()
+        cursor = con.cursor(dictionary=True)
+
+        q = "SELECT * FROM plans"
+        cursor.execute(q)
+
+        rows = cursor.fetchall()
+        return rows
+
+    
+    def get_user_plan(self , user_id):
+        try:
+            con = self.connect_to_mysql()
+            cursor = con.cursor(dictionary=True)
+
+            query = "SELECT plan_id , plan_expires_at FROM users WHERE id = %s"
+            cursor.execute(query , (user_id,))
+
+            user = cursor.fetchone()
+
+            if not user:
+                con.close()
+                return None
+
+            plan_id = user["plan_id"]
+            plan_expires_at = user["plan_expires_at"]
+
+            if plan_expires_at and plan_expires_at < datetime.now():
+                cursor.execute("UPDATE users SET plan_id = %s , plan_expires_at = NULL WHERE id = %s" , (1 , user_id))
+                con.commit()
+                plan_id = 1
+                plan_expires_at = None
+
+            query2 = "SELECT * FROM plans WHERE id = %s"
+            cursor.execute(query2 , (plan_id,))
+
+            plan_detail = cursor.fetchone()
+            con.close()
+
+            if plan_detail:
+                plan_detail["plan_expires_at"] = plan_expires_at
+
+            return plan_detail
+
+        except Exception as e:
+            print(f"ERROR: {e}")
+            return None

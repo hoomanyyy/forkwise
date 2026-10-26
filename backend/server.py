@@ -1,9 +1,10 @@
 from fastapi import FastAPI, Request, WebSocket, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from fastapi.concurrency import run_in_threadpool
 from ai.Model import GptModel
 from database.mysql import Mysql
-import uvicorn
+import uvicorn  
 import bcrypt
 from datetime import datetime
 from email_service.email import send_email
@@ -16,6 +17,7 @@ import uuid
 from starlette.middleware.sessions import SessionMiddleware
 from itsdangerous import URLSafeTimedSerializer
 from dotenv import load_dotenv
+import requests
 
 load_dotenv()
 
@@ -82,16 +84,29 @@ def get_user(request):
     except Exception:
         return None
 
+FREE_PLAN = {
+    "id": 1,
+    "plan_type": "Free",
+    "daily_limit": DAILY_LIMIT,
+    "max_analysts": 10,
+    "daily_chat_limit": 3,
+    "can_export": False,
+    "plan_expires_at": None
+}
 
 def get_usage(mysql, user_id):
+    plan = mysql.get_user_plan(user_id)
+    if plan is None:
+        plan = FREE_PLAN
+    
     used = mysql.count_today(user_id=user_id)
     unlimited = mysql.is_admin(user_id)
-    left = DAILY_LIMIT - used
+    left = plan["daily_limit"] - used
     if left < 0:
         left = 0
-    return {"used": used, "limit": DAILY_LIMIT, "left": left, "unlimited": unlimited}
-MISSING_NUMBERS = ["0", "-1", "-999"]
+    return {"used": used, "limit": plan["daily_limit"], "left": left, "unlimited": unlimited, "plan": plan}
 
+MISSING_NUMBERS = ["0", "-1", "-999"]
 
 @app.get("/health")
 def health():
@@ -137,8 +152,9 @@ async def analyze(request: Request):
         return {
             "Message": False,
             "limit": True,
-            "error": f"You can run {DAILY_LIMIT} analyses per day. Please come back tomorrow."
-        }
+            "upgrade": True,
+            "error": f"Your {usage['plan']['plan_type']} plan allows {usage['limit']} analyses per day. Please come back tomorrow or upgrade your plan."
+            }
 
     try:
         form = await request.form()
@@ -164,6 +180,13 @@ async def analyze(request: Request):
         if analysts not in ANALYST_CHOICES:
             analysts = "10"
 
+        if not usage["unlimited"] and int(analysts) > usage["plan"]["max_analysts"]:
+            return {
+                "Message": False,
+                "upgrade": True,
+                "error": f"Your {usage['plan']['plan_type']} plan allows up to {usage['plan']['max_analysts']} AI analysts per run."
+            }
+        
         file_information = []
         tables = []
         main_index = 0
@@ -565,6 +588,32 @@ def logout(request: Request):
     request.session.clear()
     return {"Message": True}
 
+@app.get("/api/runs/{run_id}/export")
+def export_run(run_id: int, request: Request):
+    user = get_user(request)
+    if user is None:
+        return {"Message": "login"}
+
+    mysql = Mysql()
+    usage = get_usage(mysql, user["user_id"])
+    if not usage["unlimited"] and not usage["plan"]["can_export"]:
+        return {"Message": False, "upgrade": True, "error": "Export is not included in your plan."}
+
+    result = mysql.get_run(history_id=run_id, user_id=user["user_id"])
+    if result is None:
+        return {"Message": False, "error": "This analysis was not found."}
+
+    table = pd.DataFrame(result["analysts"])
+    if "covariates" in table.columns:
+        table["covariates"] = table["covariates"].apply(lambda c: ", ".join(c))
+    csv_text = table.to_csv(index=False)
+
+    return Response(
+        content=csv_text,
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="forkwise-run-{run_id}.csv"'}
+    )
+
 @app.get("/api/runs/{run_id}")
 def get_run(run_id: int, request: Request):
     user = get_user(request)
@@ -733,7 +782,19 @@ def GenerateOut(data: dict, request: Request):
             return {"ok": False, "detail": "Write a message under 1000 characters."}
 
         mysql = Mysql()
+        usage = get_usage(mysql, user["user_id"])
+        if not usage["unlimited"]:
+            used = mysql.count_chat_today(user_id=user["user_id"])
+            limit = usage["plan"]["daily_chat_limit"]
+            if used >= limit:
+                return {
+                    "ok": False,
+                    "upgrade": True,
+                    "detail": f"Your {usage['plan']['plan_type']} plan allows {limit} chat messages per day. Please come back tomorrow or upgrade your plan."
+                }
+
         run_data = mysql.getHistory_by_id(run_id=run_id, user_id=user["user_id"])
+
 
         if run_data["error"]:
             print(f"ERROR: {run_data['error']}")
@@ -765,6 +826,128 @@ def getChatOldHistory(request: Request , run_id: int):
     return {
         "Message": True , "messages": history
     }
+
+
+@app.get("/api/plans")
+def get_plans():
+    mysql = Mysql()
+    rows = mysql.get_plans()
+    print("ROWS: ", rows)
+
+    for row in rows:
+        row["price"] = float(row["price"])
+    
+    return {
+        "Message": True,
+        "data": rows
+    }
+
+@app.post("/api/create/invoice")
+def invoice(data: dict, req: Request):
+    print("CREATE INVOICE CALLED, DATA:", data)
+    print("USER:", get_user(req))
+    
+    user = get_user(req)
+    if user is None:
+        return {"Message": False, "error": True, "detail": "Please log in before buying a plan."}
+    user_id = user["user_id"]
+
+    plan_id = data.get("plan_id")
+    mysql = Mysql()
+    con = mysql.connect_to_mysql()
+    cursor = con.cursor(dictionary=True)
+
+    cursor.execute("SELECT * FROM plans WHERE id = %s", (plan_id,))
+    info = cursor.fetchone()
+
+    if not info:
+        con.close()
+        return {"Message": False, "error": True, "detail": "There is no plan with this information"}
+
+    price = float(info["price"])
+    plan_name = str(info["plan_type"])
+
+    if price <= 0:
+        con.close()
+        return {"Message": False, "error": True, "detail": "The free plan does not need payment."}
+
+    API_KEY = os.getenv("NOWPAYMENTS_API_KEY")
+    if not API_KEY:
+        con.close()
+        print("ERROR: NOWPAYMENTS_API_KEY is missing in .env")
+        return {"Message": False, "error": True, "detail": "Error from the server"}
+
+    cursor.execute(
+        "INSERT INTO invoices (`price`, `status`, `plan_id`, `user_id`) VALUES (%s, %s, %s, %s)",
+        (price, "waiting", plan_id, user_id)
+    )
+    con.commit()
+    invoice_id = cursor.lastrowid
+
+    site_url = os.getenv("BASE_SITE_URL", "http://127.0.0.1:3000")
+    api_url = os.getenv("BASE_API_URL", "http://127.0.0.1:5000")
+
+    params = {
+        "price_amount": price,
+        "price_currency": "usd",
+        "order_id": str(invoice_id),
+        "order_description": f"Forkwise account upgrade to {plan_name}",
+        "ipn_callback_url": api_url + "/api/pay/ipn",
+        "success_url": site_url + "/payment/success",
+        "cancel_url": site_url + "/plans",
+        "partially_paid_url": site_url + "/payment/partial",
+        "is_fixed_rate": False,
+        "is_fee_paid_by_user": False
+    }
+
+    headers = {
+        "x-api-key": API_KEY,
+        "Content-Type": "application/json"
+    }
+
+    result = {}
+    try:
+        response = requests.post("https://api.nowpayments.io/v1/invoice", headers=headers, json=params, timeout=30)
+        result = response.json()
+        print(f"STATUS_CODE: {response.status_code} \n RESPONSE: {result}")
+    except Exception as e:
+        print(f"ERROR: {e}")
+
+    if "invoice_url" not in result:
+        cursor.execute("UPDATE invoices SET status = %s WHERE id = %s", ("failed", invoice_id))
+        con.commit()
+        con.close()
+        return {"Message": False, "error": True, "detail": "Could not create the payment. Please try again."}
+
+    con.close()
+    return {"Message": True, "invoice_url": result["invoice_url"]}
+
+
+@app.get("/api/get/invoices")
+def getInvoices(req: Request):
+    user = get_user(req)
+    if user is None:
+        return {"Message": "login"}
+
+    try:
+        mysql = Mysql()
+        con = mysql.connect_to_mysql()
+        cursor = con.cursor(dictionary=True)
+
+        query = """SELECT invoices.*, plans.plan_type
+                   FROM invoices
+                   LEFT JOIN plans ON plans.id = invoices.plan_id
+                   WHERE invoices.user_id = %s
+                   ORDER BY invoices.id DESC"""
+        cursor.execute(query, (user["user_id"],))
+        rows = cursor.fetchall()
+        con.close()
+
+        print("INVOICES:", rows)
+        return {"Message": True, "rows": rows}
+    except Exception as e:
+        print(f"ERROR: {e}")
+        return {"Message": False, "detail": "Could not load your invoices."}
 
 
 if __name__ == "__main__":

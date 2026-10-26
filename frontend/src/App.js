@@ -19,6 +19,9 @@ import PredictResult from "./pages/PredictResult"
 import AdminDashboard from "./pages/AdminDashboard"
 import ForgotPassword from "./pages/ForgotPassword"
 import Download from "./pages/Download"
+import Plans from "./pages/Plans"
+import PaymentResult from "./pages/PaymentResult"
+import Invoices from "./pages/Invoices"
 
 export default function App() {
     return (
@@ -42,7 +45,11 @@ export default function App() {
                 <Route path="/download" element={<Download />} />
                 <Route path="/runs/:id" element={<PredictResult />} />
                 <Route path="/admin" element={<AdminDashboard />} />
+                <Route path="/plans" element={<Plans />} />
                 <Route path="*" element={<NotFound />} />
+                <Route path="/payment/success" element={<PaymentResult />} />
+                <Route path="/payment/partial" element={<PaymentResult partial />} />
+                <Route path="/invoices" element={<Invoices />} />
             </Routes>
         </BrowserRouter>
     )
