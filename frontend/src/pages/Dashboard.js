@@ -4,8 +4,8 @@ import "../styles/Dashboard.css"
 import Logo from "../images/logo.svg"
 import Seo from "../components/Seo"
 import { Link, useNavigate } from "react-router-dom"
-import { FaChartBar, FaCheckCircle, FaExclamationTriangle, FaSyncAlt, FaSearch, FaPlus } from "react-icons/fa"
 import { sendAuthRequestWithWebsocket, getHistory, getMe, Logout } from "../api"
+import { FaChartBar, FaCheckCircle, FaExclamationTriangle, FaSyncAlt, FaSearch, FaPlus, FaReceipt } from "react-icons/fa"
 
 function formatDate(text) {
     if (!text) {
@@ -124,6 +124,9 @@ export default function Home() {
                     <Link to="/" className="DashNavLink">Home</Link>
                     <Link to="/plans" className="DashNavLink">Plans</Link>
                     <Link to="/about" className="DashNavLink">About</Link>
+                    <Link to="/invoices" className="DashBilling">
+                        <FaReceipt /> <span>Billing</span>
+                    </Link>
                     <div className="DashUser">
                         <span className="DashAvatar">{initial}</span>
                         <span className="DashUserName">{name}</span>
