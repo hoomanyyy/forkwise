@@ -124,8 +124,8 @@ export default function Home() {
                     <Link to="/" className="DashNavLink">Home</Link>
                     <Link to="/plans" className="DashNavLink">Plans</Link>
                     <Link to="/about" className="DashNavLink">About</Link>
-                    <Link to="/invoices" className="DashBilling">
-                        <FaReceipt /> <span>Billing</span>
+                    <Link to="/invoices" className="DashNavLink DashBilling">
+                        <FaReceipt /> Billing
                     </Link>
                     <div className="DashUser">
                         <span className="DashAvatar">{initial}</span>

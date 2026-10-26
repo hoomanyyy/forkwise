@@ -589,3 +589,24 @@
     background: #2b1418;
     color: #f87171;
 }
+.DashBilling {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #c4baff;
+    font-weight: 500;
+}
+
+.DashBilling svg {
+    font-size: 12px;
+}
+
+.DashBilling:hover {
+    color: #ffffff;
+}
+
+@media (max-width: 640px) {
+    .DashNavRight .DashBilling {
+        display: inline-flex;
+    }
+}
