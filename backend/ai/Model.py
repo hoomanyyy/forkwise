@@ -221,7 +221,7 @@ Answer only with JSON: {{"outcome": "column_name", "mainVariable": "column_name"
             data = {"messages": [
                 {"role": "system", "content": system_role_prompt},
                 {"role": "user", "content": user_prompt}
-            ], "max_tokens": 600}
+            ], "max_tokens": 8300}
             
             response = requests.post(self.BASE_URL + self.model_name1 , headers=headers , json=data , timeout=30)
             status_code = response.status_code
