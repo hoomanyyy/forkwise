@@ -211,3 +211,13 @@ export async function getInvoices() {
     }
     return response.data
 }
+
+export async function checkHealth() {
+    const started = Date.now()
+    try {
+        const response = await axios.get(`${BASE_URL}/health`, { timeout: 8000 })
+        return { ok: response.data.Message === "ok", ms: Date.now() - started }
+    } catch (e) {
+        return { ok: false, ms: Date.now() - started }
+    }
+}

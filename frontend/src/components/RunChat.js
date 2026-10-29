@@ -10,7 +10,7 @@ const SUGGESTIONS = [
     "Is this result robust?",
 ]
 
-function splitChart(text) {
+export function splitChart(text) {
     const match = text.match(/\[\[chart:\s*(\{.*?\})\s*\]\]/s)
     if (!match) {
         return { text: text, chart: null }
@@ -34,7 +34,7 @@ function inline(text) {
     })
 }
 
-function FormattedText({ text }) {
+export function FormattedText({ text }) {
     const blocks = []
     let list = null
 

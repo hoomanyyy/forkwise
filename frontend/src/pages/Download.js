@@ -1,11 +1,7 @@
 import React, { useEffect, useState } from "react"
-import "bootstrap/dist/css/bootstrap.min.css"
-import "../styles/Site.css"
-import "../styles/Pages.css"
 import { Link } from "react-router-dom"
-import { FaAndroid, FaApple, FaDownload, FaShieldAlt, FaUserCheck, FaHistory, FaBolt, FaMobileAlt } from "react-icons/fa"
-import Navbar from "../components/Navbar"
-import Footer from "../components/Footer"
+import { FaDownload, FaUserCheck, FaHistory, FaMobileAlt, FaShieldAlt, FaApple, FaAndroid, FaBolt } from "react-icons/fa"
+import SiteLayout, { PageHero } from "../components/site/SiteLayout"
 import Seo from "../components/Seo"
 import Logo from "../images/logo.svg"
 
@@ -52,89 +48,86 @@ export default function Download() {
     }, [])
 
     return (
-        <div className="SitePage">
+        <SiteLayout>
             <Seo
                 title="Download the Forkwise Android App"
                 description="Get Forkwise on your Android phone. Upload your data, let many AI analysts study it and see a clear verdict. Free, same account as the website."
                 path="/download"
                 schema={schema}
             />
-            <Navbar />
+            <PageHero eyebrow="Android app" title="Forkwise on your phone" lead="The same tool as the website, made for your phone. Start an analysis, follow your results and open your history anywhere.">
+                {ready ? (
+                    <a href={APK_URL} download className="fw-btn fw-btn-primary fw-btn-lg"><FaDownload /> Download for Android</a>
+                ) : (
+                    <span className="fw-badge fw-badge-waiting">The app file is being updated. Please check again soon.</span>
+                )}
+                <span className="fw-muted" style={{ alignSelf: "center", fontSize: 14 }}>Version {VERSION}{size !== "" ? " · " + size : ""} · Android 6.0 or newer · Free</span>
+            </PageHero>
 
-            <main className="PageBody PageNarrow">
-                <div className="PageHead">
-                    <p className="SectionTag">Android app</p>
-                    <h1 className="PageTitle">Forkwise on your phone</h1>
-                    <p className="PageLead">The same tool as the website, made for your phone. Start an analysis, follow your results and open your history anywhere.</p>
-                </div>
-
-                <section className="DownloadCard">
-                    <img src={Logo} alt="Forkwise app icon" className="DownloadIcon" width="88" height="88" />
-                    <div className="DownloadInfo">
-                        <h2>Forkwise for Android</h2>
-                        <p>Version {VERSION}{size !== "" ? " · " + size : ""} · Android 6.0 or newer · Free</p>
-                        {ready ? (
-                            <a href={APK_URL} download className="btn MainButton ApkButton">
-                                <FaDownload /> Download for Android
-                            </a>
-                        ) : (
-                            <span className="DownloadSoon">The app file is being updated. Please check again soon.</span>
-                        )}
-                    </div>
-                    <div className="DownloadQr">
-                        <img src="/downloads/qr.svg" alt="QR code for forkwise.online/download" width="120" height="120" />
-                        <span>On a computer? Scan this with your phone.</span>
-                    </div>
-                </section>
-
-                <div className="DownloadFeatures">
-                    <div><FaUserCheck /><b>One account</b><span>Log in with your website account.</span></div>
-                    <div><FaBolt /><b>5 analyses a day</b><span>Free for every user.</span></div>
-                    <div><FaHistory /><b>Your history</b><span>See every past run and verdict.</span></div>
-                    <div><FaMobileAlt /><b>Made for phones</b><span>Simple steps and big buttons.</span></div>
-                </div>
-
-                <h2 className="DownloadTitle">How to install</h2>
-                <div className="MethodList">
-                    {STEPS.map((s, i) => (
-                        <div className="MethodStep" key={s.title}>
-                            <div className="MethodIcon">{i + 1}</div>
-                            <div className="MethodText">
-                                <h2>{s.title}</h2>
-                                <p>{s.text}</p>
+            <section className="mk-section-tight" style={{ paddingTop: 0 }}>
+                <div className="mk-wrap">
+                    <div className="mk-split">
+                        <div style={{ display: "grid", gap: 14 }}>
+                            <div className="mk-grid-2">
+                                <div className="mk-card"><span className="mk-card-icon"><FaUserCheck /></span><h3 className="mk-h3">One account</h3><p>Log in with your website account.</p></div>
+                                <div className="mk-card"><span className="mk-card-icon mk-card-icon-cyan"><FaBolt /></span><h3 className="mk-h3">Free to start</h3><p>Create a free account, no card needed.</p></div>
+                                <div className="mk-card"><span className="mk-card-icon mk-card-icon-green"><FaHistory /></span><h3 className="mk-h3">Your history</h3><p>See every past run and verdict.</p></div>
+                                <div className="mk-card"><span className="mk-card-icon mk-card-icon-amber"><FaMobileAlt /></span><h3 className="mk-h3">Made for phones</h3><p>Simple steps and big buttons.</p></div>
                             </div>
                         </div>
-                    ))}
+                        <div className="dl-phone" aria-hidden="true">
+                            <div className="dl-phone-bar"></div>
+                            <div style={{ display: "flex", gap: 8, alignItems: "center", padding: "4px 4px 8px" }}>
+                                <img src={Logo} alt="" width="22" height="22" />
+                                <b style={{ color: "#fff", fontSize: 13 }}>Forkwise</b>
+                            </div>
+                                                        <div className="dl-phone-card"><small>Run #39 · 10 analysts</small><p>Does coffee raise heart risk?</p><span className="fw-badge fw-badge-no_effect" style={{ justifySelf: "start" }}>no effect</span></div>
+                            <div className="dl-phone-card"><small>Run #38 · 10 analysts</small><p>Do people in richer countries live longer?</p><span className="fw-badge fw-badge-robust" style={{ justifySelf: "start" }}>robust</span></div>
+                        </div>
+                    </div>
                 </div>
+            </section>
 
-                <section className="PrivacyCard DownloadNote">
-                    <h2><FaShieldAlt /> Why does Android show a warning?</h2>
-                    <p>
-                        Forkwise is not on Google Play yet, so Android asks before it installs an app from a website.
-                        This is normal. Only download the app from forkwise.online, never from another site.
-                    </p>
-                </section>
+            <section className="mk-section mk-section-line">
+                <div className="mk-wrap">
+                    <h2 className="mk-h2" style={{ marginBottom: 28 }}>How to install</h2>
+                    <div className="steps">
+                        {STEPS.map((s, i) => (
+                            <div className="step" key={s.title}>
+                                <span className="step-num">0{i + 1}</span>
+                                <h3 className="mk-h3">{s.title}</h3>
+                                <p>{s.text}</p>
+                            </div>
+                        ))}
+                    </div>
+                    <div className="mk-grid-2" style={{ marginTop: 16 }}>
+                        <div className="mk-card">
+                            <span className="mk-card-icon mk-card-icon-amber"><FaShieldAlt /></span>
+                            <h3 className="mk-h3">Why does Android show a warning?</h3>
+                            <p>Forkwise is not on Google Play yet, so Android asks before it installs an app from a website. This is normal. Only download the app from the Forkwise website, never from another site.</p>
+                        </div>
+                        <div className="mk-card">
+                            <span className="mk-card-icon"><FaApple /></span>
+                            <h3 className="mk-h3">Have an iPhone?</h3>
+                            <p>There is no iPhone app yet. The website works well on iPhone: open <Link to="/">forkwiseai.com</Link> in Safari, tap Share and then "Add to Home Screen" to keep it like an app.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
 
-                <section className="PrivacyCard">
-                    <h2><FaApple /> Have an iPhone?</h2>
-                    <p>
-                        There is no iPhone app yet. The website works well on iPhone, so open <Link to="/">forkwise.online</Link> in
-                        Safari. You can tap Share and then "Add to Home Screen" to keep it like an app.
-                    </p>
-                </section>
-
-                <section className="PageCall">
-                    <h2><FaAndroid /> Ready to try it?</h2>
-                    <p>Free, no card, the same account on the phone and the website.</p>
-                    {ready ? (
-                        <a href={APK_URL} download className="btn MainButton">Download the app</a>
-                    ) : (
-                        <Link to="/register" className="btn MainButton">Use the website</Link>
-                    )}
-                </section>
-            </main>
-
-            <Footer />
-        </div>
+            <section className="mk-section">
+                <div className="mk-wrap">
+                    <div className="mk-final">
+                        <h2 className="mk-h2"><FaAndroid style={{ color: "var(--green)" }} /> Ready to try it?</h2>
+                        <p>Free, no card, the same account on the phone and the website.</p>
+                        {ready ? (
+                            <a href={APK_URL} download className="fw-btn fw-btn-light fw-btn-lg">Download the app</a>
+                        ) : (
+                            <Link to="/register" className="fw-btn fw-btn-light fw-btn-lg">Use the website</Link>
+                        )}
+                    </div>
+                </div>
+            </section>
+        </SiteLayout>
     )
 }

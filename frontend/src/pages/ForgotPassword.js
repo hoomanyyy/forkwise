@@ -1,10 +1,8 @@
 import React, { useEffect, useState } from "react"
-import "bootstrap/dist/css/bootstrap.min.css"
-import "../styles/Register.css"
-import { FaEnvelope, FaLock, FaShieldAlt, FaEye, FaEyeSlash, FaCheck } from "react-icons/fa"
+import { FaEnvelope, FaLock, FaShieldAlt, FaEye, FaEyeSlash } from "react-icons/fa"
 import { Link, useNavigate } from "react-router-dom"
-import Logo from "../images/logo.svg"
 import Seo from "../components/Seo"
+import AuthLayout from "../components/site/AuthLayout"
 import { sendAuthRequestWithWebsocket } from "../api"
 
 export default function ForgotPassword() {
@@ -33,12 +31,10 @@ export default function ForgotPassword() {
         }
         setError("")
         setSuccess("")
-
         if (!email.includes("@") || !email.includes(".")) {
             setError("Please write the email of your account.")
             return
         }
-
         setSending(true)
         sendAuthRequestWithWebsocket({ type: "send_reset_code", email: email.trim() }, (result) => {
             setSending(false)
@@ -57,7 +53,6 @@ export default function ForgotPassword() {
     function ChangePassword(e) {
         e.preventDefault()
         setError("")
-
         if (code.trim().length !== 8) {
             setError("Please write the 8 digit code from your email.")
             return
@@ -66,7 +61,6 @@ export default function ForgotPassword() {
             setError("Your new password needs at least 8 characters.")
             return
         }
-
         setSending(true)
         sendAuthRequestWithWebsocket({
             type: "reset_password",
@@ -88,92 +82,66 @@ export default function ForgotPassword() {
     }
 
     return (
-        <div className="SignupPage">
+        <AuthLayout
+            title="Forgot your password? It happens."
+            points={["We send a code to your email", "You choose a new password", "Your analyses stay safe"]}
+        >
             <Seo title="Reset your password | Forkwise" noindex />
-            <div className="SignupShell">
-                <aside className="SignupSide">
-                    <Link to="/" className="SideBrand">
-                        <img src={Logo} alt="Logo" className="SideLogo" />
-                        <span>Forkwise</span>
-                    </Link>
-                    <h2 className="SideTitle">Forgot your password? It happens.</h2>
-                    <ul className="SideList">
-                        <li><FaCheck /> We send a code to your email</li>
-                        <li><FaCheck /> You choose a new password</li>
-                        <li><FaCheck /> Your analyses stay safe</li>
-                    </ul>
-                    <p className="SideNote">A-ISPC 2026 project</p>
-                </aside>
+            <form className="au-form" onSubmit={step === 1 ? SendCode : ChangePassword} noValidate>
+                <h1>Reset your password</h1>
+                <p>{step === 1 ? "Write the email you used to sign up." : "Write the code and your new password."}</p>
 
-                <form className="SignupCard LoginCard" onSubmit={step === 1 ? SendCode : ChangePassword} noValidate>
-                    <h3 className="SignupTitle">Reset your password</h3>
-                    <p className="SignupSubtitle">
-                        {step === 1 ? "Write the email you used to sign up." : "Write the code and your new password."}
-                    </p>
+                <label className="fw-field">
+                    <span className="fw-label">Email</span>
+                    <div className="fw-input-icon">
+                        <FaEnvelope />
+                        <input className="fw-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" disabled={step !== 1} autoComplete="email" autoFocus />
+                    </div>
+                </label>
 
-                    <label className="SignupField">
-                        <span>Email</span>
-                        <div className="IconInput">
-                            <FaEnvelope className="FieldIcon" />
-                            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" disabled={step !== 1} autoFocus />
+                {step >= 2 && (
+                    <>
+                        <div className="fw-field">
+                            <span className="fw-label">Code from your email</span>
+                            <div className="au-code">
+                                <div className="fw-input-icon">
+                                    <FaShieldAlt />
+                                    <input className="fw-input" value={code} onChange={(e) => setCode(e.target.value.replace(/[^0-9]/g, ""))} placeholder="8 digit code" inputMode="numeric" maxLength={8} autoComplete="one-time-code" aria-label="Code from your email" />
+                                </div>
+                                <button type="button" className="fw-btn fw-btn-ghost" style={{ height: "auto" }} onClick={() => SendCode()} disabled={sending || codeWait > 0 || step === 3}>
+                                    {codeWait > 0 ? "Again in " + codeWait + "s" : "Send again"}
+                                </button>
+                            </div>
                         </div>
-                    </label>
+                        <label className="fw-field">
+                            <span className="fw-label">New password</span>
+                            <div className="fw-input-icon">
+                                <FaLock />
+                                <input className="fw-input" type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 8 characters" autoComplete="new-password" />
+                                <button type="button" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? "Hide password" : "Show password"}>
+                                    {showPassword ? <FaEyeSlash /> : <FaEye />}
+                                </button>
+                            </div>
+                        </label>
+                    </>
+                )}
 
-                    {step >= 2 && (
-                        <>
-                            <label className="SignupField">
-                                <span>Code from your email</span>
-                                <div className="SignupCodeRow">
-                                    <div className="IconInput">
-                                        <FaShieldAlt className="FieldIcon" />
-                                        <input value={code} onChange={(e) => setCode(e.target.value.replace(/[^0-9]/g, ""))} placeholder="8 digit code" inputMode="numeric" maxLength={8} autoComplete="one-time-code" />
-                                    </div>
-                                    <button type="button" className="SignupCodeButton" onClick={() => SendCode()} disabled={sending || codeWait > 0 || step === 3}>
-                                        {codeWait > 0 ? "Send again in " + codeWait + "s" : "Send again"}
-                                    </button>
-                                </div>
-                            </label>
+                {error !== "" && <div className="fw-alert fw-alert-error">{error}</div>}
+                {success !== "" && <div className="fw-alert fw-alert-ok">{success}</div>}
 
-                            <label className="SignupField">
-                                <span>New password</span>
-                                <div className="IconInput">
-                                    <FaLock className="FieldIcon" />
-                                    <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 8 characters" autoComplete="new-password" />
-                                    <button type="button" className="EyeButton" onClick={() => setShowPassword(!showPassword)} aria-label="Show password">
-                                        {showPassword ? <FaEyeSlash /> : <FaEye />}
-                                    </button>
-                                </div>
-                            </label>
-                        </>
-                    )}
+                <button type="submit" className="fw-btn fw-btn-primary fw-btn-lg fw-btn-block" disabled={sending || step === 3}>
+                    {sending ? "Sending..." : step === 1 ? "Send code" : "Change password"}
+                </button>
 
-                    {error !== "" && <div className="SignupError">{error}</div>}
-                    {success !== "" && <div className="SignupSuccess">{success}</div>}
-
-                    <button
-                        type="submit"
-                        className="SignupButton"
-                        disabled={sending}
-                        onMouseMove={(e) => {
-                            const box = e.currentTarget.getBoundingClientRect()
-                            e.currentTarget.style.setProperty("--x", e.clientX - box.left + "px")
-                            e.currentTarget.style.setProperty("--y", e.clientY - box.top + "px")
-                        }}
-                    >
-                        {sending ? "Sending ..." : "Send"}
-                    </button>
-
-                    {step === 2 && (
-                        <p className="SignupFooter">
-                            Wrong email? <button type="button" className="SignupTextButton" onClick={() => { setStep(1); setCode(""); setError(""); setSuccess("") }}>Change it</button>
-                        </p>
-                    )}
-
-                    <p className="SignupFooter">
-                        Remember it now? <Link to="/auth/login">Log in</Link>
+                {step === 2 && (
+                    <p className="au-foot">
+                        Wrong email? <button type="button" className="au-text-btn" onClick={() => { setStep(1); setCode(""); setError(""); setSuccess("") }}>Change it</button>
                     </p>
-                </form>
-            </div>
-        </div>
+                )}
+                <p className="au-foot">
+                    Remember it now? <Link to="/auth/login">Log in</Link>
+                </p>
+            </form>
+        </AuthLayout>
     )
 }

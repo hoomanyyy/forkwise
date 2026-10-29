@@ -1,10 +1,7 @@
 import React from "react"
-import "bootstrap/dist/css/bootstrap.min.css"
-import "../styles/Site.css"
-import "../styles/Learn.css"
 import { Link } from "react-router-dom"
-import Navbar from "../components/Navbar"
-import Footer from "../components/Footer"
+import SiteLayout from "../components/site/SiteLayout"
+import "../styles/article.css"
 import Seo, { SITE_URL } from "../components/Seo"
 
 const pageUrl = SITE_URL + "/examples/coffee-and-heart-risk"
@@ -55,16 +52,15 @@ const articleSchema = {
 
 export default function ExampleCoffee() {
     return (
-        <div className="SitePage">
+        <SiteLayout>
             <Seo
                 title="Coffee and Heart Risk: A Hidden Variable Example | Forkwise"
                 description="A worked confounding example: coffee looks linked to heart risk until you control for smoking. Download the data and see how one choice flips the answer."
                 path="/examples/coffee-and-heart-risk"
                 schema={articleSchema}
             />
-            <Navbar />
 
-            <main className="LearnBody">
+            <div className="mk-wrap mk-narrow learn">
                 <nav className="LearnCrumbs" aria-label="Breadcrumb">
                     <Link to="/">Home</Link>
                     <span>/</span>
@@ -176,12 +172,11 @@ export default function ExampleCoffee() {
                     <h2>Test your own question</h2>
                     <p>Upload this file or your own data and let many AI analysts check the answer.</p>
                     <div className="LearnButtons">
-                        <Link to="/register" className="btn MainButton">Start for free</Link>
+                        <Link to="/register" className="fw-btn fw-btn-primary fw-btn-lg">Start for free</Link>
                     </div>
                 </div>
-            </main>
+            </div>
 
-            <Footer />
-        </div>
+        </SiteLayout>
     )
 }

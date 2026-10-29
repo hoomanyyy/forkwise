@@ -1,21 +1,9 @@
 import React, { useEffect, useState } from "react"
-import "bootstrap/dist/css/bootstrap.min.css"
-import "../styles/Site.css"
-import "../styles/Dashboard.css"
-import "../styles/Billing.css"
-import Seo from "../components/Seo"
-import Navbar from "../components/Navbar"
 import { useNavigate } from "react-router-dom"
 import { FaDollarSign, FaCheckCircle, FaClock, FaCalendarAlt, FaArrowUp, FaReceipt } from "react-icons/fa"
+import AppLayout from "../components/app/AppLayout"
 import { getInvoices, getMe } from "../api"
-
-function formatDate(text) {
-    if (!text) {
-        return "-"
-    }
-    const date = new Date(text)
-    return date.toLocaleDateString() + " · " + date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-}
+import { formatDate } from "../components/app/runTools"
 
 function statusText(status) {
     if (status === "finished") {
@@ -51,7 +39,7 @@ function daysLeft(usage) {
     return Math.max(0, Math.ceil(left / (1000 * 60 * 60 * 24)))
 }
 
-export default function Invoices() {
+function Billing() {
     const navigate = useNavigate()
     const [invoices, setInvoices] = useState([])
     const [usage, setUsage] = useState(null)
@@ -68,10 +56,13 @@ export default function Invoices() {
             if (me.Message === true) {
                 setUsage(me.usage)
             }
-
-            const data = await getInvoices()
-            if (data.Message === true) {
-                setInvoices(data.rows)
+            try {
+                const data = await getInvoices()
+                if (data.Message === true) {
+                    setInvoices(data.rows)
+                }
+            } catch (e) {
+                setInvoices([])
             }
             setLoading(false)
         }
@@ -80,12 +71,10 @@ export default function Invoices() {
 
     const paid = invoices.filter((i) => i.status === "finished")
     const notPaid = invoices.filter((i) => i.status !== "finished")
-
     let totalPaid = 0
     for (const i of paid) {
         totalPaid = totalPaid + Number(i.price)
     }
-
     let shown = invoices
     if (filter === "paid") {
         shown = paid
@@ -93,111 +82,86 @@ export default function Invoices() {
     if (filter === "notpaid") {
         shown = notPaid
     }
-
     const canUpgrade = usage && !usage.unlimited && usage.plan.plan_type !== "Premium"
 
     return (
-        <div className="DashPage">
-            <Seo title="Billing | Forkwise" noindex />
-            <Navbar />
+        <>
+            <section className="ax-welcome">
+                <div>
+                    <span className="fw-eyebrow">Current plan</span>
+                    <h1 style={{ marginTop: 6 }}>{usage ? (usage.unlimited ? "Admin" : usage.plan.plan_type) + " plan" : "Your plan"}</h1>
+                    {usage && <p>{planEndText(usage)}</p>}
+                    {usage && !usage.unlimited && (
+                        <div style={{ marginTop: 12, maxWidth: 360, display: "grid", gap: 6 }}>
+                            <span className="fw-muted" style={{ fontSize: 13 }}>{usage.used} of {usage.limit} analyses used today</span>
+                            <div className="ap-meter"><span style={{ width: Math.min(100, (usage.used / usage.limit) * 100) + "%" }}></span></div>
+                        </div>
+                    )}
+                </div>
+                {canUpgrade && (
+                    <button className="fw-btn fw-btn-primary" onClick={() => navigate("/pricing")}><FaArrowUp /> Upgrade</button>
+                )}
+            </section>
 
-            <main className="DashBody">
-                <section className="DashHero">
+            <div className="ax-stats">
+                <div className="ax-stat"><div className="ax-stat-top">Total paid <FaDollarSign /></div><b>${totalPaid}</b></div>
+                <div className="ax-stat"><div className="ax-stat-top">Paid invoices <FaCheckCircle style={{ color: "var(--green)" }} /></div><b>{paid.length}</b></div>
+                <div className="ax-stat"><div className="ax-stat-top">Not paid <FaClock style={{ color: "var(--amber)" }} /></div><b>{notPaid.length}</b></div>
+                <div className="ax-stat"><div className="ax-stat-top">Days left <FaCalendarAlt style={{ color: "var(--cyan)" }} /></div><b>{daysLeft(usage)}</b></div>
+            </div>
+
+            <section className="ax-card">
+                <div className="ax-toolbar">
+                    <div className="fw-chips">
+                        <button className={filter === "all" ? "fw-chip fw-chip-on" : "fw-chip"} onClick={() => setFilter("all")}>All</button>
+                        <button className={filter === "paid" ? "fw-chip fw-chip-on" : "fw-chip"} onClick={() => setFilter("paid")}>Paid</button>
+                        <button className={filter === "notpaid" ? "fw-chip fw-chip-on" : "fw-chip"} onClick={() => setFilter("notpaid")}>Not paid</button>
+                    </div>
+                    <span className="fw-muted" style={{ fontSize: 13 }}>{invoices.length} invoices</span>
+                </div>
+                {loading ? (
+                    <div style={{ padding: 20, display: "grid", gap: 10 }}>
+                        <div className="fw-skeleton" style={{ height: 44 }}></div>
+                        <div className="fw-skeleton" style={{ height: 44 }}></div>
+                    </div>
+                ) : invoices.length === 0 ? (
+                    <div className="fw-empty">
+                        <span className="fw-empty-icon"><FaReceipt /></span>
+                        <h3>No invoices yet</h3>
+                        <p>When you buy a plan, your invoices will show up here.</p>
+                        <button className="fw-btn fw-btn-primary" onClick={() => navigate("/pricing")}>See plans</button>
+                    </div>
+                ) : shown.length === 0 ? (
+                    <div className="fw-empty"><p>No invoices in this list.</p></div>
+                ) : (
                     <div>
-                        <p className="DashEyebrow">Billing</p>
-                        <h2 className="DashTitle">
-                            {usage ? (usage.unlimited ? "Admin" : usage.plan.plan_type) + " plan" : "Your plan"}
-                        </h2>
-                        {usage && <p className="DashLead">{planEndText(usage)}</p>}
-                        {usage && !usage.unlimited && (
-                            <div className="BillingUsage">
-                                <span>{usage.used} of {usage.limit} analyses used today</span>
-                                <div className="BillingBar">
-                                    <span style={{ width: Math.min(100, (usage.used / usage.limit) * 100) + "%" }}></span>
+                        {shown.map((invoice) => (
+                            <div className="bl-row" key={invoice.id}>
+                                <span className="bl-icon"><FaReceipt /></span>
+                                <div style={{ minWidth: 0 }}>
+                                    <p style={{ color: "#fff", fontWeight: 500 }}>{invoice.plan_type} plan · 30 days</p>
+                                    <p className="fw-muted" style={{ fontSize: 13 }}>Invoice #{invoice.id} · {formatDate(invoice.created_at)}</p>
                                 </div>
+                                <span className="fw-mono" style={{ color: "#fff" }}>${Number(invoice.price)}</span>
+                                <span className={"fw-badge fw-badge-" + invoice.status}>{statusText(invoice.status)}</span>
+                                {invoice.status === "waiting" ? (
+                                    <button className="fw-btn fw-btn-ghost fw-btn-sm" onClick={() => navigate("/pricing")}>Pay again</button>
+                                ) : <span></span>}
                             </div>
-                        )}
+                        ))}
                     </div>
-                    {canUpgrade && (
-                        <button className="btn DashNewButton" onClick={() => navigate("/plans")}>
-                            <FaArrowUp /> Upgrade
-                        </button>
-                    )}
-                </section>
+                )}
+            </section>
 
-                <section className="DashStats">
-                    <div className="DashStat">
-                        <span className="DashStatIcon IconPurple"><FaDollarSign /></span>
-                        <div>
-                            <p className="DashStatLabel">Total paid</p>
-                            <p className="DashStatNumber">${totalPaid}</p>
-                        </div>
-                    </div>
-                    <div className="DashStat">
-                        <span className="DashStatIcon IconGreen"><FaCheckCircle /></span>
-                        <div>
-                            <p className="DashStatLabel">Paid invoices</p>
-                            <p className="DashStatNumber">{paid.length}</p>
-                        </div>
-                    </div>
-                    <div className="DashStat">
-                        <span className="DashStatIcon IconAmber"><FaClock /></span>
-                        <div>
-                            <p className="DashStatLabel">Not paid</p>
-                            <p className="DashStatNumber">{notPaid.length}</p>
-                        </div>
-                    </div>
-                    <div className="DashStat">
-                        <span className="DashStatIcon IconBlue"><FaCalendarAlt /></span>
-                        <div>
-                            <p className="DashStatLabel">Days left</p>
-                            <p className="DashStatNumber">{daysLeft(usage)}</p>
-                        </div>
-                    </div>
-                </section>
+            <p className="fw-muted" style={{ fontSize: 13 }}>Payments are handled by NOWPayments in cryptocurrency. A plan becomes active a few minutes after the payment is confirmed.</p>
+        </>
+    )
+}
 
-                <section className="DashCard">
-                    <div className="DashCardTop">
-                        <h6 className="DashCardTitle">Invoices</h6>
-                        <span className="DashMuted">{invoices.length} invoices</span>
-                    </div>
-
-                    <div className="DashFilters">
-                        <button className={filter === "all" ? "DashChip DashChipOn" : "DashChip"} onClick={() => setFilter("all")}>All</button>
-                        <button className={filter === "paid" ? "DashChip DashChipOn" : "DashChip"} onClick={() => setFilter("paid")}>Paid</button>
-                        <button className={filter === "notpaid" ? "DashChip DashChipOn" : "DashChip"} onClick={() => setFilter("notpaid")}>Not paid</button>
-                    </div>
-
-                    {loading ? (
-                        <p className="DashMuted">Loading...</p>
-                    ) : invoices.length === 0 ? (
-                        <div className="DashEmpty">
-                            <p className="DashEmptyTitle">No invoices yet</p>
-                            <p className="DashMuted">When you buy a plan, your invoices will show up here.</p>
-                            <button className="btn DashNewButton" onClick={() => navigate("/plans")}>See plans</button>
-                        </div>
-                    ) : shown.length === 0 ? (
-                        <p className="DashMuted DashNoMatch">No invoices in this list.</p>
-                    ) : (
-                        <div className="DashList">
-                            {shown.map((invoice) => (
-                                <div className="DashRow InvoiceRow" key={invoice.id}>
-                                    <span className={"InvoiceIcon InvoiceIcon-" + invoice.status}><FaReceipt /></span>
-                                    <div className="DashRowMain">
-                                        <p className="DashRowQuestion">{invoice.plan_type} plan · 30 days</p>
-                                        <p className="DashRowMeta">Invoice #{invoice.id} · {formatDate(invoice.created_at)}</p>
-                                    </div>
-                                    <span className="InvoicePrice">${Number(invoice.price)}</span>
-                                    <span className={"DashBadge Badge-" + invoice.status}>{statusText(invoice.status)}</span>
-                                    {invoice.status === "waiting" && (
-                                        <button className="InvoiceAgain" onClick={() => navigate("/plans")}>Pay again</button>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </section>
-            </main>
-        </div>
+export default function Invoices() {
+    return (
+        <AppLayout title="Billing" crumbs={[{ label: "Billing" }]}>
+            <Billing />
+        </AppLayout>
     )
 }

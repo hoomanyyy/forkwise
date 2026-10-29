@@ -33,7 +33,59 @@
       "destination": "/app"
     },
     {
+      "source": "/runs",
+      "destination": "/app"
+    },
+    {
       "source": "/runs/:id",
+      "destination": "/app"
+    },
+    {
+      "source": "/assistant",
+      "destination": "/app"
+    },
+    {
+      "source": "/assistant/:id",
+      "destination": "/app"
+    },
+    {
+      "source": "/datasets",
+      "destination": "/app"
+    },
+    {
+      "source": "/templates",
+      "destination": "/app"
+    },
+    {
+      "source": "/usage",
+      "destination": "/app"
+    },
+    {
+      "source": "/settings",
+      "destination": "/app"
+    },
+    {
+      "source": "/help",
+      "destination": "/app"
+    },
+    {
+      "source": "/invoices",
+      "destination": "/app"
+    },
+    {
+      "source": "/billing",
+      "destination": "/app"
+    },
+    {
+      "source": "/plans",
+      "destination": "/app"
+    },
+    {
+      "source": "/payment/success",
+      "destination": "/app"
+    },
+    {
+      "source": "/payment/partial",
       "destination": "/app"
     }
   ],

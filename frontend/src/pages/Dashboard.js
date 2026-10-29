@@ -1,37 +1,11 @@
 import React, { useEffect, useState } from "react"
-import "bootstrap/dist/css/bootstrap.min.css"
-import "../styles/Dashboard.css"
-import Logo from "../images/logo.svg"
-import Seo from "../components/Seo"
 import { Link, useNavigate } from "react-router-dom"
-import { sendAuthRequestWithWebsocket, getHistory, getMe, Logout } from "../api"
-import { FaChartBar, FaCheckCircle, FaExclamationTriangle, FaSyncAlt, FaSearch, FaPlus, FaReceipt } from "react-icons/fa"
-
-function formatDate(text) {
-    if (!text) {
-        return "-"
-    }
-    const date = new Date(text)
-    return date.toLocaleDateString() + " · " + date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-}
-
-function countFiles(filename) {
-    if (!filename) {
-        return 0
-    }
-    return filename.split(", ").length
-}
-
-function greeting() {
-    const hour = new Date().getHours()
-    if (hour < 12) {
-        return "Good morning"
-    }
-    if (hour < 18) {
-        return "Good afternoon"
-    }
-    return "Good evening"
-}
+import {
+    FaPlus, FaThLarge, FaComments, FaBook, FaFlask, FaCheckCircle, FaExclamationTriangle, FaSyncAlt, FaArrowRight, FaFileCsv
+} from "react-icons/fa"
+import AppLayout, { useMe } from "../components/app/AppLayout"
+import { getHistory } from "../api"
+import { greeting, timeAgo, fileList, runState, stateLabel, countRuns, runsPerDay } from "../components/app/runTools"
 
 function percent(part, total) {
     if (total === 0) {
@@ -40,226 +14,173 @@ function percent(part, total) {
     return (part / total) * 100
 }
 
-export default function Home() {
+function Welcome() {
+    const me = useMe()
     const navigate = useNavigate()
-    const [name, setName] = useState("")
+    const usage = me.usage
+    let line = "Upload your data, ask one question, and let many AI analysts test how strong the answer really is."
+    if (usage && !usage.unlimited) {
+        line = "You have " + usage.left + " of " + usage.limit + " analyses left today on the " + usage.plan.plan_type + " plan."
+    }
+    if (usage && usage.unlimited) {
+        line = "Admin account: no daily limit."
+    }
+    return (
+        <section className="ax-welcome">
+            <div>
+                <h1>{greeting()}{me.name ? ", " + me.name : ""}</h1>
+                <p>{line}</p>
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button className="fw-btn fw-btn-primary" onClick={() => navigate("/chat")}><FaPlus /> New analysis</button>
+                <button className="fw-btn fw-btn-ghost" onClick={() => navigate("/assistant")}><FaComments /> Ask the Assistant</button>
+            </div>
+        </section>
+    )
+}
+
+export default function Dashboard() {
+    const navigate = useNavigate()
     const [history, setHistory] = useState([])
     const [loading, setLoading] = useState(true)
-    const [search, setSearch] = useState("")
-    const [filter, setFilter] = useState("all")
-    const [usage, setUsage] = useState(null)
+    const [failed, setFailed] = useState(false)
 
     useEffect(() => {
-        sendAuthRequestWithWebsocket({ type: "whoami" }, (res) => {
-            if (res.Message === true) {
-                setName(res.name)
-            } else {
-                navigate("/auth/login")
-            }
-        })
-    }, [navigate])
-
-    useEffect(() => {
-        async function loadHistory() {
+        async function load() {
             try {
                 const data = await getHistory()
                 if (data.Message === true) {
                     setHistory(data.data)
                 }
             } catch (e) {
-                console.log("Could not load history")
+                setFailed(true)
             }
             setLoading(false)
         }
-        async function loadPlan() {
-            const data = await getMe()
-            if (data.Message === true) {
-                setUsage(data.usage)
-            }
-        }
-        loadHistory()
-        loadPlan()
+        load()
     }, [])
 
-    async function HandleLogout() {
-        await Logout()
-        navigate("/auth/login")
-    }
-
-    const totalRuns = history.length
-    const robustRuns = history.filter((run) => run.verdict === "robust").length
-    const fragileRuns = history.filter((run) => run.verdict === "fragile").length
-    const choiceRuns = history.filter((run) => run.verdict === "choice_dependent").length
-    const noEffectRuns = history.filter((run) => run.verdict === "no_effect").length
-    const runningRuns = history.filter((run) => run.status === "running").length
-    const failedRuns = history.filter((run) => run.status === "failed").length
-
-    const shown = history.filter((run) => {
-        if (!run.question.toLowerCase().includes(search.toLowerCase())) {
-            return false
+    const count = countRuns(history)
+    const finished = count.robust + count.fragile + count.choice_dependent + count.no_effect
+    const days = runsPerDay(history, 14)
+    let biggest = 1
+    for (const d of days) {
+        if (d.total > biggest) {
+            biggest = d.total
         }
-        if (filter === "all") {
-            return true
-        }
-        if (filter === "running" || filter === "failed") {
-            return run.status === filter
-        }
-        return run.verdict === filter
-    })
-
-    let initial = "?"
-    if (name) {
-        initial = name.charAt(0).toUpperCase()
     }
 
     return (
-        <div className="DashPage">
-            <Seo title="Dashboard | Forkwise" noindex />
-            <nav className="DashNav">
-                <Link to="/" className="DashBrand">
-                    <img src={Logo} alt="Logo" className="DashLogo" />
-                    <span>Forkwise</span>
-                </Link>
-                <div className="DashNavRight">
-                    <Link to="/" className="DashNavLink">Home</Link>
-                    <Link to="/plans" className="DashNavLink">Plans</Link>
-                    <Link to="/about" className="DashNavLink">About</Link>
-                    <Link to="/invoices" className="DashNavLink DashBilling">
-                        <FaReceipt /> Billing
-                    </Link>
-                    <div className="DashUser">
-                        <span className="DashAvatar">{initial}</span>
-                        <span className="DashUserName">{name}</span>
-                    </div>
-                    <button className="btn DashLogout" onClick={HandleLogout}>Log out</button>
+        <AppLayout title="Overview" crumbs={[{ label: "Overview" }]} noHead>
+            <Welcome />
+
+            <div className="ax-quick">
+                <Link to="/chat"><FaPlus /><b>New analysis</b><span>Upload files and ask a question</span></Link>
+                <Link to="/templates"><FaThLarge /><b>Start from a template</b><span>Example questions and sample data</span></Link>
+                <Link to="/assistant"><FaComments /><b>Assistant</b><span>Chat with a finished run</span></Link>
+                <Link to="/docs"><FaBook /><b>Documentation</b><span>How to read every chart</span></Link>
+            </div>
+
+            <div className="ax-stats">
+                <div className="ax-stat">
+                    <div className="ax-stat-top">Total runs <FaFlask /></div>
+                    <b>{loading ? "–" : count.total}</b>
+                    <small>All analyses you started</small>
                 </div>
-            </nav>
+                <div className="ax-stat">
+                    <div className="ax-stat-top">Robust findings <FaCheckCircle style={{ color: "var(--green)" }} /></div>
+                    <b>{loading ? "–" : count.robust}</b>
+                    <small>{finished > 0 ? Math.round(percent(count.robust, finished)) + "% of finished runs" : "No finished runs yet"}</small>
+                </div>
+                <div className="ax-stat">
+                    <div className="ax-stat-top">Fragile or choice dependent <FaExclamationTriangle style={{ color: "var(--amber)" }} /></div>
+                    <b>{loading ? "–" : count.fragile + count.choice_dependent}</b>
+                    <small>Worth a second look</small>
+                </div>
+                <div className="ax-stat">
+                    <div className="ax-stat-top">Running now <FaSyncAlt style={{ color: "var(--cyan)" }} /></div>
+                    <b>{loading ? "–" : count.running}</b>
+                    <small>{count.failed > 0 ? count.failed + " failed" : "No failed runs"}</small>
+                </div>
+            </div>
 
-            <main className="DashBody">
-                <section className="DashHero">
-                    <div>
-                        <p className="DashEyebrow">Dashboard</p>
-                        <h2 className="DashTitle">{greeting()}, <span className="DashName">{name}</span></h2>
-                        <p className="DashLead">Upload your data, ask one question, and let many AI analysts test how strong the answer really is.</p>
-                        {usage && (
-                            <div className="DashPlan">
-                                <span className="DashPlanName">{usage.unlimited ? "Admin" : usage.plan.plan_type} plan</span>
-                                <span className="DashMuted">
-                                    {usage.unlimited ? "No daily limit" : usage.used + " of " + usage.limit + " analyses used today"}
-                                </span>
-                                {!usage.unlimited && usage.plan.plan_type !== "Premium" && (
-                                    <Link to="/plans" className="DashUpgrade">Upgrade</Link>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                    <button className="btn DashNewButton" onClick={() => navigate("/chat")}><FaPlus /> New analysis</button>
-                </section>
-
-                <section className="DashStats">
-                    <div className="DashStat">
-                        <span className="DashStatIcon IconPurple"><FaChartBar /></span>
+            <div className="ax-grid-2">
+                <section className="ax-card">
+                    <div className="ax-card-head">
                         <div>
-                            <p className="DashStatLabel">Total runs</p>
-                            <p className="DashStatNumber">{totalRuns}</p>
+                            <h2>Recent runs</h2>
+                            <p>Your latest analyses</p>
                         </div>
+                        <Link to="/runs" className="fw-btn fw-btn-quiet fw-btn-sm">View all <FaArrowRight /></Link>
                     </div>
-                    <div className="DashStat">
-                        <span className="DashStatIcon IconGreen"><FaCheckCircle /></span>
-                        <div>
-                            <p className="DashStatLabel">Robust findings</p>
-                            <p className="DashStatNumber">{robustRuns}</p>
-                        </div>
-                    </div>
-                    <div className="DashStat">
-                        <span className="DashStatIcon IconAmber"><FaExclamationTriangle /></span>
-                        <div>
-                            <p className="DashStatLabel">Fragile or choice dependent</p>
-                            <p className="DashStatNumber">{fragileRuns + choiceRuns}</p>
-                        </div>
-                    </div>
-                    <div className="DashStat">
-                        <span className="DashStatIcon IconBlue"><FaSyncAlt /></span>
-                        <div>
-                            <p className="DashStatLabel">Running now</p>
-                            <p className="DashStatNumber">{runningRuns}</p>
-                        </div>
-                    </div>
-                </section>
-
-                {totalRuns > 0 && (
-                    <section className="DashCard">
-                        <div className="DashCardTop">
-                            <h6 className="DashCardTitle">How strong are your findings?</h6>
-                            <span className="DashMuted">{totalRuns} runs</span>
-                        </div>
-                        <div className="SplitBar">
-                            <span className="SplitGreen" style={{ width: percent(robustRuns, totalRuns) + "%" }}></span>
-                            <span className="SplitAmber" style={{ width: percent(fragileRuns, totalRuns) + "%" }}></span>
-                            <span className="SplitRed" style={{ width: percent(choiceRuns, totalRuns) + "%" }}></span>
-                            <span className="SplitPurple" style={{ width: percent(noEffectRuns, totalRuns) + "%" }}></span>
-                            <span className="SplitBlue" style={{ width: percent(runningRuns, totalRuns) + "%" }}></span>
-                            <span className="SplitGray" style={{ width: percent(failedRuns, totalRuns) + "%" }}></span>
-                        </div>
-                        <div className="SplitLegend">
-                            <span><i className="SplitGreen"></i>Robust {robustRuns}</span>
-                            <span><i className="SplitAmber"></i>Fragile {fragileRuns}</span>
-                            <span><i className="SplitRed"></i>Choice dependent {choiceRuns}</span>
-                            <span><i className="SplitPurple"></i>No effect {noEffectRuns}</span>
-                            <span><i className="SplitBlue"></i>Running {runningRuns}</span>
-                            <span><i className="SplitGray"></i>Failed {failedRuns}</span>
-                        </div>
-                    </section>
-                )}
-
-                <section className="DashCard">
-                    <div className="DashCardTop">
-                        <h6 className="DashCardTitle">Recent runs</h6>
-                        <div className="DashSearch">
-                            <FaSearch />
-                            <input placeholder="Search questions" value={search} onChange={(e) => setSearch(e.target.value)} />
-                        </div>
-                    </div>
-
-                    <div className="DashFilters">
-                        <button className={filter === "all" ? "DashChip DashChipOn" : "DashChip"} onClick={() => setFilter("all")}>All</button>
-                        <button className={filter === "robust" ? "DashChip DashChipOn" : "DashChip"} onClick={() => setFilter("robust")}>Robust</button>
-                        <button className={filter === "fragile" ? "DashChip DashChipOn" : "DashChip"} onClick={() => setFilter("fragile")}>Fragile</button>
-                        <button className={filter === "choice_dependent" ? "DashChip DashChipOn" : "DashChip"} onClick={() => setFilter("choice_dependent")}>Choice dependent</button>
-                        <button className={filter === "no_effect" ? "DashChip DashChipOn" : "DashChip"} onClick={() => setFilter("no_effect")}>No effect</button>
-                        <button className={filter === "running" ? "DashChip DashChipOn" : "DashChip"} onClick={() => setFilter("running")}>Running</button>
-                        <button className={filter === "failed" ? "DashChip DashChipOn" : "DashChip"} onClick={() => setFilter("failed")}>Failed</button>
-                    </div>
-
                     {loading ? (
-                        <p className="DashMuted">Loading...</p>
-                    ) : totalRuns === 0 ? (
-                        <div className="DashEmpty">
-                            <p className="DashEmptyTitle">Start your first analysis</p>
-                            <p className="DashMuted">Upload a data file and ask a question. The results will show up here.</p>
-                            <button className="btn DashNewButton" onClick={() => navigate("/chat")}><FaPlus /> New analysis</button>
+                        <div style={{ padding: 20, display: "grid", gap: 10 }}>
+                            <div className="fw-skeleton" style={{ height: 44 }}></div>
+                            <div className="fw-skeleton" style={{ height: 44 }}></div>
+                            <div className="fw-skeleton" style={{ height: 44 }}></div>
                         </div>
-                    ) : shown.length === 0 ? (
-                        <p className="DashMuted DashNoMatch">No runs match your search.</p>
+                    ) : failed ? (
+                        <div className="fw-empty"><p>Could not load your runs. Please refresh the page.</p></div>
+                    ) : history.length === 0 ? (
+                        <div className="fw-empty">
+                            <span className="fw-empty-icon"><FaFlask /></span>
+                            <h3>Start your first analysis</h3>
+                            <p>Upload a data file and ask one question. Or try a sample file from the templates.</p>
+                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
+                                <button className="fw-btn fw-btn-primary" onClick={() => navigate("/chat")}><FaPlus /> New analysis</button>
+                                <button className="fw-btn fw-btn-ghost" onClick={() => navigate("/templates")}><FaFileCsv /> Sample data</button>
+                            </div>
+                        </div>
                     ) : (
-                        <div className="DashList">
-                            {shown.map((run) => (
-                                <div className="DashRow" key={run.id} onClick={() => navigate(`/runs/${run.id}`)}>
-                                    <span className="DashRowId">#{run.id}</span>
-                                    <div className="DashRowMain">
-                                        <p className="DashRowQuestion">{run.question}</p>
-                                        <p className="DashRowMeta">{countFiles(run.filename)} file(s) · {formatDate(run.created_at)}</p>
+                        <div className="ax-list">
+                            {history.slice(0, 6).map((run) => (
+                                <div className="ax-row" key={run.id} onClick={() => navigate("/runs/" + run.id)} role="link" tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter") navigate("/runs/" + run.id) }}>
+                                    <span className="ax-row-id">#{run.id}</span>
+                                    <div className="ax-row-main">
+                                        <p className="ax-row-title">{run.question}</p>
+                                        <p className="ax-row-meta">{fileList(run.filename).length} file(s) · {timeAgo(run.created_at)}</p>
                                     </div>
-                                    <span className={"DashBadge Badge-" + (run.verdict ? run.verdict : run.status)}>
-                                        {run.verdict ? run.verdict.replaceAll("_", " ") : run.status}
-                                    </span>
-                                    <span className="DashArrow">›</span>
+                                    <span className={"fw-badge fw-badge-" + runState(run)}>{stateLabel(runState(run))}</span>
+                                    <span className="ax-row-arrow">›</span>
                                 </div>
                             ))}
                         </div>
                     )}
                 </section>
-            </main>
-        </div>
+
+                <div style={{ display: "grid", gap: 18 }}>
+                    <section className="ax-card ax-card-pad">
+                        <h2 style={{ fontSize: 15, fontWeight: 600 }}>How strong are your findings?</h2>
+                        <p className="fw-muted" style={{ fontSize: 13, marginBottom: 14 }}>{finished} finished runs</p>
+                        <div className="ax-split">
+                            <span className="c-robust" style={{ width: percent(count.robust, finished) + "%" }}></span>
+                            <span className="c-fragile" style={{ width: percent(count.fragile, finished) + "%" }}></span>
+                            <span className="c-choice" style={{ width: percent(count.choice_dependent, finished) + "%" }}></span>
+                            <span className="c-none" style={{ width: percent(count.no_effect, finished) + "%" }}></span>
+                        </div>
+                        <div className="ax-legend">
+                            <div><i className="ax-dot c-robust"></i>Robust<b>{count.robust}</b></div>
+                            <div><i className="ax-dot c-fragile"></i>Fragile<b>{count.fragile}</b></div>
+                            <div><i className="ax-dot c-choice"></i>Choice dependent<b>{count.choice_dependent}</b></div>
+                            <div><i className="ax-dot c-none"></i>No effect<b>{count.no_effect}</b></div>
+                        </div>
+                    </section>
+
+                    <section className="ax-card ax-card-pad">
+                        <h2 style={{ fontSize: 15, fontWeight: 600 }}>Activity</h2>
+                        <p className="fw-muted" style={{ fontSize: 13 }}>Runs started in the last 14 days</p>
+                        <div className="ax-bars">
+                            {days.map((d) => (
+                                <div className="ax-bar-col" key={d.key} title={d.date.toDateString() + ": " + d.total + " runs"}>
+                                    <b>{d.total > 0 ? d.total : ""}</b>
+                                    <div className={d.total > 0 ? "ax-bar" : "ax-bar ax-bar-empty"} style={{ height: d.total > 0 ? (d.total / biggest) * 100 + "%" : "2px" }}></div>
+                                    <small>{d.label}</small>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </AppLayout>
     )
 }

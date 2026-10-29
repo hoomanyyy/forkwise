@@ -1,10 +1,7 @@
 import React from "react"
-import "bootstrap/dist/css/bootstrap.min.css"
-import "../styles/Site.css"
-import "../styles/Learn.css"
 import { Link } from "react-router-dom"
-import Navbar from "../components/Navbar"
-import Footer from "../components/Footer"
+import SiteLayout from "../components/site/SiteLayout"
+import "../styles/article.css"
 import Seo, { SITE_URL } from "../components/Seo"
 
 const pageUrl = SITE_URL + "/learn/specification-curve"
@@ -40,16 +37,15 @@ const articleSchema = {
 
 export default function LearnSpecCurve() {
     return (
-        <div className="SitePage">
+        <SiteLayout>
             <Seo
                 title="How to Read a Specification Curve, Step by Step | Forkwise"
                 description="A specification curve shows every reasonable analysis in one chart. Learn to read the dots, the choice panel and the middle line, with a real example."
                 path="/learn/specification-curve"
                 schema={articleSchema}
             />
-            <Navbar />
 
-            <main className="LearnBody">
+            <div className="mk-wrap mk-narrow learn">
                 <nav className="LearnCrumbs" aria-label="Breadcrumb">
                     <Link to="/">Home</Link>
                     <span>/</span>
@@ -148,12 +144,11 @@ export default function LearnSpecCurve() {
                     <h2>Make a specification curve for your data</h2>
                     <p>Forkwise draws it for you, with the choices of every AI analyst below each dot.</p>
                     <div className="LearnButtons">
-                        <Link to="/register" className="btn MainButton">Start for free</Link>
+                        <Link to="/register" className="fw-btn fw-btn-primary fw-btn-lg">Start for free</Link>
                     </div>
                 </div>
-            </main>
+            </div>
 
-            <Footer />
-        </div>
+        </SiteLayout>
     )
 }

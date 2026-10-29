@@ -1,10 +1,8 @@
-import React, { useState , useEffect } from "react"
-import "bootstrap/dist/css/bootstrap.min.css"
-import "../styles/Register.css"
-import { FaEnvelope, FaUser , FaLock,FaShieldAlt ,FaEye, FaEyeSlash, FaCheck } from "react-icons/fa"
+import React, { useState, useEffect } from "react"
+import { FaEnvelope, FaUser, FaLock, FaShieldAlt, FaEye, FaEyeSlash } from "react-icons/fa"
 import { Link, useNavigate } from "react-router-dom"
-import Logo from "../images/logo.svg"
 import Seo from "../components/Seo"
+import AuthLayout from "../components/site/AuthLayout"
 import { sendAuthRequestWithWebsocket } from "../api"
 
 export default function Register() {
@@ -23,30 +21,26 @@ export default function Register() {
     const [codeWait, setCodeWait] = useState(0)
 
     let strength = "Too short"
-    let strengthClass = "Weak"
-    if (password.length >= 6) {
+    let strengthColor = "var(--red)"
+    let strengthWidth = 25
+    if (password.length >= 8) {
         strength = "OK"
-        strengthClass = "Medium"
+        strengthColor = "var(--amber)"
+        strengthWidth = 60
     }
-    if (password.length >= 10) {
+    if (password.length >= 12) {
         strength = "Strong"
-        strengthClass = "Strong"
+        strengthColor = "var(--green)"
+        strengthWidth = 100
     }
 
     useEffect(() => {
-        function getMe() {
-            sendAuthRequestWithWebsocket(
-                { type: "whoami" },
-                (data) => {
-                    if (data.Message === true) {
-                        navigate("/dashboard")
-                    }
-                }
-            );
-        }
-
-        getMe();
-    }, [navigate]);
+        sendAuthRequestWithWebsocket({ type: "whoami" }, (data) => {
+            if (data.Message === true) {
+                navigate("/dashboard")
+            }
+        })
+    }, [navigate])
 
     useEffect(() => {
         if (codeWait <= 0) {
@@ -54,17 +48,15 @@ export default function Register() {
         }
         const timer = setTimeout(() => setCodeWait(codeWait - 1), 1000)
         return () => clearTimeout(timer)
-    }, [codeWait]);
+    }, [codeWait])
 
     function SendCode() {
         setError("")
         setSuccess("")
-
         if (!email.includes("@") || !email.includes(".")) {
             setError("Please write your email first.")
             return
         }
-
         setCodeSending(true)
         sendAuthRequestWithWebsocket({ type: "send_otp_code", email: email.trim() }, (result) => {
             setCodeSending(false)
@@ -126,104 +118,86 @@ export default function Register() {
     }
 
     return (
-        <div className="SignupPage">
+        <AuthLayout
+            title="Find out how strong your findings really are."
+            points={["Many AI analysts study the same question", "Python does every calculation", "A clear verdict with charts you can share", "Free plan, no card needed"]}
+        >
             <Seo title="Create an account | Forkwise" noindex />
-            <div className="SignupShell">
-                <aside className="SignupSide">
-                    <Link to="/" className="SideBrand">
-                        <img src={Logo} alt="Logo" className="SideLogo" />
-                        <span>Forkwise</span>
-                    </Link>
-                    <h2 className="SideTitle">Test how strong your findings really are.</h2>
-                    <ul className="SideList">
-                        <li><FaCheck /> Many AI analysts study the same question</li>
-                        <li><FaCheck /> Python does every calculation</li>
-                        <li><FaCheck /> Charts, formulas and a clear verdict</li>
-                    </ul>
-                    <p className="SideNote">A-ISPC 2026 project</p>
-                </aside>
+            <form className="au-form" onSubmit={HandleSubmit} noValidate>
+                <h1>Create your free account</h1>
+                <p>It takes less than a minute.</p>
 
-                <form className="SignupCard" onSubmit={HandleSubmit} noValidate>
-                    <h3 className="SignupTitle">Create your account</h3>
-                    <p className="SignupSubtitle">It takes less than a minute.</p>
+                <div className="au-row">
+                    <label className="fw-field">
+                        <span className="fw-label">First name</span>
+                        <input className="fw-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Max" autoComplete="given-name" />
+                    </label>
+                    <label className="fw-field">
+                        <span className="fw-label">Last name</span>
+                        <input className="fw-input" value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Arleston" autoComplete="family-name" />
+                    </label>
+                </div>
 
-                    <div className="SignupRow">
-                        <label className="SignupField">
-                            <span>First name</span>
-                            <input className="SignupInput" value={name} onChange={(e) => setName(e.target.value)} placeholder="max" />
-                        </label>
-                        <label className="SignupField">
-                            <span>Last name</span>
-                            <input className="SignupInput" value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Arleston" />
-                        </label>
+                <label className="fw-field">
+                    <span className="fw-label">Email</span>
+                    <div className="fw-input-icon">
+                        <FaEnvelope />
+                        <input className="fw-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="max@example.com" autoComplete="email" />
                     </div>
+                </label>
 
-                    <label className="SignupField">
-                        <span>Email</span>
-                        <div className="IconInput">
-                            <FaEnvelope className="FieldIcon" />
-                            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="maxArleston13@example.com" />
+                <div className="fw-field">
+                    <span className="fw-label">Verification code</span>
+                    <div className="au-code">
+                        <div className="fw-input-icon">
+                            <FaShieldAlt />
+                            <input className="fw-input" value={code} onChange={(e) => setCode(e.target.value.replace(/[^0-9]/g, ""))} placeholder="8 digit code" inputMode="numeric" maxLength={8} autoComplete="one-time-code" aria-label="Verification code" />
                         </div>
-                    </label>
+                        <button type="button" className="fw-btn fw-btn-ghost" style={{ height: "auto" }} onClick={SendCode} disabled={codeSending || codeWait > 0}>
+                            {codeSending ? "Sending..." : codeWait > 0 ? "Again in " + codeWait + "s" : "Send code"}
+                        </button>
+                    </div>
+                </div>
 
-                    <label className="SignupField">
-                        <span>Verification code</span>
-                        <div className="SignupCodeRow">
-                            <div className="IconInput">
-                                <FaShieldAlt className="FieldIcon" />
-                                <input value={code} onChange={(e) => setCode(e.target.value.replace(/[^0-9]/g, ""))} placeholder="8 digit code" inputMode="numeric" maxLength={8} autoComplete="one-time-code" />
-                            </div>
-                            <button type="button" className="SignupCodeButton" onClick={SendCode} disabled={codeSending || codeWait > 0}>
-                                {codeSending ? "Sending..." : codeWait > 0 ? "Send again in " + codeWait + "s" : "Send code"}
-                            </button>
+                <label className="fw-field">
+                    <span className="fw-label">Username</span>
+                    <div className="fw-input-icon">
+                        <FaUser />
+                        <input className="fw-input" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="max_arleston" autoComplete="username" />
+                    </div>
+                </label>
+
+                <label className="fw-field">
+                    <span className="fw-label">Password</span>
+                    <div className="fw-input-icon">
+                        <FaLock />
+                        <input className="fw-input" type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 8 characters" autoComplete="new-password" />
+                        <button type="button" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? "Hide password" : "Show password"}>
+                            {showPassword ? <FaEyeSlash /> : <FaEye />}
+                        </button>
+                    </div>
+                    {password !== "" && (
+                        <div className="au-strength">
+                            <div className="au-strength-bar"><span style={{ width: strengthWidth + "%", background: strengthColor }}></span></div>
+                            <span style={{ color: strengthColor }}>{strength}</span>
                         </div>
-                    </label>
+                    )}
+                </label>
 
-                    <label className="SignupField">
-                        <span>Username</span>
-                        <div className="IconInput">
-                            <FaUser className="FieldIcon" />
-                            <input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="max_arleston" />
-                        </div>
-                    </label>
-                    <label className="SignupField">
-                        <span>Password</span>
-                        <div className="IconInput">
-                            <FaLock className="FieldIcon" />
-                            <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 8 characters" />
-                            <button type="button" className="EyeButton" onClick={() => setShowPassword(!showPassword)} aria-label="Show password">
-                                {showPassword ? <FaEyeSlash /> : <FaEye />}
-                            </button>
-                        </div>
-                        {password !== "" && (
-                            <div className="StrengthRow">
-                                <div className={"StrengthBar " + strengthClass}></div>
-                                <span className={"StrengthText " + strengthClass}>{strength}</span>
-                            </div>
-                        )}
-                    </label>
+                {error !== "" && <div className="fw-alert fw-alert-error">{error}</div>}
+                {success !== "" && <div className="fw-alert fw-alert-ok">{success}</div>}
 
-                    {error !== "" && <div className="SignupError">{error}</div>}
-                    {success !== "" && <div className="SignupSuccess">{success}</div>}
+                <button type="submit" className="fw-btn fw-btn-primary fw-btn-lg fw-btn-block" disabled={sending}>
+                    {sending ? "Creating..." : "Create account"}
+                </button>
 
-                    <button
-                        type="submit"
-                        className="SignupButton"
-                        disabled={sending}
-                        onMouseMove={(e) => {
-                            const box = e.currentTarget.getBoundingClientRect()
-                            e.currentTarget.style.setProperty("--x", e.clientX - box.left + "px")
-                            e.currentTarget.style.setProperty("--y", e.clientY - box.top + "px")
-                        }}
-                    >
-                        {sending ? "Creating..." : "Create account"}
-                    </button>
-
-                    <p className="SignupFooter">
-                        Already have an account? <Link to="/auth/login">Log in</Link>
-                    </p>
-                </form>
-            </div>
-        </div>
+                <p className="au-foot">
+                    Already have an account? <Link to="/auth/login">Log in</Link>
+                </p>
+                <p className="au-foot" style={{ fontSize: 12.5 }}>
+                    By creating an account you agree to how we handle data on the <Link to="/privacy">privacy page</Link>.
+                </p>
+            </form>
+        </AuthLayout>
     )
 }

@@ -1,16 +1,15 @@
 import React, { useEffect, useState } from "react"
-import "bootstrap/dist/css/bootstrap.min.css"
+import { Link, useNavigate, useParams } from "react-router-dom"
+import { FaDownload, FaLock, FaComments, FaFileAlt } from "react-icons/fa"
+import AppLayout from "../components/app/AppLayout"
 import "../styles/Result.css"
-import Logo from "../images/logo.svg"
-import Seo from "../components/Seo"
-import { useNavigate, useParams } from "react-router-dom"
-import { FaDownload, FaLock } from "react-icons/fa"
 import { getRun, getMe, downloadRunCsv } from "../api"
 import { shortName } from "../components/chartTools"
 import DataExplorer from "../components/DataExplorer"
 import CorrelationChart from "../components/CorrelationChart"
 import SpecCurve from "../components/SpecCurve"
 import RunChat from "../components/RunChat"
+import { formatDate, fileList, stateLabel, VERDICT_TEXT } from "../components/app/runTools"
 
 function formatP(p) {
     if (p === null) {
@@ -23,22 +22,29 @@ function formatP(p) {
 }
 
 function verdictMessage(verdict) {
-    if (verdict === "robust") {
-        return "Almost all analysts found the same direction, and most of them found a real effect."
-    }
-    if (verdict === "fragile") {
-        return "Analysts agree on the direction, but many of them could not show the effect is real."
-    }
-    if (verdict === "choice_dependent") {
-        return "The answer changes depending on the choices each analyst made."
-    }
-    if (verdict === "no_effect") {
-        return "Almost no analyst found a real effect. With these choices, the data does not support this link."
+    if (VERDICT_TEXT[verdict]) {
+        return VERDICT_TEXT[verdict]
     }
     return "There were not enough valid analysts to decide."
 }
 
-export default function PredictResult() {
+function verdictRule(verdict) {
+    if (verdict === "robust") {
+        return "Rule: at least 90% agree on the direction and at least 80% found p below 0.05."
+    }
+    if (verdict === "fragile") {
+        return "Rule: at least 85% agree on the direction and at least 30% found p below 0.05."
+    }
+    if (verdict === "no_effect") {
+        return "Rule: 20% or fewer analysts found p below 0.05."
+    }
+    if (verdict === "choice_dependent") {
+        return "Rule: the result did not meet the robust, fragile or no effect rules."
+    }
+    return ""
+}
+
+function Result() {
     const navigate = useNavigate()
     const { id } = useParams()
     const [run, setRun] = useState(null)
@@ -84,7 +90,7 @@ export default function PredictResult() {
         const result = await downloadRunCsv(id)
         setExporting(false)
         if (result.upgrade) {
-            navigate("/plans")
+            navigate("/pricing")
         } else if (!result.ok) {
             setExportError(result.error)
         }
@@ -92,24 +98,26 @@ export default function PredictResult() {
 
     if (error !== "") {
         return (
-            <div className="ResultPage">
-                <Seo title="Analysis result | Forkwise" noindex />
-                <div className="ResultError">{error}</div>
+            <div className="ax-card fw-empty">
+                <h3>{error}</h3>
+                <p>Check the run number, or go back to your runs.</p>
+                <Link to="/runs" className="fw-btn fw-btn-ghost">All runs</Link>
             </div>
         )
     }
 
     if (run === null) {
         return (
-            <div className="ResultPage">
-                <Seo title="Analysis result | Forkwise" noindex />
-                <p className="Muted">Loading...</p>
+            <div style={{ display: "grid", gap: 16 }}>
+                <div className="fw-skeleton" style={{ height: 190 }}></div>
+                <div className="fw-skeleton" style={{ height: 90 }}></div>
+                <div className="fw-skeleton" style={{ height: 420 }}></div>
             </div>
         )
     }
 
     const effects = analysts.filter((a) => a.effect !== null).map((a) => a.effect)
-    const files = run.filename ? run.filename.split(", ") : []
+    const files = fileList(run.filename)
     const chart = run.chart
 
     let smallest = null
@@ -134,233 +142,227 @@ export default function PredictResult() {
         biggestSize = 1
     }
 
+    const verdictClass = run.verdict ? "rs-verdict rs-verdict-" + run.verdict : "rs-verdict"
+    const agree = Number(run.agree) || 0
+    const significant = Number(run.significant) || 0
+
     return (
-        <div className="ResultPage">
-            <Seo title="Analysis result | Forkwise" noindex />
-            <header className="ResultHeader">
-                <div className="d-flex align-items-center gap-3">
-                    <img src={Logo} alt="Logo" className="ResultLogo" />
-                    <div>
-                        <p className="Eyebrow mb-0">Analysis result</p>
-                        <h5 className="ResultTitle mb-0">Run #{run.id}</h5>
+        <>
+            <section className="ax-card rs-hero">
+                <div className="rs-hero-main">
+                    <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                        <span className="fw-eyebrow">Run #{run.id}</span>
+                        <span className={"fw-badge fw-badge-" + (run.status === "complete" ? "accent" : run.status)}>{run.status}</span>
+                        {run.created_at && <span className="fw-muted" style={{ fontSize: 13 }}>{formatDate(run.created_at)}</span>}
                     </div>
-                </div>
-                <button className="btn ResultBack" onClick={() => navigate("/dashboard")}>Back to dashboard</button>
-            </header>
-
-            <div className="ResultBody">
-                <section className="ResultCard SummaryCard">
-                    <div>
-                        <div className="d-flex align-items-center gap-2 mb-2">
-                            <p className="Eyebrow mb-0">Research question</p>
-                            <span className="StatusPill">{run.status}</span>
-                        </div>
-                        <h3 className="Question">{run.question}</h3>
-                        <div className="VariableRow">
-                            <div className="Variable">
-                                <span className="VariableTag TagY">Y</span>
-                                <div>
-                                    <p className="Muted small mb-0">Outcome</p>
-                                    <p className="VariableName" title={run.outcome}>{run.outcome}</p>
-                                </div>
-                            </div>
-                            <div className="Variable">
-                                <span className="VariableTag TagX">X</span>
-                                <div>
-                                    <p className="Muted small mb-0">Main variable</p>
-                                    <p className="VariableName" title={run.main_variable}>{run.main_variable}</p>
-                                </div>
+                    <h1>{run.question}</h1>
+                    <div className="rs-vars">
+                        <div className="rs-var">
+                            <span className="rs-var-tag rs-var-y">Y</span>
+                            <div>
+                                <small>Outcome</small>
+                                <b title={run.outcome}>{run.outcome}</b>
                             </div>
                         </div>
-                        <div className="FileRow">
-                            {files.map((f) => (
-                                <span className="FileChip" key={f} title={f}>{f}</span>
-                            ))}
+                        <div className="rs-var">
+                            <span className="rs-var-tag rs-var-x">X</span>
+                            <div>
+                                <small>Main variable</small>
+                                <b title={run.main_variable}>{run.main_variable}</b>
+                            </div>
                         </div>
                     </div>
-                    <div className="SummaryRight">
-                        <p className="Eyebrow">Verdict</p>
-                        <span className={"VerdictBadge Verdict-" + run.verdict}>{run.verdict ? run.verdict.replaceAll("_", " ") : "-"}</span>
-                        <p className="VerdictText">{verdictMessage(run.verdict)}</p>
+                    <div className="rs-files">
+                        {files.map((f) => (
+                            <span className="fw-badge fw-badge-plain" key={f} title={f}><FaFileAlt style={{ fontSize: 10 }} /> {f}</span>
+                        ))}
                     </div>
-                </section>
-
-                <section className="StatGrid">
-                    <div className="StatBox">
-                        <p className="StatLabel">Analysts</p>
-                        <p className="StatNumber">{run.analysts}</p>
-                    </div>
-                    <div className="StatBox">
-                        <p className="StatLabel">Same direction</p>
-                        <p className="StatNumber">{run.agree}%</p>
-                    </div>
-                    <div className="StatBox">
-                        <p className="StatLabel">Significant</p>
-                        <p className="StatNumber">{run.significant}%</p>
-                    </div>
-                    <div className="StatBox">
-                        <p className="StatLabel">Middle effect</p>
-                        <p className="StatNumber">{run.middle_effect}</p>
-                    </div>
-                    <div className="StatBox">
-                        <p className="StatLabel">Effect range</p>
-                        <p className="StatNumber">{smallest === null ? "-" : smallest.toFixed(2) + " – " + largest.toFixed(2)}</p>
-                    </div>
-                    <div className="StatBox">
-                        <p className="StatLabel">Largest ÷ smallest</p>
-                        <p className="StatNumber">{spread}</p>
-                    </div>
-                </section>
-
-                {chart && chart.columns ? (
-                    <DataExplorer
-                        chart={chart}
-                        outcome={run.outcome}
-                        mainVariable={run.main_variable}
-                        middleEffect={run.middle_effect}
-                        runId={run.id}
-                        canExport={canExport}
-                    />
-                ) : (
-                    <section className="ResultCard">
-                        <p className="Eyebrow">Data explorer</p>
-                        <p className="Muted mb-0">This run has no saved data. Run the analysis again to see charts of your data.</p>
-                    </section>
-                )}
-
-                <div className="ChartGrid">
-                    <SpecCurve analysts={analysts} middleEffect={run.middle_effect} runId={run.id} canExport={canExport} />
-                    {chart && chart.columns && (
-                        <CorrelationChart chart={chart} outcome={run.outcome} runId={run.id} canExport={canExport} />
-                    )}
                 </div>
+                <div className={verdictClass}>
+                    <span className="fw-eyebrow">Verdict</span>
+                    <span className="rs-verdict-word">{run.verdict ? stateLabel(run.verdict) : run.status === "running" ? "Running" : "-"}</span>
+                    <p>{run.status === "running" ? "The analysts are still working. Refresh this page in a minute." : verdictMessage(run.verdict)}</p>
+                    {verdictRule(run.verdict) !== "" && <p className="fw-mono" style={{ fontSize: 12, color: "var(--muted)" }}>{verdictRule(run.verdict)}</p>}
+                </div>
+            </section>
 
-                <section className="ResultCard">
-                    <div className="CardTop">
-                        <div>
-                            <p className="Eyebrow mb-1">Analyst choices</p>
-                            <p className="ResultCardTitle">What each analyst chose</p>
-                        </div>
-                        <div className="CardTopRight">
-                            <span className="TableCount">{analysts.length} analysts</span>
-                            {canExport ? (
-                                <button className="ExportButton" onClick={HandleExport} disabled={exporting}>
-                                    <FaDownload /> {exporting ? "Exporting..." : "Export CSV"}
-                                </button>
-                            ) : (
-                                <button className="ExportButton ExportLocked" onClick={() => navigate("/plans")}>
-                                    <FaLock /> Export CSV (Pro)
-                                </button>
-                            )}
-                        </div>
-                    </div>
-
-                    {exportError !== "" && <div className="ResultError mb-3">{exportError}</div>}
-
-                    <div className="AnalystTableWrap">
-                        <table className="AnalystTable">
-                            <thead>
-                                <tr>
-                                    <th>#</th>
-                                    <th>Controls</th>
-                                    <th>Outliers</th>
-                                    <th>Missing</th>
-                                    <th>Effect</th>
-                                    <th>p value</th>
-                                    <th>Reason</th>
-                                    <th className="AlignRight">Rows</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {analysts.map((a) => (
-                                    <tr key={a.analyst_number}>
-                                        <td>
-                                            <span className="AnalystNumber">{a.analyst_number}</span>
-                                        </td>
-                                        <td>
-                                            {a.covariates.length === 0 ? (
-                                                <span className="Muted">None</span>
-                                            ) : (
-                                                <div className="ChipList">
-                                                    {a.covariates.map((c) => (
-                                                        <span className="ControlChip" key={c} title={c}>
-                                                            {shortName(c, 24)}
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </td>
-                                        <td>
-                                            <span className="ChoiceText" title={a.outliers}>
-                                                {a.outliers === null ? "-" : a.outliers}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <span className="ChoiceText" title={a.missing}>
-                                                {a.missing === null ? "-" : a.missing}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            {a.effect === null ? (
-                                                <span className="Muted">-</span>
-                                            ) : (
-                                                <div className="EffectCell">
-                                                    <span className={a.effect >= 0 ? "EffectNumber EffectPlus" : "EffectNumber EffectMinus"}>
-                                                        {Number(a.effect).toFixed(3)}
-                                                    </span>
-                                                    <span className="EffectTrack">
-                                                        <span className="EffectZero"></span>
-                                                        <span
-                                                            className={a.effect >= 0 ? "EffectBar EffectBarPlus" : "EffectBar EffectBarMinus"}
-                                                            style={{ width: (Math.abs(a.effect) / biggestSize) * 50 + "%" }}
-                                                        ></span>
-                                                    </span>
-                                                </div>
-                                            )}
-                                        </td>
-                                        <td>
-                                            <span className={a.p_value !== null && a.p_value < 0.05 ? "PPill PGood" : "PPill PWeak"}>
-                                                {formatP(a.p_value)}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            {a.reason ? (
-                                                <button
-                                                    className="btn btn-sm ReasonToggle"
-                                                    onClick={() => setOpenReason(openReason === a.analyst_number ? null : a.analyst_number)}
-                                                >
-                                                    {openReason === a.analyst_number ? "Hide" : "Show"}
-                                                </button>
-                                            ) : (
-                                                <span className="Muted">—</span>
-                                            )}
-                                        </td>
-                                        <td className="AlignRight Muted">
-                                            {a.rows_used === null ? "-" : a.rows_used.toLocaleString()}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    {openReason !== null && (
-                        <div className="ReasonBox mt-3">
-                            <p className="Eyebrow mb-1">Analyst #{openReason} — Why this choice?</p>
-                            <p className="ReasonText">
-                                {analysts.find((a) => a.analyst_number === openReason)?.reason || "No reason provided."}
-                            </p>
-                        </div>
-                    )}
-
-                    <div className="Legend">
-                        <span><span className="LegendDot EffectPlusBg"></span>Positive effect</span>
-                        <span><span className="LegendDot EffectMinusBg"></span>Negative effect</span>
-                        <span><span className="LegendDot DotSignificantBg"></span>p below 0.05 means the effect is probably real</span>
-                    </div>
-                </section>
+            <div className="rs-stats">
+                <div className="ax-stat">
+                    <div className="ax-stat-top">Analysts</div>
+                    <b>{run.analysts}</b>
+                </div>
+                <div className="ax-stat">
+                    <div className="ax-stat-top">Same direction</div>
+                    <b>{run.agree}%</b>
+                    <div className="rs-meter"><span style={{ width: Math.min(100, agree) + "%", background: "var(--green)" }}></span></div>
+                </div>
+                <div className="ax-stat">
+                    <div className="ax-stat-top">Significant</div>
+                    <b>{run.significant}%</b>
+                    <div className="rs-meter"><span style={{ width: Math.min(100, significant) + "%" }}></span></div>
+                </div>
+                <div className="ax-stat">
+                    <div className="ax-stat-top">Middle effect</div>
+                    <b>{run.middle_effect}</b>
+                </div>
+                <div className="ax-stat">
+                    <div className="ax-stat-top">Effect range</div>
+                    <b style={{ fontSize: 20 }}>{smallest === null ? "-" : smallest.toFixed(2) + " – " + largest.toFixed(2)}</b>
+                </div>
+                <div className="ax-stat">
+                    <div className="ax-stat-top">Largest ÷ smallest</div>
+                    <b>{spread}</b>
+                </div>
             </div>
+
+            <div className="rs-section-title"><h2>Specification curve and correlations</h2></div>
+            <div className="ChartGrid">
+                <SpecCurve analysts={analysts} middleEffect={run.middle_effect} runId={run.id} canExport={canExport} />
+                {chart && chart.columns && (
+                    <CorrelationChart chart={chart} outcome={run.outcome} runId={run.id} canExport={canExport} />
+                )}
+            </div>
+
+            <div className="rs-section-title"><h2>Your data</h2></div>
+            {chart && chart.columns ? (
+                <DataExplorer
+                    chart={chart}
+                    outcome={run.outcome}
+                    mainVariable={run.main_variable}
+                    middleEffect={run.middle_effect}
+                    runId={run.id}
+                    canExport={canExport}
+                />
+            ) : (
+                <section className="ax-card ax-card-pad">
+                    <p className="fw-muted">This run has no saved data. Run the analysis again to see charts of your data.</p>
+                </section>
+            )}
+
+            <div className="rs-section-title">
+                <h2>What each analyst chose</h2>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                    <span className="fw-muted" style={{ fontSize: 13 }}>{analysts.length} analysts</span>
+                    {canExport ? (
+                        <button className="fw-btn fw-btn-ghost fw-btn-sm" onClick={HandleExport} disabled={exporting}>
+                            <FaDownload /> {exporting ? "Exporting..." : "Export CSV"}
+                        </button>
+                    ) : (
+                        <button className="fw-btn fw-btn-ghost fw-btn-sm" onClick={() => navigate("/pricing")}>
+                            <FaLock /> Export CSV (Pro)
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            {exportError !== "" && <div className="fw-alert fw-alert-error">{exportError}</div>}
+
+            <div className="fw-table-wrap" style={{ background: "var(--surface)" }}>
+                <table className="fw-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Controls</th>
+                            <th>Outliers</th>
+                            <th>Missing</th>
+                            <th>Effect</th>
+                            <th>p value</th>
+                            <th>Reason</th>
+                            <th style={{ textAlign: "right" }}>Rows</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {analysts.map((a) => (
+                            <tr key={a.analyst_number}>
+                                <td><span className="AnalystNumber">{a.analyst_number}</span></td>
+                                <td>
+                                    {a.covariates.length === 0 ? (
+                                        <span className="fw-muted">None</span>
+                                    ) : (
+                                        <div className="ChipList">
+                                            {a.covariates.map((c) => (
+                                                <span className="ControlChip" key={c} title={c}>{shortName(c, 24)}</span>
+                                            ))}
+                                        </div>
+                                    )}
+                                </td>
+                                <td><span className="ChoiceText" title={a.outliers}>{a.outliers === null ? "-" : a.outliers}</span></td>
+                                <td><span className="ChoiceText" title={a.missing}>{a.missing === null ? "-" : a.missing}</span></td>
+                                <td>
+                                    {a.effect === null ? (
+                                        <span className="fw-muted">-</span>
+                                    ) : (
+                                        <div className="EffectCell">
+                                            <span className={a.effect >= 0 ? "EffectNumber EffectPlus" : "EffectNumber EffectMinus"}>{Number(a.effect).toFixed(3)}</span>
+                                            <span className="EffectTrack">
+                                                <span className="EffectZero"></span>
+                                                <span
+                                                    className={a.effect >= 0 ? "EffectBar EffectBarPlus" : "EffectBar EffectBarMinus"}
+                                                    style={{ width: (Math.abs(a.effect) / biggestSize) * 50 + "%" }}
+                                                ></span>
+                                            </span>
+                                        </div>
+                                    )}
+                                </td>
+                                <td>
+                                    <span className={a.p_value !== null && a.p_value < 0.05 ? "PPill PGood" : "PPill PWeak"}>{formatP(a.p_value)}</span>
+                                </td>
+                                <td>
+                                    {a.reason ? (
+                                        <button className="fw-btn fw-btn-quiet fw-btn-sm" onClick={() => setOpenReason(openReason === a.analyst_number ? null : a.analyst_number)}>
+                                            {openReason === a.analyst_number ? "Hide" : "Show"}
+                                        </button>
+                                    ) : (
+                                        <span className="fw-muted">—</span>
+                                    )}
+                                </td>
+                                <td style={{ textAlign: "right" }} className="fw-muted fw-mono">{a.rows_used === null ? "-" : a.rows_used.toLocaleString()}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+
+            {openReason !== null && (
+                <div className="ax-card ax-card-pad" style={{ display: "grid", gap: 6 }}>
+                    <span className="fw-eyebrow">Analyst #{openReason}: why this choice?</span>
+                    <p style={{ color: "var(--text-2)", whiteSpace: "pre-wrap" }}>
+                        {analysts.find((a) => a.analyst_number === openReason)?.reason || "No reason provided."}
+                    </p>
+                </div>
+            )}
+
+            <div className="Legend">
+                <span><span className="LegendDot EffectPlusBg"></span>Positive effect</span>
+                <span><span className="LegendDot EffectMinusBg"></span>Negative effect</span>
+                <span><span className="LegendDot DotSignificantBg"></span>p below 0.05 means the effect is probably real</span>
+            </div>
+
             {run.status === "complete" && <RunChat runId={run.id} />}
-        </div>
+        </>
+    )
+}
+
+export default function PredictResult() {
+    const { id } = useParams()
+    const navigate = useNavigate()
+    return (
+        <AppLayout
+            wide
+            title={"Run #" + id}
+            noHead
+            crumbs={[{ label: "Runs", to: "/runs" }, { label: "Run #" + id }]}
+        >
+            <div className="ap-page-head">
+                <div>
+                    <h1 className="ap-title">Analysis result</h1>
+                    <p className="ap-sub">Every number below was calculated in Python from the analysts' choices.</p>
+                </div>
+                <div className="ap-page-actions">
+                    <button className="fw-btn fw-btn-ghost fw-btn-sm" onClick={() => navigate("/assistant/" + id)}><FaComments /> Open in Assistant</button>
+                </div>
+            </div>
+            <Result />
+        </AppLayout>
     )
 }

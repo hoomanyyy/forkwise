@@ -1,10 +1,7 @@
 import React from "react"
-import "bootstrap/dist/css/bootstrap.min.css"
-import "../styles/Site.css"
-import "../styles/Learn.css"
 import { Link } from "react-router-dom"
-import Navbar from "../components/Navbar"
-import Footer from "../components/Footer"
+import SiteLayout from "../components/site/SiteLayout"
+import "../styles/article.css"
 import Seo, { SITE_URL } from "../components/Seo"
 
 const pageUrl = SITE_URL + "/learn/multiverse-analysis"
@@ -40,16 +37,15 @@ const articleSchema = {
 
 export default function LearnMultiverse() {
     return (
-        <div className="SitePage">
+        <SiteLayout>
             <Seo
                 title="What Is a Multiverse Analysis? A Simple Guide | Forkwise"
                 description="A multiverse analysis runs every reasonable version of a data analysis instead of only one. Learn why it matters, how it works and how to run one without code."
                 path="/learn/multiverse-analysis"
                 schema={articleSchema}
             />
-            <Navbar />
 
-            <main className="LearnBody">
+            <div className="mk-wrap mk-narrow learn">
                 <nav className="LearnCrumbs" aria-label="Breadcrumb">
                     <Link to="/">Home</Link>
                     <span>/</span>
@@ -167,12 +163,11 @@ export default function LearnMultiverse() {
                     <h2>Run a multiverse analysis on your data</h2>
                     <p>No code needed. Upload a file, ask one question and get a verdict in a few minutes.</p>
                     <div className="LearnButtons">
-                        <Link to="/register" className="btn MainButton">Start for free</Link>
+                        <Link to="/register" className="fw-btn fw-btn-primary fw-btn-lg">Start for free</Link>
                     </div>
                 </div>
-            </main>
+            </div>
 
-            <Footer />
-        </div>
+        </SiteLayout>
     )
 }

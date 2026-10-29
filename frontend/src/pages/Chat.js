@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from "react"
-import "bootstrap/dist/css/bootstrap.min.css"
-import "../styles/Chat.css"
-import Logo from "../images/logo.svg"
-import Seo from "../components/Seo"
-import { Link, useNavigate } from "react-router-dom"
-import { FaCloudUploadAlt, FaFileAlt, FaTrash, FaCheck, FaRocket } from "react-icons/fa"
+import { Link, useNavigate, useSearchParams } from "react-router-dom"
+import {
+    FaCloudUploadAlt, FaFileAlt, FaTrash, FaCheck, FaRocket, FaArrowUp, FaArrowDown, FaMinus, FaQuestion, FaLightbulb
+} from "react-icons/fa"
+import AppLayout, { useMe } from "../components/app/AppLayout"
 import { sendInformationsAn } from "../api"
+import { readSetting } from "./app/Settings"
 
 function fileSize(bytes) {
     if (bytes >= 1024 * 1024) {
@@ -14,18 +14,27 @@ function fileSize(bytes) {
     return Math.max(1, Math.round(bytes / 1024)) + " KB"
 }
 
-export default function Chat() {
+const EXPECTATIONS = [
+    { value: "increase", label: "It increases Y", icon: FaArrowUp },
+    { value: "decrease", label: "It decreases Y", icon: FaArrowDown },
+    { value: "none", label: "No effect", icon: FaMinus },
+    { value: "unknown", label: "I don't know", icon: FaQuestion }
+]
+
+function NewAnalysis() {
     const navigate = useNavigate()
+    const me = useMe()
+    const [params] = useSearchParams()
     const [files, setFiles] = useState([])
     const [fileDetails, setFileDetails] = useState({})
     const [relation, setRelation] = useState("")
     const [joinColumn, setJoinColumn] = useState("")
-    const [question, setQuestion] = useState("")
-    const [outcome, setOutcome] = useState("")
-    const [mainVariable, setMainVariable] = useState("")
+    const [question, setQuestion] = useState(params.get("q") || "")
+    const [outcome, setOutcome] = useState(params.get("y") || "")
+    const [mainVariable, setMainVariable] = useState(params.get("x") || "")
     const [expectation, setExpectation] = useState("")
-    const [analysts, setAnalysts] = useState("10")
-    const [notes, setNotes] = useState("")
+    const [analysts, setAnalysts] = useState(readSetting("default-analysts", "10"))
+    const [notes, setNotes] = useState(params.get("notes") || "")
     const [error, setError] = useState("")
     const [sending, setSending] = useState(false)
     const [dragging, setDragging] = useState(false)
@@ -96,6 +105,19 @@ export default function Chat() {
     const questionDone = question.trim() !== "" && outcome.trim() !== "" && mainVariable.trim() !== "" && expectation !== ""
     const minutes = Math.max(1, Math.round((Number(analysts) * 6) / 60))
 
+    let maxAnalysts = 100
+    if (me.usage && !me.usage.unlimited && me.usage.plan.max_analysts) {
+        maxAnalysts = Number(me.usage.plan.max_analysts)
+    }
+
+    useEffect(() => {
+        if (Number(analysts) > maxAnalysts) {
+            setAnalysts(String(maxAnalysts >= 50 ? 50 : maxAnalysts >= 25 ? 25 : 10))
+        }
+    }, [maxAnalysts, analysts])
+
+    const showTips = readSetting("show-tips", "1") === "1"
+
     async function submitForm(e) {
         e.preventDefault()
         setError("")
@@ -162,187 +184,204 @@ export default function Chat() {
             }
         } catch (err) {
             setError("Could not connect to the server.")
-            console.log("ERROR: " , err.message)
+            console.log("ERROR: ", err.message)
         }
         setSending(false)
     }
 
     return (
-        <div className="ChatPage">
-            <Seo title="New analysis | Forkwise" noindex />
-            <nav className="ChatNav">
-                <Link to="/" className="ChatBrand">
-                    <img src={Logo} alt="Logo" className="ChatLogo" />
-                    <span>Forkwise</span>
-                </Link>
-                <button className="btn ChatBack" onClick={() => navigate("/dashboard")}>Back to dashboard</button>
-            </nav>
-
-            <div className="ChatHead">
-                <p className="ChatEyebrow">New analysis</p>
-                <h2 className="ChatTitle">Ask your data a question</h2>
-                <div className="ChatSteps">
-                    <span className={filesDone ? "ChatStep StepDone" : "ChatStep"}><b>{filesDone ? <FaCheck /> : "1"}</b>Upload files</span>
-                    <span className={describedDone ? "ChatStep StepDone" : "ChatStep"}><b>{describedDone ? <FaCheck /> : "2"}</b>Describe them</span>
-                    <span className={questionDone ? "ChatStep StepDone" : "ChatStep"}><b>{questionDone ? <FaCheck /> : "3"}</b>Ask a question</span>
-                    <span className="ChatStep"><b>4</b>Start</span>
+        <form className="wz" onSubmit={submitForm} noValidate>
+            <div className="wz-main">
+                <div className="wz-steps">
+                    <span className={filesDone ? "wz-step wz-step-done" : "wz-step"}><b>{filesDone ? <FaCheck /> : "1"}</b>Upload files</span>
+                    <span className={describedDone ? "wz-step wz-step-done" : "wz-step"}><b>{describedDone ? <FaCheck /> : "2"}</b>Describe them</span>
+                    <span className={questionDone ? "wz-step wz-step-done" : "wz-step"}><b>{questionDone ? <FaCheck /> : "3"}</b>Ask a question</span>
+                    <span className="wz-step"><b>4</b>Start</span>
                 </div>
-            </div>
 
-            <form className="ChatLayout" onSubmit={submitForm} noValidate>
-                <div className="ChatMain">
-                    <section className="ChatCard">
-                        <h6 className="ChatCardTitle"><span>1</span>Upload your data</h6>
-                        <label
-                            className={dragging ? "ChatDrop ChatDropOn" : "ChatDrop"}
-                            onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
-                            onDragLeave={() => setDragging(false)}
-                            onDrop={dropFiles}
-                        >
-                            <input type="file" multiple accept=".csv,.json,.xlsx,.xls" onChange={chooseFiles} style={{ display: "none" }} />
-                            <FaCloudUploadAlt className="ChatDropIcon" />
-                            <span className="ChatDropText">Drag files here or click to choose</span>
-                            <span className="ChatDropHint">CSV, Excel or JSON. You can add many files.</span>
-                        </label>
+                <section className="ax-card wz-section">
+                    <div className="wz-section-title"><span>1</span><h2>Upload your data</h2></div>
+                    <label
+                        className={dragging ? "wz-drop wz-drop-on" : "wz-drop"}
+                        onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
+                        onDragLeave={() => setDragging(false)}
+                        onDrop={dropFiles}
+                    >
+                        <input type="file" multiple accept=".csv,.json,.xlsx,.xls" onChange={chooseFiles} style={{ display: "none" }} />
+                        <FaCloudUploadAlt />
+                        <b>Drag files here or click to choose</b>
+                        <span>CSV, Excel or JSON. You can add many files.</span>
+                    </label>
 
-                        {files.map((f, index) => (
-                            <div key={f.name} className="ChatFile">
-                                <div className="ChatFileTop">
-                                    <span className="ChatFileIcon"><FaFileAlt /></span>
-                                    <div className="ChatFileInfo">
-                                        <p className="ChatFileName" title={f.name}>{f.name}</p>
-                                        <p className="ChatFileSize">File {index + 1} · {fileSize(f.size)}</p>
-                                    </div>
-                                    <button type="button" className="ChatRemove" onClick={() => removeFile(f.name)} aria-label="Remove file"><FaTrash /></button>
+                    {files.map((f, index) => (
+                        <div key={f.name} className="wz-file">
+                            <div className="wz-file-top">
+                                <span className="wz-file-icon"><FaFileAlt /></span>
+                                <div className="wz-file-info">
+                                    <p className="wz-file-name" title={f.name}>{f.name}</p>
+                                    <p className="fw-muted" style={{ fontSize: 12.5 }}>File {index + 1} · {fileSize(f.size)}</p>
                                 </div>
-
-                                <div className="ChatGrid2">
-                                    <label className="ChatField">
-                                        <span>Role of this file</span>
-                                        <select className="form-select ChatInput" value={fileDetails[f.name].role} onChange={(e) => updateDetail(f.name, "role", e.target.value)}>
-                                            <option value="main">Main data</option>
-                                            <option value="extra">Extra information</option>
-                                        </select>
-                                    </label>
-                                    <label className="ChatField">
-                                        <span>What does one row mean? *</span>
-                                        <input className="form-control ChatInput" placeholder="One student" value={fileDetails[f.name].rowMeaning} onChange={(e) => updateDetail(f.name, "rowMeaning", e.target.value)} />
-                                    </label>
-                                </div>
-                                <label className="ChatField">
-                                    <span>Description of this file *</span>
-                                    <textarea className="form-control ChatInput" rows="2" placeholder="Exam results of grade 10 students in our school" value={fileDetails[f.name].description} onChange={(e) => updateDetail(f.name, "description", e.target.value)} />
-                                </label>
-                                <div className="ChatGrid3">
-                                    <label className="ChatField">
-                                        <span>Source</span>
-                                        <input className="form-control ChatInput" placeholder="School office" value={fileDetails[f.name].source} onChange={(e) => updateDetail(f.name, "source", e.target.value)} />
-                                    </label>
-                                    <label className="ChatField">
-                                        <span>Time period</span>
-                                        <input className="form-control ChatInput" placeholder="2015 to 2024" value={fileDetails[f.name].period} onChange={(e) => updateDetail(f.name, "period", e.target.value)} />
-                                    </label>
-                                    <label className="ChatField">
-                                        <span>Missing values are</span>
-                                        <select className="form-select ChatInput" value={fileDetails[f.name].missing} onChange={(e) => updateDetail(f.name, "missing", e.target.value)}>
-                                            <option value="empty">Empty cell</option>
-                                            <option value="NA">NA</option>
-                                            <option value="0">0</option>
-                                            <option value="-1">-1</option>
-                                            <option value="-999">-999</option>
-                                        </select>
-                                    </label>
-                                </div>
+                                <button type="button" className="fw-icon-btn" onClick={() => removeFile(f.name)} aria-label={"Remove " + f.name}><FaTrash /></button>
                             </div>
-                        ))}
 
-                        {manyFiles && (
-                            <div className="ChatRelation">
-                                <label className="ChatField">
-                                    <span>How are these files related? *</span>
-                                    <select className="form-select ChatInput" value={relation} onChange={(e) => setRelation(e.target.value)}>
-                                        <option value="">Choose</option>
-                                        <option value="stack">Same columns, more rows (for example one file per year)</option>
-                                        <option value="join">Different columns, connected by a common column</option>
-                                        <option value="separate">Separate files, use them as extra context</option>
+                            <div className="wz-grid-2">
+                                <label className="fw-field">
+                                    <span className="fw-label">Role of this file</span>
+                                    <select className="fw-select" value={fileDetails[f.name].role} onChange={(e) => updateDetail(f.name, "role", e.target.value)}>
+                                        <option value="main">Main data</option>
+                                        <option value="extra">Extra information</option>
                                     </select>
                                 </label>
-                                {relation === "join" && (
-                                    <label className="ChatField">
-                                        <span>Common column *</span>
-                                        <input className="form-control ChatInput" placeholder="country, year" value={joinColumn} onChange={(e) => setJoinColumn(e.target.value)} />
-                                        <small className="ChatHint">It must be in every file. For two columns, write them with a comma.</small>
-                                    </label>
-                                )}
+                                <label className="fw-field">
+                                    <span className="fw-label">What does one row mean? *</span>
+                                    <input className="fw-input" placeholder="One student" value={fileDetails[f.name].rowMeaning} onChange={(e) => updateDetail(f.name, "rowMeaning", e.target.value)} />
+                                </label>
                             </div>
-                        )}
-                    </section>
-
-                    <section className="ChatCard">
-                        <h6 className="ChatCardTitle"><span>2</span>Your research question</h6>
-                        <label className="ChatField">
-                            <span>Question *</span>
-                            <input className="form-control ChatInput ChatBig" placeholder="Does study time affect exam score?" value={question} onChange={(e) => setQuestion(e.target.value)} />
-                        </label>
-                        <div className="ChatGrid2">
-                            <label className="ChatField">
-                                <span>Outcome, what you want to explain *</span>
-                                <input className="form-control ChatInput" placeholder="exam score" value={outcome} onChange={(e) => setOutcome(e.target.value)} />
+                            <label className="fw-field">
+                                <span className="fw-label">Description of this file *</span>
+                                <textarea className="fw-textarea" rows="2" placeholder="Exam results of grade 10 students in our school" value={fileDetails[f.name].description} onChange={(e) => updateDetail(f.name, "description", e.target.value)} />
                             </label>
-                            <label className="ChatField">
-                                <span>Main variable, what may affect it *</span>
-                                <input className="form-control ChatInput" placeholder="study hours" value={mainVariable} onChange={(e) => setMainVariable(e.target.value)} />
-                            </label>
+                            <div className="wz-grid-3">
+                                <label className="fw-field">
+                                    <span className="fw-label">Source</span>
+                                    <input className="fw-input" placeholder="School office" value={fileDetails[f.name].source} onChange={(e) => updateDetail(f.name, "source", e.target.value)} />
+                                </label>
+                                <label className="fw-field">
+                                    <span className="fw-label">Time period</span>
+                                    <input className="fw-input" placeholder="2015 to 2024" value={fileDetails[f.name].period} onChange={(e) => updateDetail(f.name, "period", e.target.value)} />
+                                </label>
+                                <label className="fw-field">
+                                    <span className="fw-label">Missing values are</span>
+                                    <select className="fw-select" value={fileDetails[f.name].missing} onChange={(e) => updateDetail(f.name, "missing", e.target.value)}>
+                                        <option value="empty">Empty cell</option>
+                                        <option value="NA">NA</option>
+                                        <option value="0">0</option>
+                                        <option value="-1">-1</option>
+                                        <option value="-999">-999</option>
+                                    </select>
+                                </label>
+                            </div>
                         </div>
-                        <small className="ChatHint ChatHintTop">You can write in your own words. The AI finds the matching columns.</small>
-                        <label className="ChatField">
-                            <span>What do you expect? * <em>choose before you see the results</em></span>
-                            <select className="form-select ChatInput" value={expectation} onChange={(e) => setExpectation(e.target.value)}>
-                                <option value="">Choose</option>
-                                <option value="increase">It increases the outcome</option>
-                                <option value="decrease">It decreases the outcome</option>
-                                <option value="none">No effect</option>
-                                <option value="unknown">I don't know</option>
-                            </select>
-                        </label>
-                    </section>
+                    ))}
 
-                    <section className="ChatCard">
-                        <h6 className="ChatCardTitle"><span>3</span>Extra notes <em>optional</em></h6>
-                        <textarea className="form-control ChatInput" rows="3" placeholder="Anything else the AI analysts should know" value={notes} onChange={(e) => setNotes(e.target.value)} />
-                    </section>
+                    {manyFiles && (
+                        <div className="wz-grid-2">
+                            <label className="fw-field">
+                                <span className="fw-label">How are these files related? *</span>
+                                <select className="fw-select" value={relation} onChange={(e) => setRelation(e.target.value)}>
+                                    <option value="">Choose</option>
+                                    <option value="stack">Same columns, more rows (for example one file per year)</option>
+                                    <option value="join">Different columns, connected by a common column</option>
+                                    <option value="separate">Separate files, use them as extra context</option>
+                                </select>
+                            </label>
+                            {relation === "join" && (
+                                <label className="fw-field">
+                                    <span className="fw-label">Common column *</span>
+                                    <input className="fw-input" placeholder="country, year" value={joinColumn} onChange={(e) => setJoinColumn(e.target.value)} />
+                                    <small className="fw-hint">It must be in every file. For two columns, write them with a comma.</small>
+                                </label>
+                            )}
+                        </div>
+                    )}
+                </section>
+
+                <section className="ax-card wz-section">
+                    <div className="wz-section-title"><span>2</span><h2>Your research question</h2></div>
+                    <label className="fw-field">
+                        <span className="fw-label">Question *</span>
+                        <input className="fw-input" style={{ fontSize: 16, padding: "12px 14px" }} placeholder="Does study time affect exam score?" value={question} onChange={(e) => setQuestion(e.target.value)} />
+                    </label>
+                    <div className="wz-grid-2">
+                        <label className="fw-field">
+                            <span className="fw-label">Outcome (Y), what you want to explain *</span>
+                            <input className="fw-input" placeholder="exam score" value={outcome} onChange={(e) => setOutcome(e.target.value)} />
+                        </label>
+                        <label className="fw-field">
+                            <span className="fw-label">Main variable (X), what may affect it *</span>
+                            <input className="fw-input" placeholder="study hours" value={mainVariable} onChange={(e) => setMainVariable(e.target.value)} />
+                        </label>
+                    </div>
+                    <small className="fw-hint">You can write in your own words. The AI finds the matching columns, and the result page shows which ones it chose.</small>
+                    <div className="fw-field">
+                        <span className="fw-label">What do you expect? * <em>choose before you see the results</em></span>
+                        <div className="wz-expect">
+                            {EXPECTATIONS.map((item) => (
+                                <button type="button" key={item.value} className={expectation === item.value ? "wz-expect-on" : ""} onClick={() => setExpectation(item.value)} aria-pressed={expectation === item.value}>
+                                    <item.icon /> {item.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </section>
+
+                <section className="ax-card wz-section">
+                    <div className="wz-section-title"><span>3</span><h2>Extra notes <em>optional</em></h2></div>
+                    <textarea className="fw-textarea" rows="3" placeholder="Anything else the AI analysts should know" value={notes} onChange={(e) => setNotes(e.target.value)} />
+                </section>
+            </div>
+
+            <aside className="wz-side">
+                <div className="ax-card wz-summary">
+                    <p className="fw-eyebrow">Your analysis</p>
+                    <div className="wz-sum-row"><span>Files</span><b>{files.length}</b></div>
+                    <div className="wz-sum-row"><span>Question</span><b>{question.trim() === "" ? "-" : question}</b></div>
+                    <div className="wz-sum-row"><span>Y</span><b className="fw-mono">{outcome.trim() === "" ? "-" : outcome}</b></div>
+                    <div className="wz-sum-row"><span>X</span><b className="fw-mono">{mainVariable.trim() === "" ? "-" : mainVariable}</b></div>
+
+                    <div className="fw-field">
+                        <span className="fw-label">Number of AI analysts</span>
+                        <div className="wz-analysts">
+                            {["10", "25", "50", "100"].map((n) => (
+                                <button
+                                    type="button"
+                                    key={n}
+                                    className={analysts === n ? "wz-analysts-on" : ""}
+                                    onClick={() => setAnalysts(n)}
+                                    disabled={Number(n) > maxAnalysts}
+                                    title={Number(n) > maxAnalysts ? "Your plan allows up to " + maxAnalysts + " analysts" : n + " analysts"}
+                                >
+                                    {n}
+                                </button>
+                            ))}
+                        </div>
+                        <small className="fw-hint">
+                            More analysts give a more reliable verdict. About {minutes} min.
+                            {maxAnalysts < 100 && <> Need more? <Link to="/pricing">Upgrade your plan</Link>.</>}
+                        </small>
+                    </div>
+
+                    {error !== "" && <div className="fw-alert fw-alert-error">{error}</div>}
+
+                    <button type="submit" className="fw-btn fw-btn-primary fw-btn-lg fw-btn-block" disabled={sending}>
+                        {sending ? <span className="fw-spinner"></span> : <FaRocket />} {sending ? "Running..." : "Start analysis"}
+                    </button>
+
+                    {sending && (
+                        <div style={{ display: "grid", gap: 8 }}>
+                            <div className="wz-progress"><span></span></div>
+                            <p className="fw-muted" style={{ fontSize: 13 }}>{analysts} AI analysts are working on your question. Please keep this page open.</p>
+                        </div>
+                    )}
                 </div>
 
-                <aside className="ChatSide">
-                    <div className="ChatSummary">
-                        <p className="ChatEyebrow">Your analysis</p>
-                        <div className="SumRow"><span>Files</span><b>{files.length}</b></div>
-                        <div className="SumRow"><span>Question</span><b className="SumQuestion">{question.trim() === "" ? "-" : question}</b></div>
+                {showTips && (
+                <div className="ax-card wz-tip">
+                    <b><FaLightbulb style={{ color: "var(--amber)", marginRight: 6 }} /> Tips for a good run</b>
+                    <span>Ask about one outcome and one main variable at a time.</span>
+                    <span>Write what one row means. It helps the analysts choose sensible controls.</span>
+                    <span>No data yet? Try a file from <Link to="/templates">Templates</Link>.</span>
+                </div>
+                )}
+            </aside>
+        </form>
+    )
+}
 
-                        <p className="SumLabel">Number of AI analysts</p>
-                        <div className="ChatChips">
-                            <button type="button" className={analysts === "10" ? "ChatChip ChatChipOn" : "ChatChip"} onClick={() => setAnalysts("10")}>10</button>
-                            <button type="button" className={analysts === "25" ? "ChatChip ChatChipOn" : "ChatChip"} onClick={() => setAnalysts("25")}>25</button>
-                            <button type="button" className={analysts === "50" ? "ChatChip ChatChipOn" : "ChatChip"} onClick={() => setAnalysts("50")}>50</button>
-                            <button type="button" className={analysts === "100" ? "ChatChip ChatChipOn" : "ChatChip"} onClick={() => setAnalysts("100")}>100</button>
-                        </div>
-                        <p className="SumHint">More analysts give a more reliable verdict. About {minutes} min.</p>
-
-                        {error !== "" && <div className="ChatError">{error}</div>}
-
-                        <button type="submit" className="ChatStart" disabled={sending}>
-                            <FaRocket /> {sending ? "Running..." : "Start analysis"}
-                        </button>
-
-                        {sending && (
-                            <div className="ChatRunning">
-                                <div className="ChatProgress"><span></span></div>
-                                <p>{analysts} AI analysts are working on your question. Please keep this page open.</p>
-                            </div>
-                        )}
-                    </div>
-                </aside>
-            </form>
-        </div>
+export default function Chat() {
+    return (
+        <AppLayout title="New analysis" crumbs={[{ label: "Overview", to: "/dashboard" }, { label: "New analysis" }]}>
+            <NewAnalysis />
+        </AppLayout>
     )
 }

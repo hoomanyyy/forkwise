@@ -1,10 +1,7 @@
 import React from "react"
-import "bootstrap/dist/css/bootstrap.min.css"
-import "../styles/Site.css"
-import "../styles/Learn.css"
 import { Link } from "react-router-dom"
-import Navbar from "../components/Navbar"
-import Footer from "../components/Footer"
+import { FaArrowRight, FaBook, FaSpellCheck, FaUniversity, FaFileCsv } from "react-icons/fa"
+import SiteLayout, { PageHero, Crumbs } from "../components/site/SiteLayout"
 import Seo, { SITE_URL } from "../components/Seo"
 
 const learnSchema = {
@@ -33,62 +30,71 @@ const learnSchema = {
     ]
 }
 
+const GUIDES = [
+    { to: "/learn/multiverse-analysis", tag: "Guide · 5 min", title: "What is a multiverse analysis?", text: "One dataset can give many answers. Learn what a multiverse analysis is, why scientists use it and how to run one without code." },
+    { to: "/learn/specification-curve", tag: "Guide · 5 min", title: "How to read a specification curve", text: "The specification curve shows every analysis in one chart. Learn to read the dots, the choices below them and the middle line." },
+    { to: "/examples/coffee-and-heart-risk", tag: "Worked example · 4 min", title: "Does coffee raise heart risk?", text: "A hidden variable trap. Download the data and see how one choice creates an effect that is not there." }
+]
+
 export default function Learn() {
     return (
-        <div className="SitePage">
+        <SiteLayout>
             <Seo
                 title="Learn Multiverse Analysis and Specification Curves | Forkwise"
                 description="Simple guides about multiverse analysis, specification curves and why one data analysis is not enough, with a worked example you can try yourself."
                 path="/learn"
                 schema={learnSchema}
             />
-            <Navbar />
+            <PageHero
+                eyebrow="Learn"
+                title="Why one analysis is not enough"
+                lead="Short, plain guides about the ideas behind Forkwise. No math degree needed."
+            >
+                <Crumbs items={[{ label: "Home", to: "/" }, { label: "Learn" }]} />
+            </PageHero>
 
-            <main className="LearnBody LearnWide">
-                <nav className="LearnCrumbs" aria-label="Breadcrumb">
-                    <Link to="/">Home</Link>
-                    <span>/</span>
-                    <span>Learn</span>
-                </nav>
-
-                <h1 className="LearnTitle">Learn: why one analysis is not enough</h1>
-                <p className="LearnLead">
-                    Short and simple guides about the ideas behind Forkwise. No math degree needed.
-                </p>
-                <p className="LearnMeta">3 guides · about 5 minutes each</p>
-
-                <div className="LearnCards">
-                    <Link to="/learn/multiverse-analysis" className="LearnCard">
-                        <span className="LearnCardTag">Guide</span>
-                        <h2>What is a multiverse analysis?</h2>
-                        <p>One dataset can give many answers. Learn what a multiverse analysis is, why scientists use it and how to run one without code.</p>
-                        <span className="LearnCardMore">Read the guide →</span>
-                    </Link>
-                    <Link to="/learn/specification-curve" className="LearnCard">
-                        <span className="LearnCardTag">Guide</span>
-                        <h2>How to read a specification curve</h2>
-                        <p>The specification curve shows every analysis in one chart. Learn to read the dots, the choices below them and the middle line.</p>
-                        <span className="LearnCardMore">Read the guide →</span>
-                    </Link>
-                    <Link to="/examples/coffee-and-heart-risk" className="LearnCard">
-                        <span className="LearnCardTag">Example</span>
-                        <h2>Does coffee raise heart risk?</h2>
-                        <p>A worked example with a hidden variable trap. Download the data and see how the answer changes with one choice.</p>
-                        <span className="LearnCardMore">See the example →</span>
-                    </Link>
-                </div>
-
-                <div className="LearnCta">
-                    <h2>Try it on your own data</h2>
-                    <p>Upload a CSV, Excel or JSON file and ask one question. It is free.</p>
-                    <div className="LearnButtons">
-                        <Link to="/register" className="btn MainButton">Start for free</Link>
-                        <Link to="/how-it-works" className="btn GhostLink">How it works</Link>
+            <section className="mk-section-tight">
+                <div className="mk-wrap">
+                    <div className="mk-grid-3">
+                        {GUIDES.map((g) => (
+                            <Link key={g.to} to={g.to} className="mk-card" style={{ minHeight: 250 }}>
+                                <span className="fw-eyebrow">{g.tag}</span>
+                                <h2 className="mk-h3" style={{ fontSize: 22 }}>{g.title}</h2>
+                                <p>{g.text}</p>
+                                <span className="mk-card-more" style={{ marginTop: "auto" }}>Read <FaArrowRight style={{ fontSize: 11 }} /></span>
+                            </Link>
+                        ))}
                     </div>
                 </div>
-            </main>
+            </section>
 
-            <Footer />
-        </div>
+            <section className="mk-section">
+                <div className="mk-wrap">
+                    <p className="fw-eyebrow" style={{ marginBottom: 16 }}>Keep going</p>
+                    <div className="mk-grid-4">
+                        <Link to="/glossary" className="mk-card">
+                            <span className="mk-card-icon"><FaSpellCheck /></span>
+                            <h3 className="mk-h3">Glossary</h3>
+                            <p>p values, controls, outliers, leakage and more, in one sentence each.</p>
+                        </Link>
+                        <Link to="/research" className="mk-card">
+                            <span className="mk-card-icon mk-card-icon-cyan"><FaUniversity /></span>
+                            <h3 className="mk-h3">Research</h3>
+                            <p>The studies that showed why many analysts matter.</p>
+                        </Link>
+                        <Link to="/docs" className="mk-card">
+                            <span className="mk-card-icon mk-card-icon-green"><FaBook /></span>
+                            <h3 className="mk-h3">Documentation</h3>
+                            <p>How every step of a Forkwise run works.</p>
+                        </Link>
+                        <a href="/examples/study-hours.csv" download className="mk-card">
+                            <span className="mk-card-icon mk-card-icon-amber"><FaFileCsv /></span>
+                            <h3 className="mk-h3">Practice data</h3>
+                            <p>Download 400 students' study hours and exam scores, and try it yourself.</p>
+                        </a>
+                    </div>
+                </div>
+            </section>
+        </SiteLayout>
     )
 }

@@ -1,39 +1,38 @@
 import React from "react"
-import "bootstrap/dist/css/bootstrap.min.css"
-import "../styles/Site.css"
-import "../styles/Pages.css"
 import { useNavigate } from "react-router-dom"
-import Navbar from "../components/Navbar"
-import Footer from "../components/Footer"
+import { FaCheckCircle, FaExclamationTriangle } from "react-icons/fa"
+import SiteLayout from "../components/site/SiteLayout"
 import Seo from "../components/Seo"
 
 export default function PaymentResult({ partial }) {
     const navigate = useNavigate()
-
     return (
-        <div className="SitePage">
+        <SiteLayout footerCta={false} announce={false}>
             <Seo title="Payment | Forkwise" noindex />
-            <Navbar />
-
-            <main className="PageBody">
-                <div className="PageCall">
-                    {partial ? (
-                        <>
-                            <h2>Payment not complete</h2>
-                            <p>We received less than the plan price. Please contact us with your payment details and we will fix it.</p>
-                            <button className="btn MainButton" onClick={() => navigate("/contact")}>Contact us</button>
-                        </>
-                    ) : (
-                        <>
-                            <h2>Thank you for your payment</h2>
-                            <p>Your plan will be active in a few minutes, after the payment is confirmed.</p>
-                            <button className="btn MainButton" onClick={() => navigate("/dashboard")}>Go to dashboard</button>
-                        </>
-                    )}
+            <section className="mk-404">
+                <div className="mk-wrap" style={{ maxWidth: 560 }}>
+                    <div className="mk-panel" style={{ justifyItems: "center", textAlign: "center", padding: 40 }}>
+                        {partial ? (
+                            <>
+                                <FaExclamationTriangle style={{ fontSize: 40, color: "var(--amber)" }} />
+                                <h1 className="mk-h2" style={{ fontSize: 30 }}>Payment not complete</h1>
+                                <p className="fw-muted">We received less than the plan price. Please contact us with your invoice number and we will fix it.</p>
+                                <button className="fw-btn fw-btn-primary" onClick={() => navigate("/contact")}>Contact us</button>
+                            </>
+                        ) : (
+                            <>
+                                <FaCheckCircle style={{ fontSize: 40, color: "var(--green)" }} />
+                                <h1 className="mk-h2" style={{ fontSize: 30 }}>Thank you for your payment</h1>
+                                <p className="fw-muted">Your plan will be active in a few minutes, after the payment is confirmed. You can follow it under Billing.</p>
+                                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
+                                    <button className="fw-btn fw-btn-primary" onClick={() => navigate("/dashboard")}>Go to overview</button>
+                                    <button className="fw-btn fw-btn-ghost" onClick={() => navigate("/invoices")}>See billing</button>
+                                </div>
+                            </>
+                        )}
+                    </div>
                 </div>
-            </main>
-
-            <Footer />
-        </div>
+            </section>
+        </SiteLayout>
     )
 }

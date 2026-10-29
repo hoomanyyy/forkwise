@@ -1,19 +1,9 @@
 import React, { useCallback, useEffect, useState } from "react"
-import "bootstrap/dist/css/bootstrap.min.css"
-import "../styles/Admin.css"
-import Logo from "../images/logo.svg"
-import Seo from "../components/Seo"
-import { Link, useNavigate } from "react-router-dom"
-import { FaUsers, FaChartBar, FaEnvelope, FaExclamationTriangle, FaTrash, FaSearch, FaBroom, FaReply, FaShieldAlt, FaSyncAlt } from "react-icons/fa"
-import { adminGet, adminDelete, sendAuthRequestWithWebsocket , sendEmailRequest } from "../api"
-
-function formatDate(text) {
-    if (!text) {
-        return "-"
-    }
-    const date = new Date(text)
-    return date.toLocaleDateString() + " " + date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-}
+import { useNavigate } from "react-router-dom"
+import { FaUsers, FaChartBar, FaEnvelope, FaExclamationTriangle, FaTrash, FaSearch, FaBroom, FaReply, FaShieldAlt, FaSyncAlt, FaPaperPlane } from "react-icons/fa"
+import AppLayout from "../components/app/AppLayout"
+import { adminGet, adminDelete, sendAuthRequestWithWebsocket, sendEmailRequest } from "../api"
+import { formatDate, stateLabel } from "../components/app/runTools"
 
 function dayText(date) {
     const month = String(date.getMonth() + 1).padStart(2, "0")
@@ -23,34 +13,12 @@ function dayText(date) {
 
 function runLabel(run) {
     if (run.status === "complete" && run.verdict) {
-        return run.verdict.replaceAll("_", " ")
+        return run.verdict
     }
     return run.status
 }
 
-function runClass(run) {
-    if (run.status === "failed") {
-        return "AdminPill AdminPillRed"
-    }
-    if (run.status === "running") {
-        return "AdminPill AdminPillBlue"
-    }
-    if (run.verdict === "robust") {
-        return "AdminPill AdminPillGreen"
-    }
-    if (run.verdict === "fragile") {
-        return "AdminPill AdminPillAmber"
-    }
-    if (run.verdict === "choice_dependent") {
-        return "AdminPill AdminPillRed"
-    }
-    if (run.verdict === "no_effect") {
-        return "AdminPill AdminPillPurple"
-    }
-    return "AdminPill"
-}
-
-export default function AdminDashboard() {
+function Admin() {
     const navigate = useNavigate()
     const [status, setStatus] = useState("loading")
     const [myId, setMyId] = useState(null)
@@ -63,10 +31,9 @@ export default function AdminDashboard() {
     const [confirm, setConfirm] = useState(null)
     const [notice, setNotice] = useState("")
     const [working, setWorking] = useState(false)
-    const [emailTo, setEmailTo] = useState("")
     const [emailBody, setEmailBody] = useState("")
     const [sendingEmail, setSendingEmail] = useState(false)
-    const [ subject , setSubject ] = useState("")
+    const [subject, setSubject] = useState("")
 
     const loadAll = useCallback(async () => {
         try {
@@ -84,7 +51,6 @@ export default function AdminDashboard() {
                 return
             }
             setStats(s)
-
             const u = await adminGet("users")
             if (u.Message === true) {
                 setUsers(u.data)
@@ -125,6 +91,7 @@ export default function AdminDashboard() {
             setConfirm(null)
         }
     }
+
     async function handleSendEmail(e) {
         e.preventDefault()
         if (!subject.trim() || !emailBody.trim()) {
@@ -132,19 +99,17 @@ export default function AdminDashboard() {
             return
         }
         setSendingEmail(true)
-            let response = await sendEmailRequest(subject , "hello@forkwise.online" , emailBody)        
-            if(response === true){
-            setSendingEmail(false)
-            setEmailTo("")
+        const response = await sendEmailRequest(subject, "hello@forkwise.online", emailBody)
+        setSendingEmail(false)
+        if (response === true) {
+            setSubject("")
             setEmailBody("")
-            setNotice("Email sent successfully!")
-        }else{
-            setSendingEmail(false)
-            setEmailTo("")
-            setEmailBody("")
-            setNotice("Email didnt sent succesfully")
+            setNotice("Email sent successfully.")
+        } else {
+            setNotice("The email was not sent. Please try again.")
         }
     }
+
     async function confirmDelete() {
         setWorking(true)
         try {
@@ -167,24 +132,16 @@ export default function AdminDashboard() {
     }
 
     if (status === "loading") {
-        return (
-            <div className="AdminPage">
-                <Seo title="Admin | Forkwise" noindex />
-                <p className="AdminCenter">Loading...</p>
-            </div>
-        )
+        return <div className="fw-skeleton" style={{ height: 300 }}></div>
     }
 
     if (status === "forbidden" || status === "error") {
         return (
-            <div className="AdminPage">
-                <Seo title="Admin | Forkwise" noindex />
-                <div className="AdminBlocked">
-                    <FaShieldAlt className="AdminBlockedIcon" />
-                    <h2>{status === "forbidden" ? "Admins only" : "Something went wrong"}</h2>
-                    <p>{status === "forbidden" ? "Your account does not have access to this page." : "Could not load the admin data. Is the server running?"}</p>
-                    <button className="btn AdminButton" onClick={() => navigate("/dashboard")}>Back to dashboard</button>
-                </div>
+            <div className="ax-card fw-empty">
+                <span className="fw-empty-icon"><FaShieldAlt /></span>
+                <h3>{status === "forbidden" ? "Admins only" : "Something went wrong"}</h3>
+                <p>{status === "forbidden" ? "Your account does not have access to this page." : "Could not load the admin data. Is the server running?"}</p>
+                <button className="fw-btn fw-btn-ghost" onClick={() => navigate("/dashboard")}>Back to overview</button>
             </div>
         )
     }
@@ -216,43 +173,21 @@ export default function AdminDashboard() {
     }
 
     const word = search.trim().toLowerCase()
-
-    const shownRuns = runs.filter((r) => {
-        const text = (r.id + " " + r.question + " " + r.username + " " + r.status + " " + r.verdict).toLowerCase()
-        return text.includes(word)
-    })
-    const shownUsers = users.filter((u) => {
-        const text = (u.name + " " + u.last_name + " " + u.username + " " + u.email).toLowerCase()
-        return text.includes(word)
-    })
-    const shownMessages = messages.filter((m) => {
-        const text = (m.name + " " + m.email + " " + m.topic + " " + m.message).toLowerCase()
-        return text.includes(word)
-    })
+    const shownRuns = runs.filter((r) => (r.id + " " + r.question + " " + r.username + " " + r.status + " " + r.verdict).toLowerCase().includes(word))
+    const shownUsers = users.filter((u) => (u.name + " " + u.last_name + " " + u.username + " " + u.email).toLowerCase().includes(word))
+    const shownMessages = messages.filter((m) => (m.name + " " + m.email + " " + m.topic + " " + m.message).toLowerCase().includes(word))
 
     return (
-        <div className="AdminPage">
-            <Seo title="Admin | Forkwise" noindex />
-            <nav className="AdminNav">
-                <Link to="/" className="AdminBrand">
-                    <img src={Logo} alt="Logo" className="AdminLogo" />
-                    <span>Forkwise</span>
-                    <span className="AdminBadge">Admin</span>
-                </Link>
-                <div className="AdminNavRight">
-                    <button className="btn AdminGhost" onClick={loadAll}><FaSyncAlt /> Refresh</button>
-                    <button className="btn AdminGhost" onClick={() => navigate("/dashboard")}>My dashboard</button>
+        <>
+            <div className="ap-page-head">
+                <div>
+                    <h1 className="ap-title">Admin panel</h1>
+                    <p className="ap-sub">Users, runs and messages in one place.</p>
                 </div>
-            </nav>
-
-            <main className="AdminBody">
-                <div className="AdminHead">
-                    <div>
-                        <p className="AdminEyebrow">Admin panel</p>
-                        <h1 className="AdminTitle">Everything in one place</h1>
-                    </div>
+                <div className="ap-page-actions">
+                    <button className="fw-btn fw-btn-ghost fw-btn-sm" onClick={loadAll}><FaSyncAlt /> Refresh</button>
                     <button
-                        className="btn AdminDanger"
+                        className="fw-btn fw-btn-danger fw-btn-sm"
                         disabled={stats.failed + stats.running === 0}
                         onClick={() => setConfirm({
                             title: "Clean failed runs?",
@@ -263,269 +198,191 @@ export default function AdminDashboard() {
                         <FaBroom /> Clean failed runs
                     </button>
                 </div>
+            </div>
 
-                <section className="AdminStats">
-                    <div className="AdminStat">
-                        <span className="AdminStatIcon AdminIconPurple"><FaUsers /></span>
-                        <div>
-                            <p className="AdminStatLabel">Users</p>
-                            <p className="AdminStatNumber">{stats.users}</p>
-                        </div>
-                    </div>
-                    <div className="AdminStat">
-                        <span className="AdminStatIcon AdminIconBlue"><FaChartBar /></span>
-                        <div>
-                            <p className="AdminStatLabel">Runs</p>
-                            <p className="AdminStatNumber">{stats.runs}</p>
-                        </div>
-                    </div>
-                    <div className="AdminStat">
-                        <span className="AdminStatIcon AdminIconRed"><FaExclamationTriangle /></span>
-                        <div>
-                            <p className="AdminStatLabel">Failed or stuck</p>
-                            <p className="AdminStatNumber">{stats.failed + stats.running}</p>
-                        </div>
-                    </div>
-                    <div className="AdminStat">
-                        <span className="AdminStatIcon AdminIconGreen"><FaEnvelope /></span>
-                        <div>
-                            <p className="AdminStatLabel">Messages</p>
-                            <p className="AdminStatNumber">{stats.messages}</p>
-                        </div>
+            <div className="ax-stats">
+                <div className="ax-stat"><div className="ax-stat-top">Users <FaUsers /></div><b>{stats.users}</b></div>
+                <div className="ax-stat"><div className="ax-stat-top">Runs <FaChartBar /></div><b>{stats.runs}</b></div>
+                <div className="ax-stat"><div className="ax-stat-top">Failed or stuck <FaExclamationTriangle style={{ color: "var(--red)" }} /></div><b>{stats.failed + stats.running}</b></div>
+                <div className="ax-stat"><div className="ax-stat-top">Messages <FaEnvelope /></div><b>{stats.messages}</b></div>
+            </div>
+
+            <div className="ax-grid-half">
+                <section className="ax-card ax-card-pad">
+                    <h2 style={{ fontSize: 15, fontWeight: 600 }}>Runs in the last 14 days</h2>
+                    <div className="ax-bars">
+                        {days.map((d) => (
+                            <div key={d.text} className="ax-bar-col" title={d.text + ": " + d.total + " runs"}>
+                                <b>{d.total > 0 ? d.total : ""}</b>
+                                <div className={d.total > 0 ? "ax-bar" : "ax-bar ax-bar-empty"} style={{ height: d.total > 0 ? (d.total / biggestDay) * 100 + "%" : "2px" }}></div>
+                                <small>{d.label}</small>
+                            </div>
+                        ))}
                     </div>
                 </section>
-
-                <section className="AdminCharts">
-                    <div className="AdminCard">
-                        <p className="AdminCardTitle">Runs in the last 14 days</p>
-                        <div className="AdminBars">
-                            {days.map((d) => (
-                                <div key={d.text} className="AdminBarBox" title={d.text + ": " + d.total + " runs"}>
-                                    <span className="AdminBarNumber">{d.total > 0 ? d.total : ""}</span>
-                                    <div className="AdminBar" style={{ height: (d.total / biggestDay) * 100 + "%" }}></div>
-                                    <span className="AdminBarDay">{d.label}</span>
-                                </div>
-                            ))}
-                        </div>
+                <section className="ax-card ax-card-pad">
+                    <h2 style={{ fontSize: 15, fontWeight: 600, marginBottom: 14 }}>Verdicts of finished runs</h2>
+                    <div className="ax-split">
+                        <span className="c-robust" style={{ width: share(stats.robust) + "%" }}></span>
+                        <span className="c-fragile" style={{ width: share(stats.fragile) + "%" }}></span>
+                        <span className="c-choice" style={{ width: share(stats.choice_dependent) + "%" }}></span>
+                        <span className="c-none" style={{ width: share(stats.no_effect) + "%" }}></span>
                     </div>
-                    <div className="AdminCard">
-                        <p className="AdminCardTitle">Verdicts of finished runs</p>
-                        <div className="AdminSplit">
-                            <span className="AdminSplitGreen" style={{ width: share(stats.robust) + "%" }}></span>
-                            <span className="AdminSplitAmber" style={{ width: share(stats.fragile) + "%" }}></span>
-                            <span className="AdminSplitRed" style={{ width: share(stats.choice_dependent) + "%" }}></span>
-                            <span className="AdminSplitPurple" style={{ width: share(stats.no_effect) + "%" }}></span>
-                        </div>
-                        <div className="AdminSplitRows">
-                            <div><i className="AdminDot AdminSplitGreen"></i>Robust<b>{stats.robust}</b></div>
-                            <div><i className="AdminDot AdminSplitAmber"></i>Fragile<b>{stats.fragile}</b></div>
-                            <div><i className="AdminDot AdminSplitRed"></i>Choice dependent<b>{stats.choice_dependent}</b></div>
-                            <div><i className="AdminDot AdminSplitPurple"></i>No effect<b>{stats.no_effect}</b></div>
-                            <div><i className="AdminDot AdminDotBlue"></i>Running now<b>{stats.running}</b></div>
-                        </div>
+                    <div className="ax-legend">
+                        <div><i className="ax-dot c-robust"></i>Robust<b>{stats.robust}</b></div>
+                        <div><i className="ax-dot c-fragile"></i>Fragile<b>{stats.fragile}</b></div>
+                        <div><i className="ax-dot c-choice"></i>Choice dependent<b>{stats.choice_dependent}</b></div>
+                        <div><i className="ax-dot c-none"></i>No effect<b>{stats.no_effect}</b></div>
+                        <div><i className="ax-dot c-running"></i>Running now<b>{stats.running}</b></div>
                     </div>
                 </section>
+            </div>
 
-                <section className="AdminCard">
-                    <div className="AdminToolbar">
-                        <div className="AdminTabs">
-                            <button className={tab === "runs" ? "AdminTab AdminTabOn" : "AdminTab"} onClick={() => setTab("runs")}>Runs <span>{runs.length}</span></button>
-                            <button className={tab === "users" ? "AdminTab AdminTabOn" : "AdminTab"} onClick={() => setTab("users")}>Users <span>{users.length}</span></button>
-                            <button className={tab === "messages" ? "AdminTab AdminTabOn" : "AdminTab"} onClick={() => setTab("messages")}>Messages <span>{messages.length}</span></button>
-                        </div>
-                        <label className="AdminSearch">
+            <section className="ax-card">
+                <div className="ax-toolbar" style={{ paddingTop: 0, paddingBottom: 0 }}>
+                    <div className="ax-tabs" style={{ borderBottom: "none" }}>
+                        <button className={tab === "runs" ? "ax-tab ax-tab-on" : "ax-tab"} onClick={() => setTab("runs")}>Runs <span>{runs.length}</span></button>
+                        <button className={tab === "users" ? "ax-tab ax-tab-on" : "ax-tab"} onClick={() => setTab("users")}>Users <span>{users.length}</span></button>
+                        <button className={tab === "messages" ? "ax-tab ax-tab-on" : "ax-tab"} onClick={() => setTab("messages")}>Messages <span>{messages.length}</span></button>
+                        <button className={tab === "email" ? "ax-tab ax-tab-on" : "ax-tab"} onClick={() => setTab("email")}>Email users</button>
+                    </div>
+                    {tab !== "email" && (
+                        <div className="fw-input-icon ax-search" style={{ padding: "10px 0" }}>
                             <FaSearch />
-                            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search" />
-                        </label>
+                            <input className="fw-input" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search" aria-label="Search" />
+                        </div>
+                    )}
+                </div>
+
+                {tab === "runs" && (
+                    <div style={{ overflowX: "auto", borderTop: "1px solid var(--line)" }}>
+                        <table className="fw-table">
+                            <thead>
+                                <tr><th>#</th><th>Question</th><th>User</th><th>Result</th><th>Analysts</th><th>Date</th><th></th></tr>
+                            </thead>
+                            <tbody>
+                                {shownRuns.map((r) => (
+                                    <tr key={r.id}>
+                                        <td className="fw-muted fw-mono">{r.id}</td>
+                                        <td style={{ maxWidth: 360, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={r.question}>{r.question}</td>
+                                        <td>{r.username ? r.username : <span className="fw-muted">deleted</span>}</td>
+                                        <td><span className={"fw-badge fw-badge-" + runLabel(r)}>{stateLabel(runLabel(r))}</span></td>
+                                        <td className="fw-muted">{r.analysts === null ? "-" : r.analysts}</td>
+                                        <td className="fw-muted" style={{ whiteSpace: "nowrap" }}>{formatDate(r.created_at)}</td>
+                                        <td style={{ textAlign: "right" }}>
+                                            <button className="fw-icon-btn" aria-label={"Delete run " + r.id} onClick={() => setConfirm({ title: "Delete run #" + r.id + "?", text: "\"" + r.question + "\" and all its analyst results will be deleted.", name: "runs", id: r.id })}><FaTrash /></button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                        {shownRuns.length === 0 && <div className="fw-empty"><p>No runs found.</p></div>}
                     </div>
+                )}
 
-                    {tab === "runs" && (
-                        <div className="AdminTableWrap">
-                            <table className="AdminTable">
-                                <thead>
-                                    <tr>
-                                        <th>#</th>
-                                        <th>Question</th>
-                                        <th>User</th>
-                                        <th>Result</th>
-                                        <th>Analysts</th>
-                                        <th>Date</th>
-                                        <th></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {shownRuns.map((r) => (
-                                        <tr key={r.id}>
-                                            <td className="AdminMuted">{r.id}</td>
-                                            <td className="AdminQuestion" title={r.question}>{r.question}</td>
-                                            <td>{r.username ? r.username : <span className="AdminMuted">deleted</span>}</td>
-                                            <td><span className={runClass(r)}>{runLabel(r)}</span></td>
-                                            <td className="AdminMuted">{r.analysts === null ? "-" : r.analysts}</td>
-                                            <td className="AdminMuted AdminNoWrap">{formatDate(r.created_at)}</td>
-                                            <td className="AdminActions">
-                                                <button
-                                                    className="AdminIconButton"
-                                                    aria-label="Delete run"
-                                                    onClick={() => setConfirm({
-                                                        title: "Delete run #" + r.id + "?",
-                                                        text: "\"" + r.question + "\" and all its analyst results will be deleted.",
-                                                        name: "runs",
-                                                        id: r.id
-                                                    })}
-                                                >
-                                                    <FaTrash />
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                            {shownRuns.length === 0 && <p className="AdminEmpty">No runs found.</p>}
-                        </div>
-                    )}
-
-                    {tab === "users" && (
-                        <div className="AdminTableWrap">
-                            <table className="AdminTable">
-                                <thead>
-                                    <tr>
-                                        <th>User</th>
-                                        <th>Username</th>
-                                        <th>Email</th>
-                                        <th>Runs</th>
-                                        <th>Role</th>
-                                        <th></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {shownUsers.map((u) => (
-                                        <tr key={u.id}>
-                                            <td>
-                                                <div className="AdminPerson">
-                                                    <span className="AdminAvatar">{u.name ? u.name.charAt(0).toUpperCase() : "?"}</span>
-                                                    <span>{u.name} {u.last_name}</span>
-                                                </div>
-                                            </td>
-                                            <td className="AdminMuted">{u.username}</td>
-                                            <td className="AdminMuted">{u.email}</td>
-                                            <td>{u.runs}</td>
-                                            <td>{u.is_admin ? <span className="AdminPill AdminPillPurple">admin</span> : <span className="AdminMuted">user</span>}</td>
-                                            <td className="AdminActions">
-                                                <button
-                                                    className="AdminIconButton"
-                                                    aria-label="Delete user"
-                                                    disabled={u.id === myId}
-                                                    title={u.id === myId ? "You cannot delete yourself" : "Delete user"}
-                                                    onClick={() => setConfirm({
-                                                        title: "Delete " + u.username + "?",
-                                                        text: "The account and all " + u.runs + " of its runs will be deleted. This cannot be undone.",
-                                                        name: "users",
-                                                        id: u.id
-                                                    })}
-                                                >
-                                                    <FaTrash />
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                            {shownUsers.length === 0 && <p className="AdminEmpty">No users found.</p>}
-                        </div>
-                    )}
-
-                    {tab === "messages" && (
-                        <div className="AdminMessages">
-                            {shownMessages.map((m) => (
-                                <div key={m.id} className="AdminMessage">
-                                    <div className="AdminMessageTop">
-                                        <div className="AdminPerson">
-                                            <span className="AdminAvatar">{m.name ? m.name.charAt(0).toUpperCase() : "?"}</span>
-                                            <div>
-                                                <p className="AdminMessageName">{m.name}</p>
-                                                <p className="AdminMuted AdminSmall">{m.email} · {formatDate(m.created_at)}</p>
+                {tab === "users" && (
+                    <div style={{ overflowX: "auto", borderTop: "1px solid var(--line)" }}>
+                        <table className="fw-table">
+                            <thead>
+                                <tr><th>User</th><th>Username</th><th>Email</th><th>Runs</th><th>Role</th><th></th></tr>
+                            </thead>
+                            <tbody>
+                                {shownUsers.map((u) => (
+                                    <tr key={u.id}>
+                                        <td>
+                                            <div className="ad-person">
+                                                <span className="ap-avatar">{u.name ? u.name.charAt(0).toUpperCase() : "?"}</span>
+                                                <span>{u.name} {u.last_name}</span>
                                             </div>
+                                        </td>
+                                        <td className="fw-muted">{u.username}</td>
+                                        <td className="fw-muted">{u.email}</td>
+                                        <td>{u.runs}</td>
+                                        <td>{u.is_admin ? <span className="fw-badge fw-badge-accent fw-badge-plain">admin</span> : <span className="fw-muted">user</span>}</td>
+                                        <td style={{ textAlign: "right" }}>
+                                            <button
+                                                className="fw-icon-btn"
+                                                aria-label={"Delete user " + u.username}
+                                                disabled={u.id === myId}
+                                                title={u.id === myId ? "You cannot delete yourself" : "Delete user"}
+                                                onClick={() => setConfirm({ title: "Delete " + u.username + "?", text: "The account and all " + u.runs + " of its runs will be deleted. This cannot be undone.", name: "users", id: u.id })}
+                                            >
+                                                <FaTrash />
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                        {shownUsers.length === 0 && <div className="fw-empty"><p>No users found.</p></div>}
+                    </div>
+                )}
+
+                {tab === "messages" && (
+                    <div style={{ borderTop: "1px solid var(--line)" }}>
+                        {shownMessages.map((m) => (
+                            <div key={m.id} className="ad-msg">
+                                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                                    <div className="ad-person">
+                                        <span className="ap-avatar">{m.name ? m.name.charAt(0).toUpperCase() : "?"}</span>
+                                        <div>
+                                            <p style={{ color: "#fff", fontWeight: 500 }}>{m.name}</p>
+                                            <p className="fw-muted" style={{ fontSize: 12.5 }}>{m.email} · {formatDate(m.created_at)}</p>
                                         </div>
-                                        <span className="AdminPill AdminPillPurple">{m.topic}</span>
                                     </div>
-                                    <p className="AdminMessageText">{m.message}</p>
-                                    <div className="AdminMessageActions">
-                                        <a className="btn AdminGhost" href={"mailto:" + m.email}><FaReply /> Reply</a>
-                                        <button
-                                            className="btn AdminGhost AdminGhostRed"
-                                            onClick={() => setConfirm({
-                                                title: "Delete this message?",
-                                                text: "The message from " + m.name + " will be deleted.",
-                                                name: "messages",
-                                                id: m.id
-                                            })}
-                                        >
-                                            <FaTrash /> Delete
-                                        </button>
-                                    </div>
+                                    <span className="fw-badge fw-badge-accent fw-badge-plain">{m.topic}</span>
                                 </div>
-                            ))}
-                            {shownMessages.length === 0 && <p className="AdminEmpty">No messages found.</p>}
+                                <p style={{ color: "var(--text-2)", whiteSpace: "pre-wrap" }}>{m.message}</p>
+                                <div style={{ display: "flex", gap: 8 }}>
+                                    <a className="fw-btn fw-btn-ghost fw-btn-sm" href={"mailto:" + m.email}><FaReply /> Reply</a>
+                                    <button className="fw-btn fw-btn-danger fw-btn-sm" onClick={() => setConfirm({ title: "Delete this message?", text: "The message from " + m.name + " will be deleted.", name: "messages", id: m.id })}><FaTrash /> Delete</button>
+                                </div>
+                            </div>
+                        ))}
+                        {shownMessages.length === 0 && <div className="fw-empty"><p>No messages found.</p></div>}
+                    </div>
+                )}
+
+                {tab === "email" && (
+                    <form onSubmit={handleSendEmail} style={{ padding: 22, display: "grid", gap: 14, borderTop: "1px solid var(--line)" }}>
+                        <div className="fw-alert fw-alert-info" style={{ fontSize: 13.5 }}>This sends one email to every registered user. Check the text twice before you send it.</div>
+                        <label className="fw-field">
+                            <span className="fw-label">Subject</span>
+                            <input className="fw-input" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="What is new in Forkwise" />
+                        </label>
+                        <label className="fw-field">
+                            <span className="fw-label">Message (HTML is allowed)</span>
+                            <textarea className="fw-textarea" rows="8" value={emailBody} onChange={(e) => setEmailBody(e.target.value)} placeholder="Write your message" />
+                        </label>
+                        <div>
+                            <button type="submit" className="fw-btn fw-btn-primary" disabled={sendingEmail}><FaPaperPlane /> {sendingEmail ? "Sending..." : "Send to all users"}</button>
                         </div>
-                    )}
-                </section>
-            </main>
+                    </form>
+                )}
+            </section>
 
             {confirm !== null && (
-                <div className="AdminModalBack" onClick={closeModal}>
-                    <div className="AdminModal" onClick={(e) => e.stopPropagation()}>
-                        <span className="AdminModalIcon"><FaTrash /></span>
+                <div className="ax-modal-back" onClick={closeModal}>
+                    <div className="ax-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={confirm.title}>
                         <h3>{confirm.title}</h3>
                         <p>{confirm.text}</p>
-                        <div className="AdminModalButtons">
-                            <button className="btn AdminGhost" disabled={working} onClick={closeModal}>Cancel</button>
-                            <button className="btn AdminDanger" disabled={working} onClick={confirmDelete}>{working ? "Deleting..." : "Delete"}</button>
+                        <div className="ax-modal-actions">
+                            <button className="fw-btn fw-btn-ghost" disabled={working} onClick={closeModal}>Cancel</button>
+                            <button className="fw-btn fw-btn-danger" disabled={working} onClick={confirmDelete}>{working ? "Deleting..." : "Delete"}</button>
                         </div>
                     </div>
                 </div>
             )}
-<section className="AdminCard AdminEmailFormCard">
-    <div className="AdminCardTitle" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-        <FaEnvelope /> Send Direct Email
-    </div>
-    <form onSubmit={handleSendEmail} className="AdminEmailForm">
-        <div className="AdminEmailInputGroup">
-            <label>Recipient Email</label>
-            <input 
-                type="email" 
-                className="AdminEmailInput" 
-                placeholder="example@domain.com" 
-                value={emailTo} 
-                onChange={(e) => setEmailTo(e.target.value)} 
-            />
-        </div>
-        <div className="AdminEmailInputGroup">
-            <label>subject</label>
-            <input 
-                type="text" 
-                className="AdminEmailInput" 
-                placeholder="Mobile android application is ready" 
-                value={subject} 
-                onChange={(e) => setSubject(e.target.value)} 
-            />
-        </div>
-        <div className="AdminEmailInputGroup">
-            <label>Message Content</label>
-            <textarea 
-                className="AdminTextarea" 
-                placeholder="Write your message here..." 
-                value={emailBody} 
-                onChange={(e) => setEmailBody(e.target.value)}
-            />
-        </div>
-        <div className="AdminEmailFooter">
-            <button type="submit" className="btn AdminButton" disabled={sendingEmail}>
-                {sendingEmail ? "Sending..." : "Send Email"}
-            </button>
-        </div>
-    </form>
-</section>
-            {notice !== "" && <div className="AdminNotice">{notice}</div>}
-        </div>
+
+            {notice !== "" && <div className="ax-toast">{notice}</div>}
+        </>
+    )
+}
+
+export default function AdminDashboard() {
+    return (
+        <AppLayout title="Admin" crumbs={[{ label: "Admin panel" }]} noHead wide>
+            <Admin />
+        </AppLayout>
     )
 }

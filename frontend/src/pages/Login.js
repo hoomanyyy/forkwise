@@ -1,12 +1,9 @@
 import React, { useEffect, useState } from "react"
-import "bootstrap/dist/css/bootstrap.min.css"
-import "../styles/Register.css"
-import { FaUser, FaLock, FaEye, FaEyeSlash, FaCheck } from "react-icons/fa"
+import { FaUser, FaLock, FaEye, FaEyeSlash } from "react-icons/fa"
 import { Link, useNavigate } from "react-router-dom"
-import Logo from "../images/logo.svg"
 import Seo from "../components/Seo"
-import { sendLoginRequest } from "../api"
-import { sendAuthRequestWithWebsocket } from "../api"
+import AuthLayout from "../components/site/AuthLayout"
+import { sendLoginRequest, sendAuthRequestWithWebsocket } from "../api"
 
 export default function Login() {
     const navigate = useNavigate()
@@ -17,35 +14,24 @@ export default function Login() {
     const [sending, setSending] = useState(false)
 
     useEffect(() => {
-        function getMe() {
-            sendAuthRequestWithWebsocket(
-                { type: "whoami" },
-                (data) => {
-                    if (data.Message === true) {
-                        navigate("/dashboard")
-                    }
-                }
-            );
-        }
-
-        getMe();
-    }, [navigate]);
-
+        sendAuthRequestWithWebsocket({ type: "whoami" }, (data) => {
+            if (data.Message === true) {
+                navigate("/dashboard")
+            }
+        })
+    }, [navigate])
 
     function HandleSubmit(e) {
         e.preventDefault()
         setError("")
-
         if (username.trim() === "" || password === "") {
             setError("Please write your username and password.")
             return
         }
-
         const data = {
             username: username.trim(),
             password: password
         }
-
         setSending(true)
         sendLoginRequest(data, (res) => {
             setSending(false)
@@ -60,70 +46,48 @@ export default function Login() {
     }
 
     return (
-        <div className="SignupPage">
+        <AuthLayout
+            title="Welcome back. Your analysts are ready."
+            points={["See all your past runs and verdicts", "Chat with any finished analysis", "Start a new analysis in a minute"]}
+        >
             <Seo title="Log in | Forkwise" noindex />
-            <div className="SignupShell">
-                <aside className="SignupSide">
-                    <Link to="/" className="SideBrand">
-                        <img src={Logo} alt="Logo" className="SideLogo" />
-                        <span>Forkwise</span>
-                    </Link>
-                    <h2 className="SideTitle">Welcome back. Your analysts are ready.</h2>
-                    <ul className="SideList">
-                        <li><FaCheck /> See all your past runs</li>
-                        <li><FaCheck /> Explore your data with charts and formulas</li>
-                        <li><FaCheck /> Start a new analysis in a minute</li>
-                    </ul>
-                    <p className="SideNote">A-ISPC 2026 project</p>
-                </aside>
+            <form className="au-form" onSubmit={HandleSubmit} noValidate>
+                <h1>Log in to Forkwise</h1>
+                <p>Use your email or username.</p>
 
-                <form className="SignupCard LoginCard" onSubmit={HandleSubmit} noValidate>
-                    <h3 className="SignupTitle">Log in</h3>
-                    <p className="SignupSubtitle">Use your email or username.</p>
-
-                    <label className="SignupField">
-                        <span>Email or username</span>
-                        <div className="IconInput">
-                            <FaUser className="FieldIcon" />
-                            <input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="sara_data" autoFocus />
-                        </div>
-                    </label>
-
-                    <label className="SignupField">
-                        <span>Password</span>
-                        <div className="IconInput">
-                            <FaLock className="FieldIcon" />
-                            <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Your password" />
-                            <button type="button" className="EyeButton" onClick={() => setShowPassword(!showPassword)} aria-label="Show password">
-                                {showPassword ? <FaEyeSlash /> : <FaEye />}
-                            </button>
-                        </div>
-                    </label>
-
-                    <div className="SignupForgot">
-                        <Link to="/forgot-password">Forgot your password?</Link>
+                <label className="fw-field">
+                    <span className="fw-label">Email or username</span>
+                    <div className="fw-input-icon">
+                        <FaUser />
+                        <input className="fw-input" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="sara_data" autoComplete="username" autoFocus />
                     </div>
+                </label>
 
-                    {error !== "" && <div className="SignupError">{error}</div>}
+                <label className="fw-field">
+                    <span className="fw-label">Password</span>
+                    <div className="fw-input-icon">
+                        <FaLock />
+                        <input className="fw-input" type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Your password" autoComplete="current-password" />
+                        <button type="button" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? "Hide password" : "Show password"}>
+                            {showPassword ? <FaEyeSlash /> : <FaEye />}
+                        </button>
+                    </div>
+                </label>
 
-                    <button
-                        type="submit"
-                        className="SignupButton"
-                        disabled={sending}
-                        onMouseMove={(e) => {
-                            const box = e.currentTarget.getBoundingClientRect()
-                            e.currentTarget.style.setProperty("--x", e.clientX - box.left + "px")
-                            e.currentTarget.style.setProperty("--y", e.clientY - box.top + "px")
-                        }}
-                    >
-                        {sending ? "Logging in..." : "Log in"}
-                    </button>
+                <div className="au-forgot">
+                    <Link to="/forgot-password">Forgot your password?</Link>
+                </div>
 
-                    <p className="SignupFooter">
-                        Don't have an account? <Link to="/register">Create an account</Link>
-                    </p>
-                </form>
-            </div>
-        </div>
+                {error !== "" && <div className="fw-alert fw-alert-error">{error}</div>}
+
+                <button type="submit" className="fw-btn fw-btn-primary fw-btn-lg fw-btn-block" disabled={sending}>
+                    {sending ? "Logging in..." : "Log in"}
+                </button>
+
+                <p className="au-foot">
+                    Don't have an account? <Link to="/register">Create one for free</Link>
+                </p>
+            </form>
+        </AuthLayout>
     )
 }
