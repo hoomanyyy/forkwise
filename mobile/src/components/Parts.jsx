@@ -1,13 +1,14 @@
 import React from "react"
-import { FiHome, FiPlusCircle, FiClock, FiUser, FiChevronRight, FiArrowLeft } from "react-icons/fi"
+import { FiHome, FiPlus, FiClock, FiUser, FiChevronRight, FiArrowLeft, FiMessageCircle } from "react-icons/fi"
 import { verdictInfo, shortDate } from "../verdicts"
 import { tap } from "../native"
 import "../styles/Parts.css"
 
 const TABS = [
     { id: "home", label: "Home", icon: FiHome },
-    { id: "new", label: "Analyze", icon: FiPlusCircle },
-    { id: "history", label: "History", icon: FiClock },
+    { id: "history", label: "Runs", icon: FiClock },
+    { id: "new", label: "New", icon: FiPlus, main: true },
+    { id: "assistant", label: "Assistant", icon: FiMessageCircle },
     { id: "profile", label: "Profile", icon: FiUser }
 ]
 
@@ -17,10 +18,15 @@ export function BottomNav({ tab, onChange }) {
             {TABS.map((t) => {
                 const Icon = t.icon
                 const on = tab === t.id
+                let name = on ? "NavItem NavItemOn" : "NavItem"
+                if (t.main) {
+                    name = name + " NavItemMain"
+                }
                 return (
                     <button
                         key={t.id}
-                        className={on ? "NavItem NavItemOn" : "NavItem"}
+                        className={name}
+                        aria-label={t.label}
                         onClick={() => {
                             tap()
                             onChange(t.id)
@@ -97,11 +103,11 @@ export function UsageRing({ usage, size }) {
         <svg width={box} height={box} viewBox={"0 0 " + box + " " + box} className="RingSvg">
             <defs>
                 <linearGradient id="RingGradient" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0" stopColor="#8b7bff" />
+                    <stop offset="0" stopColor="#9d90ff" />
                     <stop offset="1" stopColor="#3fb6f5" />
                 </linearGradient>
             </defs>
-            <circle cx={box / 2} cy={box / 2} r={radius} fill="none" stroke="#22274a" strokeWidth={stroke} />
+            <circle cx={box / 2} cy={box / 2} r={radius} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={stroke} />
             <circle
                 cx={box / 2}
                 cy={box / 2}
@@ -159,15 +165,15 @@ export function SpecCurve({ analysts }) {
         <svg viewBox={"0 0 " + width + " " + height} className="ChartSvg">
             {ticks.map((t, i) => (
                 <g key={i}>
-                    <line x1={left} x2={width - right} y1={y(t)} y2={y(t)} stroke="#1c2142" />
+                    <line x1={left} x2={width - right} y1={y(t)} y2={y(t)} stroke="rgba(255,255,255,0.06)" />
                     <text x={left - 6} y={y(t)} textAnchor="end" dominantBaseline="middle" className="ChartTick">{formatNumber(t)}</text>
                 </g>
             ))}
             <line x1={left} x2={width - right} y1={y(0)} y2={y(0)} stroke="#6f7499" strokeWidth="1.2" />
-            <line x1={left} x2={width - right} y1={y(middle)} y2={y(middle)} stroke="#a99cff" strokeDasharray="5 4" />
+            <line x1={left} x2={width - right} y1={y(middle)} y2={y(middle)} stroke="#3fb6f5" strokeDasharray="5 4" />
             <text x={width - right} y={y(middle) - 7} textAnchor="end" className="ChartMiddle">middle {formatNumber(middle)}</text>
             {points.map((p, i) => (
-                <circle key={i} cx={x(i)} cy={y(p.effect)} r={points.length > 40 ? 3 : 5} fill={p.p < 0.05 ? "#4ade80" : "#6f7499"} />
+                <circle key={i} cx={x(i)} cy={y(p.effect)} r={points.length > 40 ? 3 : 5} fill={p.p < 0.05 ? "#34d399" : "#5e6389"} />
             ))}
             <text x={left} y={height - 6} className="ChartTick">smallest effect</text>
             <text x={width - right} y={height - 6} textAnchor="end" className="ChartTick">largest effect</text>
@@ -228,12 +234,12 @@ export function ScatterChart({ chart, outcome, mainVariable }) {
 
     return (
         <svg viewBox={"0 0 " + width + " " + height} className="ChartSvg">
-            <line x1={left} x2={width - right} y1={height - bottom} y2={height - bottom} stroke="#22274a" />
-            <line x1={left} x2={left} y1={top} y2={height - bottom} stroke="#22274a" />
+            <line x1={left} x2={width - right} y1={height - bottom} y2={height - bottom} stroke="rgba(255,255,255,0.1)" />
+            <line x1={left} x2={left} y1={top} y2={height - bottom} stroke="rgba(255,255,255,0.1)" />
             {rows.map((r, i) => (
                 <circle key={i} cx={px(r[xi])} cy={py(r[yi])} r="2.6" fill="#3fb6f5" opacity="0.55" />
             ))}
-            <line x1={px(xMin)} y1={py(start)} x2={px(xMax)} y2={py(end)} stroke="#a99cff" strokeWidth="2.4" />
+            <line x1={px(xMin)} y1={py(start)} x2={px(xMax)} y2={py(end)} stroke="#9d90ff" strokeWidth="2.4" />
             <text x={left - 6} y={top + 4} textAnchor="end" className="ChartTick">{formatNumber(yMax)}</text>
             <text x={left - 6} y={height - bottom} textAnchor="end" className="ChartTick">{formatNumber(yMin)}</text>
             <text x={left} y={height - bottom + 14} className="ChartTick">{formatNumber(xMin)}</text>

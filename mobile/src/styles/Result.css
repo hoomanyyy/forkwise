@@ -31,7 +31,7 @@
     border-radius: 12px;
     padding: 6px 12px 6px 6px;
     font-size: 13px;
-    color: #d6d8ea;
+    color: #b4b8d6;
     max-width: 100%;
     overflow-wrap: anywhere;
 }
@@ -42,8 +42,8 @@
     height: 24px;
     border-radius: 8px;
     background: var(--accent-soft);
-    color: #c4baff;
-    font-weight: 700;
+    color: #9d90ff;
+    font-weight: 600;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -73,7 +73,7 @@
 
 .ResHeroText {
     margin: 0;
-    color: #d6d8ea;
+    color: #b4b8d6;
     font-size: 15px;
     line-height: 1.55;
 }
@@ -143,7 +143,7 @@
     height: 34px;
     border-radius: 10px;
     background: var(--surface-2);
-    color: #c4baff;
+    color: #9d90ff;
     font-size: 13px;
     font-weight: 600;
     display: flex;
@@ -221,4 +221,49 @@
     line-height: 1.5;
     text-align: center;
     margin: 18px 12px 8px;
+}
+
+.ResAsk {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px;
+    margin: 0 0 14px;
+    border-radius: 16px;
+    border: 1px solid rgba(124, 108, 255, 0.4);
+    background: radial-gradient(220px 120px at 0% 0%, rgba(124, 108, 255, 0.25), transparent 70%), var(--surface);
+    color: var(--text);
+    text-align: left;
+}
+
+.ResAsk > span:first-child {
+    flex: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #8b7bff, #3fb6f5);
+    color: #ffffff;
+    font-size: 18px;
+}
+
+.ResAskText {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.ResAskText b {
+    color: #ffffff;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.ResAskText small {
+    color: var(--text-2);
+    font-size: 12.5px;
 }

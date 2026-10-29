@@ -148,3 +148,49 @@ export function sendAuthMessage(data) {
 }
 
 export const WEBSITE = "https://forkwiseai.com"
+
+export async function getChatHistory(runId) {
+    try {
+        return await request("/api/chat/" + runId)
+    } catch (e) {
+        return { Message: false, Error: true }
+    }
+}
+
+export async function sendChat(runId, text) {
+    try {
+        const data = await request("/api/chat/generate", { method: "POST", json: { run_id: runId, user_prompt: text } })
+        if (data.ok === true) {
+            return { ok: true, text: data.model_output }
+        }
+        return { ok: false, error: data.detail || "Something went wrong.", upgrade: data.upgrade === true }
+    } catch (e) {
+        return { ok: false, error: "Could not connect to the server. Check your internet." }
+    }
+}
+
+export async function getPlans() {
+    try {
+        return await request("/api/plans")
+    } catch (e) {
+        return { Message: false, Error: true }
+    }
+}
+
+export async function createInvoice(planId) {
+    try {
+        return await request("/api/create/invoice", { method: "POST", json: { plan_id: planId } })
+    } catch (e) {
+        return { Message: false, Error: true, detail: "Could not connect to the server." }
+    }
+}
+
+export async function getInvoices() {
+    try {
+        return await request("/api/get/invoices")
+    } catch (e) {
+        return { Message: false, Error: true }
+    }
+}
+
+export const APP_VERSION = "1.1.0"

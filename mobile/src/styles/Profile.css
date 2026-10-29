@@ -13,13 +13,13 @@
     align-items: center;
     justify-content: center;
     font-size: 34px;
-    font-weight: 700;
+    font-weight: 600;
     box-shadow: 0 10px 30px rgba(124, 108, 255, 0.35);
 }
 
 .ProfName {
     font-size: 22px;
-    font-weight: 700;
+    font-weight: 600;
     margin: 0 0 2px;
 }
 
@@ -86,7 +86,7 @@
     height: 36px;
     border-radius: 11px;
     background: var(--accent-soft);
-    color: #c4baff;
+    color: #9d90ff;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -127,4 +127,20 @@
     color: var(--faint);
     font-size: 12px;
     margin-top: 18px;
+}
+
+.ProfUsage .AppEyebrow {
+    display: block;
+    margin-bottom: 2px;
+}
+
+.ProfUsage b {
+    display: block;
+    color: #ffffff;
+    font-weight: 600;
+}
+
+.ProfName,
+.ProfAvatar {
+    font-weight: 600;
 }

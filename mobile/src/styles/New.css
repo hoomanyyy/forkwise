@@ -22,7 +22,7 @@
 
 .NewTitle {
     font-size: 24px;
-    font-weight: 700;
+    font-weight: 600;
     margin: 0 4px 6px;
 }
 
@@ -39,7 +39,7 @@
     align-items: center;
     gap: 6px;
     padding: 34px 16px;
-    border: 2px dashed #3a3480;
+    border: 2px dashed rgba(124, 108, 255, 0.45);
     border-radius: 22px;
     background: rgba(124, 108, 255, 0.06);
     text-align: center;
@@ -55,7 +55,7 @@
 
 .NewDropIcon {
     font-size: 40px;
-    color: #a99cff;
+    color: #9d90ff;
     margin-bottom: 6px;
 }
 
@@ -83,7 +83,7 @@
     height: 44px;
     border-radius: 12px;
     background: var(--accent-soft);
-    color: #c4baff;
+    color: #9d90ff;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -184,7 +184,7 @@
     position: absolute;
     inset: 0;
     border-radius: 50%;
-    border: 2px dashed #2f2870;
+    border: 2px dashed rgba(124, 108, 255, 0.3);
 }
 
 .NewOrbitDot {
@@ -197,7 +197,7 @@
 .NewDot1 {
     top: -8px;
     left: 67px;
-    background: #4ade80;
+    background: #34d399;
 }
 
 .NewDot2 {
@@ -228,12 +228,12 @@
 
 .NewRunningTitle {
     font-size: 22px;
-    font-weight: 700;
+    font-weight: 600;
     margin: 0 0 12px;
 }
 
 .NewRunningTip {
-    color: #c4baff;
+    color: #9d90ff;
     font-size: 15px;
     min-height: 44px;
     max-width: 300px;
@@ -246,4 +246,44 @@
     color: var(--faint);
     font-size: 13px;
     margin-top: 20px;
+}
+
+.NewSamples {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.NewSamples button {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    padding: 14px;
+    border-radius: 16px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--text);
+    text-align: left;
+}
+
+.NewSamples button:active {
+    border-color: rgba(124, 108, 255, 0.5);
+}
+
+.NewSamples svg {
+    color: var(--accent-2);
+    font-size: 18px;
+    margin-bottom: 4px;
+}
+
+.NewSamples b {
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.NewSamples small {
+    color: var(--muted);
+    font-size: 12px;
 }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react"
-import { FiRefreshCw, FiChevronDown, FiChevronUp } from "react-icons/fi"
+import { FiRefreshCw, FiChevronDown, FiChevronUp, FiMessageCircle } from "react-icons/fi"
 import { TopBar, SpecCurve, ScatterChart, formatNumber } from "../components/Parts"
 import { getRun } from "../api"
 import { verdictInfo } from "../verdicts"
@@ -18,7 +18,7 @@ function AnalystCard({ a }) {
             <button className="ResAnalystHead" onClick={() => { tap(); setOpen(!open) }}>
                 <span className="ResAnalystNo">#{a.analyst_number}</span>
                 <span className="ResAnalystMain">
-                    <b style={{ color: a.effect === null ? "#8a8fb0" : a.effect >= 0 ? "#4ade80" : "#f87171" }}>
+                    <b style={{ color: a.effect === null ? "#7f84a8" : a.effect >= 0 ? "#34d399" : "#f87171" }}>
                         {a.effect === null ? "No result" : (a.effect > 0 ? "+" : "") + formatNumber(a.effect)}
                     </b>
                     <small>{a.p_value === null ? "" : (a.p_value < 0.001 ? "p < 0.001" : "p = " + formatNumber(a.p_value)) + (real ? " · real effect" : " · not significant")}</small>
@@ -44,7 +44,7 @@ function AnalystCard({ a }) {
     )
 }
 
-export default function ResultPage({ runId, onBack }) {
+export default function ResultPage({ runId, onBack, onAsk }) {
     const [run, setRun] = useState(null)
     const [analysts, setAnalysts] = useState([])
     const [loading, setLoading] = useState(true)
@@ -104,6 +104,16 @@ export default function ResultPage({ runId, onBack }) {
                         <h2 className="ResHeroVerdict" style={{ color: info.color }}>{info.label}</h2>
                         <p className="ResHeroText">{info.text}</p>
                     </section>
+
+                    {run.status === "complete" && onAsk && (
+                        <button className="ResAsk" onClick={() => { tap(); onAsk(run) }}>
+                            <span><FiMessageCircle /></span>
+                            <span className="ResAskText">
+                                <b>Ask the Assistant</b>
+                                <small>Explain this result, compare analysts, draw a chart</small>
+                            </span>
+                        </button>
+                    )}
 
                     {run.status === "complete" && (
                         <div className="ResStats">

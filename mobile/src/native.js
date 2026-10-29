@@ -49,3 +49,17 @@ export function exitApp() {
 export function openLink(url) {
     window.open(url, "_blank")
 }
+
+export function onResume(handler) {
+    if (!isNative) {
+        return () => {}
+    }
+    const listener = App.addListener("appStateChange", (state) => {
+        if (state.isActive) {
+            handler()
+        }
+    })
+    return () => {
+        listener.then((l) => l.remove())
+    }
+}

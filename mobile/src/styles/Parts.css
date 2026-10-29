@@ -4,9 +4,11 @@
     right: 0;
     bottom: 0;
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    background: rgba(15, 18, 40, 0.96);
-    backdrop-filter: blur(12px);
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    align-items: end;
+    background: rgba(10, 13, 28, 0.92);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
     border-top: 1px solid var(--line);
     padding: 8px 6px calc(var(--safe-bottom) + 8px);
     z-index: 20;
@@ -24,18 +26,18 @@
 }
 
 .NavPill {
-    width: 60px;
-    height: 32px;
-    border-radius: 16px;
+    width: 54px;
+    height: 30px;
+    border-radius: 15px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 21px;
+    font-size: 20px;
     transition: background 0.2s, color 0.2s;
 }
 
 .NavLabel {
-    font-size: 12px;
+    font-size: 11.5px;
     font-weight: 500;
 }
 
@@ -45,7 +47,23 @@
 
 .NavItemOn .NavPill {
     background: var(--accent-soft);
-    color: #c4baff;
+    color: var(--accent-2);
+}
+
+.NavItemMain .NavPill {
+    width: 52px;
+    height: 52px;
+    border-radius: 18px;
+    margin-top: -22px;
+    background: linear-gradient(135deg, #8b7bff, #5f50e8);
+    color: #ffffff;
+    font-size: 24px;
+    box-shadow: 0 10px 26px rgba(124, 108, 255, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+.NavItemMain.NavItemOn .NavPill {
+    background: linear-gradient(135deg, #9d90ff, #7c6cff);
+    color: #ffffff;
 }
 
 .RunRow {
@@ -56,7 +74,7 @@
     text-align: left;
     background: var(--surface);
     border: 1px solid var(--line);
-    border-radius: 18px;
+    border-radius: 16px;
     padding: 14px 12px 14px 16px;
     margin-bottom: 10px;
     color: var(--text);
@@ -76,6 +94,7 @@
     font-size: 15px;
     font-weight: 500;
     line-height: 1.4;
+    color: #ffffff;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
@@ -88,7 +107,8 @@
     gap: 10px;
     flex-wrap: wrap;
     font-size: 12px;
-    color: var(--faint);
+    color: var(--muted);
+    font-family: var(--mono);
 }
 
 .RunArrow {
@@ -104,34 +124,40 @@
 .RingBig {
     fill: #ffffff;
     font-size: 26px;
-    font-weight: 700;
+    font-weight: 600;
+    font-family: var(--font);
 }
 
 .RingSmall {
     fill: var(--muted);
     font-size: 11px;
+    font-family: var(--mono);
 }
 
 .ChartSvg {
     width: 100%;
     height: auto;
     display: block;
+    border-radius: 12px;
+    background: #0d1027;
 }
 
 .ChartTick {
-    fill: var(--faint);
+    fill: var(--muted);
     font-size: 10px;
+    font-family: var(--mono);
 }
 
 .ChartAxis {
-    fill: var(--muted);
+    fill: var(--text-2);
     font-size: 11px;
 }
 
 .ChartMiddle {
-    fill: #a99cff;
+    fill: var(--blue);
     font-size: 10px;
-    font-weight: 600;
+    font-weight: 500;
+    font-family: var(--mono);
 }
 
 .ChartEmpty {

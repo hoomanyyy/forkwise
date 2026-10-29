@@ -33,7 +33,7 @@ export default function HistoryPage({ runs, loading, onRefresh, onOpenRun }) {
     return (
         <div className="AppScreen AppScreenWithBar AppFadeIn">
             <TopBar
-                title="History"
+                title="Runs"
                 right={
                     <button className={loading ? "AppIconButton HistSpin" : "AppIconButton"} onClick={() => { tap(); onRefresh() }} aria-label="Refresh">
                         <FiRefreshCw />

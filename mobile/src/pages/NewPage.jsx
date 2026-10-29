@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react"
-import { FiUploadCloud, FiFileText, FiX, FiCoffee, FiCpu } from "react-icons/fi"
+import { FiUploadCloud, FiFileText, FiX, FiCoffee, FiCpu, FiBookOpen } from "react-icons/fi"
 import { TopBar } from "../components/Parts"
 import { startAnalysis } from "../api"
 import { tap } from "../native"
@@ -21,6 +21,27 @@ const MISSING = [
 ]
 
 const ANALYSTS = ["10", "25", "50", "100"]
+
+const SAMPLES = {
+    coffee: {
+        file: "coffee-heart.csv",
+        rowMeaning: "One adult person",
+        description: "Health survey of 500 adults aged 30 to 75. It has daily coffee cups, cigarettes per day, weekly exercise hours, BMI and a heart risk score.",
+        question: "Does drinking more coffee increase heart risk?",
+        outcome: "heart risk score",
+        mainVariable: "coffee cups per day",
+        expectation: "increase"
+    },
+    study: {
+        file: "study-hours.csv",
+        rowMeaning: "One student",
+        description: "400 students with age, weekly study hours, sleep hours, attendance percent and exam score. A few study hour values are impossible typing mistakes.",
+        question: "Do students who study more get higher exam scores?",
+        outcome: "exam score",
+        mainVariable: "study hours per week",
+        expectation: "increase"
+    }
+}
 
 const TIPS = [
     "Each AI analyst is choosing its own control variables...",
@@ -49,7 +70,7 @@ export default function NewPage({ usage, example, onExampleUsed, onFinished, onU
         if (!example) {
             return
         }
-        loadExample()
+        loadExample("coffee")
         onExampleUsed()
     }, [example])
 
@@ -61,19 +82,20 @@ export default function NewPage({ usage, example, onExampleUsed, onFinished, onU
         return () => clearInterval(timer)
     }, [running])
 
-    async function loadExample() {
+    async function loadExample(name) {
         setError("")
+        const sample = SAMPLES[name]
         try {
-            const response = await fetch("./examples/coffee-heart.csv")
+            const response = await fetch("./examples/" + sample.file)
             const blob = await response.blob()
-            setFile(new File([blob], "coffee-heart.csv", { type: "text/csv" }))
-            setRowMeaning("One adult person")
-            setDescription("Health survey of 500 adults aged 30 to 75. It has daily coffee cups, cigarettes per day, weekly exercise hours, BMI and a heart risk score.")
+            setFile(new File([blob], sample.file, { type: "text/csv" }))
+            setRowMeaning(sample.rowMeaning)
+            setDescription(sample.description)
             setMissing("empty")
-            setQuestion("Does drinking more coffee increase heart risk?")
-            setOutcome("heart risk score")
-            setMainVariable("coffee cups per day")
-            setExpectation("increase")
+            setQuestion(sample.question)
+            setOutcome(sample.outcome)
+            setMainVariable(sample.mainVariable)
+            setExpectation(sample.expectation)
             setAnalysts("10")
             setStep(1)
         } catch (e) {
@@ -178,6 +200,10 @@ export default function NewPage({ usage, example, onExampleUsed, onFinished, onU
     }
 
     const noneLeft = usage && !usage.unlimited && usage.left <= 0
+    let maxAnalysts = 100
+    if (usage && !usage.unlimited && usage.plan && usage.plan.max_analysts) {
+        maxAnalysts = Number(usage.plan.max_analysts)
+    }
 
     if (running) {
         return (
@@ -236,9 +262,19 @@ export default function NewPage({ usage, example, onExampleUsed, onFinished, onU
                         </label>
                     )}
 
-                    <button className="NewExampleLink" onClick={() => { tap(); loadExample() }}>
-                        <FiCoffee /> Use the coffee example instead
-                    </button>
+                    <p className="AppLabel" style={{ marginTop: 18 }}>Or start from a sample</p>
+                    <div className="NewSamples">
+                        <button onClick={() => { tap(); loadExample("coffee") }}>
+                            <FiCoffee />
+                            <b>Coffee and heart risk</b>
+                            <small>500 adults · a hidden trap</small>
+                        </button>
+                        <button onClick={() => { tap(); loadExample("study") }}>
+                            <FiBookOpen />
+                            <b>Study hours and exams</b>
+                            <small>400 students · some outliers</small>
+                        </button>
+                    </div>
                 </div>
             )}
 
@@ -287,10 +323,10 @@ export default function NewPage({ usage, example, onExampleUsed, onFinished, onU
                     <span className="AppLabel">Number of AI analysts</span>
                     <div className="NewGrid NewGrid4">
                         {ANALYSTS.map((a) => (
-                            <button key={a} className={analysts === a ? "AppChip AppChipOn" : "AppChip"} onClick={() => setAnalysts(a)}>{a}</button>
+                            <button key={a} className={analysts === a ? "AppChip AppChipOn" : "AppChip"} onClick={() => setAnalysts(a)} disabled={Number(a) > maxAnalysts}>{a}</button>
                         ))}
                     </div>
-                    <p className="NewHint">More analysts give a more reliable verdict, but take longer.</p>
+                    <p className="NewHint">More analysts give a more reliable verdict, but take longer.{maxAnalysts < 100 ? " Your plan allows up to " + maxAnalysts + "." : ""}</p>
                 </div>
             )}
 
