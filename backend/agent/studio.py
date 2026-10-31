@@ -2,6 +2,7 @@ import os
 import json
 import time
 import shutil
+import base64
 import threading
 import requests
 from dotenv import load_dotenv
@@ -18,6 +19,9 @@ SLOTS = int(os.getenv("STUDIO_SLOTS", "3"))
 API_URL = os.getenv("FORKWISE_API_URL", "https://api.forkwiseai.com").rstrip("/")
 WORKER_KEY = os.getenv("WORKER_KEY", "")
 MAX_SHARE_MB = int(os.getenv("STUDIO_MAX_SHARE_MB", "500"))
+VISION = os.getenv("AGENT_VISION", "false") == "true"
+MAX_IMAGE_BYTES = 4 * 1024 * 1024
+MAX_RETRY_NUDGES = 3
 UPLOADS = "/home/agent/uploads"
 OUTPUTS = "/home/agent/outputs"
 INSTALL_STARTS = ["pip ", "pip3 ", "python -m pip ", "python3 -m pip ", "npm ", "yarn ", "pnpm ", "poetry ", "uv "]
@@ -82,11 +86,12 @@ EXTRA_TOOLS = [
 SYSTEM_PROMPT = """You are Forkwise Studio, a senior software engineer and media editor who builds, fixes, edits and explains things together with the user.
 
 Language:
-- Always answer in the language of the user's last message. If the user writes in Persian, answer in Persian. Code, file names and commands stay in English.
+- Always answer in the language of the user's last message. If the user writes in Persian, answer in fluent Persian. Code, file names and commands stay in English.
+- Use only that language. Never mix in words or letters from other languages, such as Russian, Spanish or Vietnamese.
 
 Where files go:
 - The project lives in /workspace. Every code file, website page, stylesheet, script or document you create or change goes in /workspace, for example /workspace/index.html. The user sees these files in the Changes, Preview and Files panels and can download the whole project.
-- Files the user uploads are in /home/agent/uploads.
+- Files the user uploads are in /home/agent/uploads. The exact list is at the end of these instructions. Never guess a file name; if you are not sure, run ls /home/agent/uploads first.
 - Media you make, like a video, an image or a sound file, goes in /home/agent/outputs. Give it to the user with share_file.
 
 Where you work:
@@ -103,6 +108,7 @@ Code:
 5. Run what you built. Run the tests, or write a quick check if there are none.
 6. When something fails, debug it: reproduce the problem, read the whole error, find the cause, fix it, run it again.
 7. If you do not know a library or an error, search for it instead of guessing.
+8. If a step fails, do not give up and do not ask the user to fix it. Read the error, fix the cause and try again. Try at least three different fixes before you say something is impossible.
 
 Video, audio and images:
 - Use ffprobe to look at a file first, then ffmpeg to cut, join, resize, crop, change speed, add music, add text or subtitles, convert, or extract frames and sound.
@@ -213,6 +219,33 @@ def stop_box(session_id):
     studio_db.update_session(session_id, {"box": "stopped"})
 
 
+def internal_client():
+    client = requests.Session()
+    client.trust_env = False
+    return client
+
+
+def fetch_upload(item, local_path):
+    full = studio_db.get_file(item["id"])
+    if full is not None and os.path.exists(full["path"]):
+        shutil.copyfile(full["path"], local_path)
+        return None
+    try:
+        response = internal_client().get(API_URL + "/internal/studio/files/" + str(item["id"]),
+                                         headers={"X-Worker-Key": WORKER_KEY}, stream=True, timeout=600)
+    except Exception as e:
+        return "the API server could not be reached (" + str(e)[:150] + ")"
+    if response.status_code == 403:
+        return "the API server refused the worker. WORKER_KEY must be the same on the API server and the worker"
+    if response.status_code != 200:
+        return "the API server answered with status " + str(response.status_code)
+    out = open(local_path, "wb")
+    for chunk in response.iter_content(1024 * 1024):
+        out.write(chunk)
+    out.close()
+    return None
+
+
 def sync_uploads(session_id, box):
     uploads = studio_db.list_files(session_id, "upload")
     if len(uploads) == 0:
@@ -227,21 +260,47 @@ def sync_uploads(session_id, box):
         os.makedirs(folder, exist_ok=True)
         local_path = os.path.join(folder, item["name"])
         try:
-            response = requests.get(API_URL + "/internal/studio/files/" + str(item["id"]),
-                                    headers={"X-Worker-Key": WORKER_KEY}, stream=True, timeout=600)
-            if response.status_code != 200:
-                studio_db.add_message(session_id, "error", "Could not get the uploaded file " + item["name"])
-                continue
-            out = open(local_path, "wb")
-            for chunk in response.iter_content(1024 * 1024):
-                out.write(chunk)
-            out.close()
-            problem = sandbox.copy_file_in(box, local_path, UPLOADS)
+            problem = fetch_upload(item, local_path)
+            if problem is None:
+                problem = sandbox.copy_file_in(box, local_path, UPLOADS)
             if problem:
-                studio_db.add_message(session_id, "error", problem)
+                studio_db.add_message(session_id, "error", "Could not get the uploaded file " + item["name"] + ": " + problem)
         except Exception as e:
             studio_db.add_message(session_id, "error", "Could not get the uploaded file " + item["name"] + ": " + str(e)[:200])
         shutil.rmtree(folder, ignore_errors=True)
+
+
+def image_data_url(item):
+    name = item["name"].lower()
+    kinds = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp", ".gif": "image/gif"}
+    kind = None
+    for ending in kinds:
+        if name.endswith(ending):
+            kind = kinds[ending]
+    if kind is None or (item.get("size") or 0) > MAX_IMAGE_BYTES:
+        return None
+    folder = os.path.join(sandbox.WORK_DIR, "vision")
+    os.makedirs(folder, exist_ok=True)
+    local_path = os.path.join(folder, str(item["id"]) + "_" + os.path.basename(item["name"]))
+    if not os.path.exists(local_path):
+        try:
+            if fetch_upload(item, local_path) is not None:
+                return None
+        except Exception:
+            return None
+    data = open(local_path, "rb").read()
+    return "data:" + kind + ";base64," + base64.b64encode(data).decode("ascii")
+
+
+def uploads_note(session_id):
+    uploads = studio_db.list_files(session_id, "upload")
+    if len(uploads) == 0:
+        return "The user has not uploaded any files in this chat."
+    lines = ["Files the user uploaded in this chat (use these exact paths):"]
+    for item in uploads:
+        megabytes = round((item.get("size") or 0) / (1024 * 1024), 2)
+        lines.append("- " + UPLOADS + "/" + item["name"] + " (" + str(megabytes) + " MB)")
+    return "\n".join(lines)
 
 
 def share_file(session_id, box, path):
@@ -255,7 +314,7 @@ def share_file(session_id, box, path):
         return "Could not read " + path
     name = os.path.basename(path)
     try:
-        response = requests.post(API_URL + "/internal/studio/sessions/" + str(session_id) + "/outputs",
+        response = internal_client().post(API_URL + "/internal/studio/sessions/" + str(session_id) + "/outputs",
                                  headers={"X-Worker-Key": WORKER_KEY},
                                  files={"file": (name, data)}, timeout=600)
         answer = response.json()
@@ -269,11 +328,16 @@ def share_file(session_id, box, path):
     return "Shared with the user as a download: " + name
 
 
-def build_history(rows):
+def build_history(rows, session_id):
     answered = []
     for row in rows:
         if row["role"] == "tool" and row["call_id"]:
             answered.append(row["call_id"])
+
+    images = {}
+    if VISION:
+        for item in studio_db.list_files(session_id, "upload"):
+            images[item["name"]] = item
 
     messages = []
     for row in rows:
@@ -284,7 +348,16 @@ def build_history(rows):
             if info.get("kind") == "upload":
                 megabytes = round((info.get("size") or 0) / (1024 * 1024), 2)
                 text = "[The user uploaded a file: " + UPLOADS + "/" + str(info.get("name")) + " (" + str(megabytes) + " MB)]"
-                messages.append({"role": "user", "content": text})
+                url = None
+                if info.get("name") in images:
+                    url = image_data_url(images[info.get("name")])
+                if url is None:
+                    messages.append({"role": "user", "content": text})
+                else:
+                    messages.append({"role": "user", "content": [
+                        {"type": "text", "text": text},
+                        {"type": "image_url", "image_url": {"url": url}}
+                    ]})
         elif row["role"] == "assistant":
             message = {"role": "assistant", "content": row["content"] or ""}
             calls = []
@@ -297,6 +370,17 @@ def build_history(rows):
         elif row["role"] == "tool" and row["call_id"]:
             messages.append({"role": "tool", "tool_call_id": row["call_id"], "content": row["content"] or ""})
     return messages
+
+
+def looks_failed(output):
+    start = output[:400].lower()
+    if start.startswith("exit code ") and not start.startswith("exit code 0"):
+        return True
+    words = ["could not", "not found", "error", "failed", "not allowed", "traceback"]
+    for word in words:
+        if start.startswith(word):
+            return True
+    return False
 
 
 def is_install_command(command):
@@ -444,11 +528,13 @@ def run_turn(session):
                 studio_db.update_session(session_id, {"status": "error", "error": problem})
                 return
 
-        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
-        for message in build_history(studio_db.all_messages(session_id)):
+        messages = [{"role": "system", "content": SYSTEM_PROMPT + "\n\n" + uploads_note(session_id)}]
+        for message in build_history(studio_db.all_messages(session_id), session_id):
             messages.append(message)
 
         finished = False
+        nudges = 0
+        last_failed = False
         for step in range(MAX_STEPS):
             if studio_db.get_status(session_id) == "stopping":
                 studio_db.add_message(session_id, "info", "Stopped.")
@@ -477,6 +563,16 @@ def run_turn(session):
             messages.append(assistant)
 
             if len(calls) == 0:
+                if text.strip() == "" and nudges < MAX_RETRY_NUDGES:
+                    nudges = nudges + 1
+                    messages.append({"role": "user", "content": "[Forkwise] Your answer was empty. Continue the task."})
+                    continue
+                if last_failed and nudges < MAX_RETRY_NUDGES:
+                    nudges = nudges + 1
+                    studio_db.add_message(session_id, "info", "The last step failed, so Studio is trying again (" + str(nudges) + "/" + str(MAX_RETRY_NUDGES) + ").")
+                    messages.append({"role": "user", "content": "[Forkwise] The last tool step failed. Do not give up and do not ask the user to fix it. Read the error, find the cause, fix it and try again. Only stop if it is truly impossible, and then explain why."})
+                    last_failed = False
+                    continue
                 finished = True
                 break
 
@@ -490,8 +586,11 @@ def run_turn(session):
                     problem = prepare(session, state)
                     if problem:
                         output = "The sandbox could not start: " + problem
+                if output == "" and call["function"].get("arguments") and len(args) == 0 and call["function"].get("arguments").strip() not in ["{}", ""]:
+                    output = "Error: the tool arguments were not valid JSON. Send them again as valid JSON."
                 if output == "":
                     output = run_studio_tool(name, args, box, session_id)
+                last_failed = looks_failed(output)
                 studio_db.add_message(session_id, "tool", output, call_id=call_id, tool=name, tool_args=studio_label(name, args))
                 messages.append({"role": "tool", "tool_call_id": call_id, "content": output})
                 if name in CHANGING_TOOLS:

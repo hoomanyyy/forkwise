@@ -23,7 +23,7 @@ JUNK = ["__pycache__", ".pyc", ".pytest_cache", "node_modules", ".mypy_cache"]
 
 def docker(args, input_text=None, timeout=120):
     try:
-        result = subprocess.run(["docker"] + args, input=input_text, capture_output=True, text=True, timeout=timeout)
+        result = subprocess.run(["docker"] + args, input=input_text, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout)
         return {"code": result.returncode, "output": result.stdout + result.stderr}
     except subprocess.TimeoutExpired:
         return {"code": 124, "output": "docker command timed out"}
@@ -77,7 +77,7 @@ def clone_repo(url, branch, folder):
     env["GIT_TERMINAL_PROMPT"] = "0"
     env["GIT_ALLOW_PROTOCOL"] = "https"
     try:
-        result = subprocess.run(command, capture_output=True, text=True, timeout=180, env=env)
+        result = subprocess.run(command, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=180, env=env)
     except subprocess.TimeoutExpired:
         return "Cloning took too long."
     if result.returncode != 0:
