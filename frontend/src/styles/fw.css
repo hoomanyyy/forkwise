@@ -26,7 +26,7 @@
     --red-soft: rgba(248, 113, 113, 0.13);
     --violet: #c084fc;
     --violet-soft: rgba(192, 132, 252, 0.13);
-    --font: "Geist", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font: "Geist", "Inter", "Vazirmatn", system-ui, -apple-system, "Segoe UI", sans-serif;
     --mono: "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
     --radius: 12px;
     --radius-lg: 18px;

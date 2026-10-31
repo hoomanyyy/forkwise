@@ -1,13 +1,3 @@
-# The Fork Engine: runs one task with several independent agents and then verifies them.
-#
-#  1. clone the repository once
-#  2. start one sandbox per fork and copy the code in
-#  3. run the setup command (with internet), then cut the internet
-#  4. every fork runs the agent loop in parallel, each with its own style
-#  5. run the tests in every fork
-#  6. cross testing: the tests of each fork run on the code of every other fork
-#  7. verdict, the chosen fork's patch, and a short explanation
-
 import os
 import shutil
 import threading
@@ -29,25 +19,26 @@ def box_name(task_id, fork_no):
     return "fw-task-" + str(task_id) + "-fork-" + str(fork_no)
 
 
+def style_of(fork_no):
+    return STYLES[(fork_no - 1) % len(STYLES)]
+
+
 def prepare_fork(task, fork_no, folder):
     task_id = task["id"]
     box = box_name(task_id, fork_no)
-
-    def log(kind, text):
-        agent_db.add_event(task_id, fork_no, kind, text)
 
     problem = sandbox.start_sandbox(box)
     if problem is None:
         problem = sandbox.copy_repo_in(box, folder)
     if problem:
-        log("error", problem)
+        agent_db.add_event(task_id, fork_no, "error", problem)
         return problem
 
     if task.get("setup_command"):
-        log("tool", "$ " + task["setup_command"] + "   (setup, internet on)")
+        agent_db.add_event(task_id, fork_no, "tool", "$ " + task["setup_command"] + "   (setup, internet on)")
         result = sandbox.run(box, task["setup_command"], timeout=600)
         if result["code"] != 0:
-            log("error", "The setup command failed:\n" + result["output"][-2000:])
+            agent_db.add_event(task_id, fork_no, "error", "The setup command failed:\n" + result["output"][-2000:])
             return "setup failed"
 
     sandbox.cut_internet(box)
@@ -62,28 +53,30 @@ def prepare_into(task, fork_no, folder, problems):
 def work_on_fork(task, fork_no, test_command, results):
     task_id = task["id"]
     box = box_name(task_id, fork_no)
-
-    def log(kind, text):
-        agent_db.add_event(task_id, fork_no, kind, text)
-
     agent_db.update_fork(task_id, fork_no, {"status": "working"})
-    style = STYLES[(fork_no - 1) % len(STYLES)]
+
     try:
-        answer = run_agent(box, task["task"], style, test_command, log)
+        answer = run_agent(box, task["task"], style_of(fork_no), test_command, task_id, fork_no)
 
         tests = {"ok": False, "output": "No test command was found."}
         if test_command:
-            log("tool", "$ " + test_command + "   (final check)")
+            agent_db.add_event(task_id, fork_no, "tool", "$ " + test_command + "   (final check)")
             tests = verify.run_tests(box, test_command)
-            log("info", "Tests " + ("passed" if tests["ok"] else "failed"))
+            if tests["ok"]:
+                agent_db.add_event(task_id, fork_no, "info", "Tests passed")
+            else:
+                agent_db.add_event(task_id, fork_no, "info", "Tests failed")
 
         diff = sandbox.get_diff(box)
-        test_files = [f for f in sandbox.changed_files(box) if verify.is_test_file(f)]
+        test_files = []
+        for path in sandbox.changed_files(box):
+            if verify.is_test_file(path):
+                test_files.append(path)
         sandbox.save_point(box, "forkwise fork " + str(fork_no))
 
         if diff.strip() == "":
             tests["ok"] = False
-            log("error", "This fork did not change any file.")
+            agent_db.add_event(task_id, fork_no, "error", "This fork did not change any file.")
 
         results[fork_no] = {
             "fork_no": fork_no,
@@ -92,17 +85,24 @@ def work_on_fork(task, fork_no, test_command, results):
             "summary": answer["summary"],
             "test_files": test_files
         }
+
+        status = "failed"
+        if answer["ok"]:
+            status = "done"
+        tests_number = 0
+        if tests["ok"]:
+            tests_number = 1
         agent_db.update_fork(task_id, fork_no, {
-            "status": "done" if answer["ok"] else "failed",
+            "status": status,
             "summary": answer["summary"],
             "diff": diff,
-            "tests_ok": 1 if tests["ok"] else 0,
+            "tests_ok": tests_number,
             "test_output": tests["output"][-6000:],
             "steps": answer["steps"],
             "tokens": answer["tokens"]
         })
     except Exception as e:
-        log("error", "This fork crashed: " + str(e))
+        agent_db.add_event(task_id, fork_no, "error", "This fork crashed: " + str(e))
         agent_db.update_fork(task_id, fork_no, {"status": "failed", "summary": "Crashed: " + str(e)})
         results[fork_no] = {"fork_no": fork_no, "tests_ok": False, "diff": "", "summary": "", "test_files": []}
 
@@ -110,7 +110,10 @@ def work_on_fork(task, fork_no, test_command, results):
 def cross_test(task, results, test_command):
     task_id = task["id"]
     checks = []
-    good = [r for r in results.values() if r["tests_ok"]]
+    good = []
+    for fork_no in results:
+        if results[fork_no]["tests_ok"]:
+            good.append(results[fork_no])
 
     for author in good:
         if len(author["test_files"]) == 0:
@@ -134,7 +137,10 @@ def cross_test(task, results, test_command):
             check = {"tests_from": author["fork_no"], "code_of": other["fork_no"], "passed": result["ok"], "output": result["output"][-4000:]}
             checks.append(check)
             agent_db.add_check(task_id, check["tests_from"], check["code_of"], check["passed"], check["output"])
-            agent_db.add_event(task_id, 0, "info", "Tests of fork " + str(check["tests_from"]) + " on fork " + str(check["code_of"]) + ": " + ("passed" if check["passed"] else "FAILED"))
+            word = "FAILED"
+            if check["passed"]:
+                word = "passed"
+            agent_db.add_event(task_id, 0, "info", "Tests of fork " + str(check["tests_from"]) + " on fork " + str(check["code_of"]) + ": " + word)
     return checks
 
 
@@ -143,19 +149,16 @@ def run_task(task):
     forks = max(1, min(int(task["forks"] or 3), 5))
     folder = os.path.join(sandbox.WORK_DIR, "task-" + str(task_id))
 
-    def log(kind, text):
-        agent_db.add_event(task_id, 0, kind, text)
-
     try:
-        log("info", "Cloning " + task["repo_url"])
+        agent_db.add_event(task_id, 0, "info", "Cloning " + task["repo_url"])
         problem = sandbox.clone_repo(task["repo_url"], task.get("branch"), folder)
         if problem:
             raise Exception(problem)
 
         for n in range(1, forks + 1):
-            agent_db.add_fork(task_id, n, STYLES[(n - 1) % len(STYLES)])
+            agent_db.add_fork(task_id, n, style_of(n))
 
-        log("info", "Starting " + str(forks) + " sandboxes")
+        agent_db.add_event(task_id, 0, "info", "Starting " + str(forks) + " sandboxes")
         problems = {}
         threads = []
         for n in range(1, forks + 1):
@@ -165,17 +168,19 @@ def run_task(task):
         for t in threads:
             t.join()
 
-        ready = [n for n in range(1, forks + 1) if problems.get(n) is None]
+        ready = []
         for n in range(1, forks + 1):
-            if n not in ready:
+            if problems.get(n) is None:
+                ready.append(n)
+            else:
                 agent_db.update_fork(task_id, n, {"status": "failed", "summary": "The sandbox could not be prepared."})
         if len(ready) == 0:
             raise Exception("No sandbox could be prepared. See the log.")
 
         test_command = task.get("test_command") or verify.detect_test_command(box_name(task_id, ready[0]))
-        log("info", "Test command: " + (test_command or "none found"))
+        agent_db.add_event(task_id, 0, "info", "Test command: " + (test_command or "none found"))
 
-        log("info", "The forks are working")
+        agent_db.add_event(task_id, 0, "info", "The forks are working")
         results = {}
         threads = []
         for n in ready:
@@ -187,18 +192,22 @@ def run_task(task):
 
         checks = []
         if test_command:
-            log("info", "Cross testing the forks")
+            agent_db.add_event(task_id, 0, "info", "Cross testing the forks")
             checks = cross_test(task, results, test_command)
 
-        forks_list = [results[n] for n in sorted(results)]
+        forks_list = []
+        for n in sorted(results):
+            forks_list.append(results[n])
         result = verify.compute_verdict(forks_list, checks)
         explanation = verify.explain(task["task"], forks_list, checks, result)
 
         patch = None
+        verdict_text = result["verdict"]
         if result["chosen"] is not None:
             patch = results[result["chosen"]]["diff"]
+            verdict_text = verdict_text + " (fork " + str(result["chosen"]) + " chosen)"
 
-        log("verdict", result["verdict"] + (" (fork " + str(result["chosen"]) + " chosen)" if result["chosen"] else ""))
+        agent_db.add_event(task_id, 0, "verdict", verdict_text)
         agent_db.update_task(task_id, {
             "status": "done",
             "verdict": result["verdict"],
@@ -209,7 +218,7 @@ def run_task(task):
             "finished_at": datetime.now()
         })
     except Exception as e:
-        log("error", str(e))
+        agent_db.add_event(task_id, 0, "error", str(e))
         agent_db.update_task(task_id, {"status": "failed", "error": str(e)[:2000], "finished_at": datetime.now()})
     finally:
         for n in range(1, forks + 1):

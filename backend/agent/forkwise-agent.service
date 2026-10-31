@@ -1,11 +1,5 @@
-# Keeps the agent worker running and restarts it if it stops.
-# Copy to /etc/systemd/system/forkwise-agent.service, change the paths, then:
-#   sudo systemctl daemon-reload
-#   sudo systemctl enable --now forkwise-agent
-#   journalctl -u forkwise-agent -f      (to watch the log)
-
 [Unit]
-Description=Forkwise Agent worker
+Description=Forkwise worker (Agent and Studio)
 After=network.target docker.service
 Requires=docker.service
 

@@ -1,13 +1,3 @@
-# Sandboxes for the Forkwise Agent.
-# Every fork works inside its own Docker container. The agent can only touch
-# files inside that container, never the server itself.
-#
-# Safety limits on every container:
-#   - its own user (not root), no extra Linux permissions
-#   - limited memory, CPU and number of processes
-#   - internet only while the setup command installs packages, then it is cut
-#   - every command has a time limit
-
 import os
 import shlex
 import shutil
@@ -21,8 +11,8 @@ IMAGE = os.getenv("SANDBOX_IMAGE", "forkwise-sandbox")
 MEMORY = os.getenv("SANDBOX_MEMORY", "2g")
 CPUS = os.getenv("SANDBOX_CPUS", "1")
 PIDS = os.getenv("SANDBOX_PIDS", "256")
-RUNTIME = os.getenv("SANDBOX_RUNTIME", "")          # for example "runsc" if gVisor is installed
-INTERNET = os.getenv("SANDBOX_INTERNET", "setup")   # setup, always or never
+RUNTIME = os.getenv("SANDBOX_RUNTIME", "")
+INTERNET = os.getenv("SANDBOX_INTERNET", "setup")
 WORK_DIR = os.getenv("AGENT_WORK_DIR", "/tmp/forkwise-agent")
 ALLOWED_GIT_HOSTS = os.getenv("ALLOWED_GIT_HOSTS", "github.com,gitlab.com,bitbucket.org").split(",")
 MAX_REPO_MB = int(os.getenv("MAX_REPO_MB", "200"))
@@ -42,7 +32,6 @@ def docker(args, input_text=None, timeout=120):
 
 
 def short(text, limit=MAX_OUTPUT):
-    # Keep the start and the end of long outputs, the middle is usually less useful.
     if len(text) <= limit:
         return text
     half = limit // 2
@@ -66,7 +55,7 @@ def folder_size_mb(folder):
         for name in files:
             path = os.path.join(root, name)
             if not os.path.islink(path):
-                total += os.path.getsize(path)
+                total = total + os.path.getsize(path)
     return total / (1024 * 1024)
 
 
@@ -81,11 +70,11 @@ def clone_repo(url, branch, folder):
 
     command = ["git", "clone", "--depth", "1", "--single-branch"]
     if branch:
-        command += ["--branch", branch]
-    command += [url, folder]
+        command = command + ["--branch", branch]
+    command = command + [url, folder]
 
     env = dict(os.environ)
-    env["GIT_TERMINAL_PROMPT"] = "0"      # never wait for a password
+    env["GIT_TERMINAL_PROMPT"] = "0"
     env["GIT_ALLOW_PROTOCOL"] = "https"
     try:
         result = subprocess.run(command, capture_output=True, text=True, timeout=180, env=env)
@@ -114,10 +103,10 @@ def start_sandbox(name):
             "--env", "PIP_DISABLE_PIP_VERSION_CHECK=1",
             "--label", "forkwise-agent=1"]
     if RUNTIME:
-        args += ["--runtime", RUNTIME]
+        args = args + ["--runtime", RUNTIME]
     if INTERNET == "never":
-        args += ["--network", "none"]
-    args += [IMAGE, "sleep", "infinity"]
+        args = args + ["--network", "none"]
+    args = args + [IMAGE, "sleep", "infinity"]
 
     result = docker(args)
     if result["code"] != 0:
@@ -125,27 +114,62 @@ def start_sandbox(name):
     return None
 
 
-def copy_repo_in(name, folder):
-    # Pack the folder with tar and unpack it inside the container as the agent user,
-    # so the agent owns its files.
+def copy_folder_in(name, folder, target):
     try:
-        tar = subprocess.run(["tar", "-C", folder, "-c", "."], capture_output=True, timeout=120)
-        result = subprocess.run(["docker", "exec", "-i", name, "tar", "-x", "-C", "/workspace"],
-                                input=tar.stdout, capture_output=True, timeout=120)
+        tar = subprocess.run(["tar", "-C", folder, "-c", "."], capture_output=True, timeout=300)
+        script = "mkdir -p " + shlex.quote(target) + " && tar -x -C " + shlex.quote(target)
+        result = subprocess.run(["docker", "exec", "-i", name, "bash", "-c", script],
+                                input=tar.stdout, capture_output=True, timeout=300)
         if result.returncode != 0:
-            return "Could not copy the code into the sandbox: " + result.stderr.decode(errors="ignore")[:1500]
+            return "Could not copy into the sandbox: " + result.stderr.decode(errors="ignore")[:1500]
     except Exception as e:
-        return "Could not copy the code into the sandbox: " + str(e)
+        return "Could not copy into the sandbox: " + str(e)
     return None
 
 
+def copy_repo_in(name, folder):
+    return copy_folder_in(name, folder, "/workspace")
+
+
+def copy_file_in(name, local_path, target_folder):
+    try:
+        tar = subprocess.run(["tar", "-C", os.path.dirname(local_path), "-c", os.path.basename(local_path)], capture_output=True, timeout=600)
+        script = "mkdir -p " + shlex.quote(target_folder) + " && tar -x -C " + shlex.quote(target_folder)
+        result = subprocess.run(["docker", "exec", "-i", name, "bash", "-c", script],
+                                input=tar.stdout, capture_output=True, timeout=600)
+        if result.returncode != 0:
+            return "Could not copy the file into the sandbox: " + result.stderr.decode(errors="ignore")[:1000]
+    except Exception as e:
+        return "Could not copy the file into the sandbox: " + str(e)
+    return None
+
+
+def read_bytes(name, path):
+    try:
+        result = subprocess.run(["docker", "exec", name, "cat", "--", path], capture_output=True, timeout=600)
+        if result.returncode != 0:
+            return None
+        return result.stdout
+    except Exception:
+        return None
+
+
+def file_size(name, path):
+    result = docker(["exec", name, "stat", "-c", "%s", "--", path], timeout=30)
+    if result["code"] != 0:
+        return None
+    try:
+        return int(result["output"].strip())
+    except ValueError:
+        return None
+
+
 def run(name, command, timeout=120, limit=MAX_OUTPUT):
-    # "timeout" runs inside the container, so a long command is really stopped.
     wrapped = "timeout -k 5 " + str(int(timeout)) + " bash -c " + shlex.quote(command)
     result = docker(["exec", name, "bash", "-c", wrapped], timeout=timeout + 30)
     output = result["output"]
     if result["code"] == 124:
-        output += "\n[stopped: the command took longer than " + str(int(timeout)) + " seconds]"
+        output = output + "\n[stopped: the command took longer than " + str(int(timeout)) + " seconds]"
     return {"code": result["code"], "output": short(output, limit)}
 
 
@@ -170,21 +194,36 @@ def cut_internet(name):
     docker(["network", "disconnect", "bridge", name])
 
 
+def connect_internet(name):
+    if INTERNET != "setup":
+        return
+    docker(["network", "connect", "bridge", name])
+
+
+def is_running(name):
+    result = docker(["inspect", "-f", "{{.State.Running}}", name], timeout=30)
+    return result["code"] == 0 and result["output"].strip() == "true"
+
+
 def save_point(name, message):
-    # A git commit inside the sandbox, used as a point we can compare with or go back to.
     command = "git add -A && git -c user.name=forkwise -c user.email=agent@forkwiseai.com commit -q --allow-empty --no-verify -m " + shlex.quote(message)
     return run(name, command, timeout=120)
 
 
+def junk_excludes():
+    parts = []
+    for item in JUNK:
+        parts.append("':(exclude)*" + item + "*'")
+    return " ".join(parts)
+
+
 def get_diff(name):
-    excludes = " ".join(["':(exclude)*" + j + "*'" for j in JUNK])
-    result = run(name, "git add -A 2>/dev/null && git diff --cached HEAD -- . " + excludes, timeout=120, limit=3000000)
+    result = run(name, "git add -A 2>/dev/null && git diff --cached HEAD -- . " + junk_excludes(), timeout=120, limit=3000000)
     return result["output"]
 
 
 def changed_files(name):
-    excludes = " ".join(["':(exclude)*" + j + "*'" for j in JUNK])
-    result = run(name, "git add -A 2>/dev/null && git diff --cached --name-only --diff-filter=AM HEAD -- . " + excludes, timeout=60)
+    result = run(name, "git add -A 2>/dev/null && git diff --cached --name-only --diff-filter=AM HEAD -- . " + junk_excludes(), timeout=60)
     files = []
     for line in result["output"].splitlines():
         line = line.strip()
@@ -193,8 +232,17 @@ def changed_files(name):
     return files
 
 
+def list_files(name):
+    result = run(name, "git ls-files --cached --others --exclude-standard | head -3000", timeout=60, limit=500000)
+    files = []
+    for line in result["output"].splitlines():
+        line = line.strip()
+        if line and not line.startswith("fatal:"):
+            files.append(line)
+    return files
+
+
 def go_back(name):
-    # Throw away everything since the last save point (node_modules is kept).
     return run(name, "git reset -q --hard && git clean -fdq -e node_modules", timeout=120)
 
 

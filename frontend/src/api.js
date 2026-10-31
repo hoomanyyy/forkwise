@@ -222,7 +222,6 @@ export async function checkHealth() {
     }
 }
 
-// ---------------- Forkwise Agent ----------------
 
 export async function getAgentTasks() {
     try {
@@ -275,5 +274,100 @@ export async function downloadAgentPatch(id) {
         return true
     } catch (e) {
         return false
+    }
+}
+
+
+export function studioFileUrl(fileId) {
+    return `${BASE_URL}/api/studio/files/${fileId}`
+}
+
+export async function getStudioSessions() {
+    try {
+        const response = await axios.get(`${BASE_URL}/api/studio/sessions`, { withCredentials: true })
+        return response.data
+    } catch (e) {
+        return { Message: false, Error: true }
+    }
+}
+
+export async function createStudioSession(data) {
+    try {
+        const response = await axios.post(`${BASE_URL}/api/studio/sessions`, data, { withCredentials: true })
+        return response.data
+    } catch (e) {
+        return { Message: false, error: "Could not connect to the server." }
+    }
+}
+
+export async function getStudioSession(id, after) {
+    try {
+        const response = await axios.get(`${BASE_URL}/api/studio/sessions/${id}?after=${after || 0}`, { withCredentials: true })
+        return response.data
+    } catch (e) {
+        return { Message: false, Error: true }
+    }
+}
+
+export async function sendStudioMessage(id, text) {
+    try {
+        const response = await axios.post(`${BASE_URL}/api/studio/sessions/${id}/messages`, { text: text }, { withCredentials: true })
+        return response.data
+    } catch (e) {
+        return { Message: false, error: "Could not connect to the server." }
+    }
+}
+
+export async function stopStudio(id) {
+    try {
+        const response = await axios.post(`${BASE_URL}/api/studio/sessions/${id}/stop`, {}, { withCredentials: true })
+        return response.data
+    } catch (e) {
+        return { Message: false }
+    }
+}
+
+export async function uploadStudioFile(id, file, onProgress) {
+    const form = new FormData()
+    form.append("file", file)
+    try {
+        const response = await axios.post(`${BASE_URL}/api/studio/sessions/${id}/upload`, form, {
+            withCredentials: true,
+            onUploadProgress: (e) => {
+                if (onProgress && e.total) {
+                    onProgress(Math.round((e.loaded / e.total) * 100))
+                }
+            }
+        })
+        return response.data
+    } catch (e) {
+        return { Message: false, error: "The upload failed. Check your internet and try again." }
+    }
+}
+
+export async function getStudioPatch(id) {
+    try {
+        const response = await axios.get(`${BASE_URL}/api/studio/sessions/${id}/patch`, { withCredentials: true, responseType: "text" })
+        return typeof response.data === "string" ? response.data : ""
+    } catch (e) {
+        return ""
+    }
+}
+
+export async function deleteStudioSession(id) {
+    try {
+        const response = await axios.delete(`${BASE_URL}/api/studio/sessions/${id}`, { withCredentials: true })
+        return response.data
+    } catch (e) {
+        return { Message: false }
+    }
+}
+
+export async function verifyStudio(id) {
+    try {
+        const response = await axios.post(`${BASE_URL}/api/studio/sessions/${id}/verify`, {}, { withCredentials: true })
+        return response.data
+    } catch (e) {
+        return { Message: false, error: "Could not connect to the server." }
     }
 }

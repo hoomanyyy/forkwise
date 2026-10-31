@@ -1,21 +1,18 @@
-# The Forkwise Agent worker.
-# Run it on a SEPARATE server that has Docker (not on the API server):
-#   python agent_worker.py
-#
-# It checks the database every few seconds, takes the oldest queued task,
-# runs it with the fork engine and writes everything back to the database.
-# The API server only reads and writes the database, it never runs user code.
-
 import time
+import threading
 from database import agent_db
 from agent.fork import run_task
+from agent.studio import studio_loop
 
 WAIT_SECONDS = 3
 
 
 def main():
-    print("Forkwise Agent worker started", flush=True)
+    print("Forkwise worker started", flush=True)
     agent_db.fail_stuck_tasks()
+
+    studio_thread = threading.Thread(target=studio_loop, daemon=True)
+    studio_thread.start()
 
     while True:
         task = agent_db.claim_next_task()
