@@ -4,7 +4,7 @@ import html
 import socket
 import ipaddress
 import requests
-from urllib.parse import urlparse, urljoin
+from urllib.parse import urlparse, urljoin, unquote
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -14,11 +14,41 @@ MAX_PAGE_BYTES = 2 * 1024 * 1024
 MAX_TEXT = 15000
 
 
+def free_search(query):
+    try:
+        response = requests.post("https://html.duckduckgo.com/html/", data={"q": query},
+                                 headers={"User-Agent": "Mozilla/5.0 (ForkwiseStudio)"}, timeout=20)
+    except Exception as e:
+        return "Search failed: " + str(e)[:200]
+    if response.status_code != 200:
+        return "Search failed with status " + str(response.status_code)
+    page = response.text
+    titles = re.findall(r'<a[^>]*class="result__a"[^>]*href="([^"]+)"[^>]*>(.*?)</a>', page, re.S)
+    snippets = re.findall(r'class="result__snippet"[^>]*>(.*?)</a>', page, re.S)
+    if len(titles) == 0:
+        return "No results."
+    lines = []
+    count = 0
+    for item in titles:
+        if count >= 8:
+            break
+        link = html.unescape(item[0])
+        if "uddg=" in link:
+            link = unquote(link.split("uddg=")[1].split("&")[0])
+        title = html.unescape(re.sub(r"<[^>]+>", "", item[1])).strip()
+        snippet = ""
+        if count < len(snippets):
+            snippet = html.unescape(re.sub(r"<[^>]+>", "", snippets[count])).strip()
+        lines.append("- " + title + "\n  " + link + "\n  " + snippet)
+        count = count + 1
+    return "\n".join(lines)
+
+
 def web_search(query):
-    if not SEARCH_API_KEY:
-        return "Web search is not set up on this server (SEARCH_API_KEY is missing)."
     if not query.strip():
         return "Write what to search for."
+    if not SEARCH_API_KEY:
+        return free_search(query)
     try:
         response = requests.get(
             "https://api.search.brave.com/res/v1/web/search",

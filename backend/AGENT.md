@@ -166,7 +166,9 @@ Worker `.env`, extra settings:
 ```
 FORKWISE_API_URL=https://api.forkwiseai.com
 WORKER_KEY=a-long-random-secret     # the same value as on the API server
-SEARCH_API_KEY=...                  # Brave Search API key, optional
+SEARCH_API_KEY=...                  # Brave Search API key, optional (without it a free search is used)
+AGENT_FALLBACK_MODEL=...            # optional: used when the main model fails
+AGENT_VISION=true                   # only if your model can read images
 STUDIO_SLOTS=3                      # chats that can work at the same time
 STUDIO_IDLE_MINUTES=30
 ```

@@ -3,13 +3,14 @@ import { useParams, useNavigate, Link } from "react-router-dom"
 import {
     FaPaperclip, FaArrowUp, FaStop, FaChevronRight, FaChevronDown, FaTerminal, FaFileAlt, FaPen, FaSearch, FaGlobe,
     FaBoxOpen, FaListUl, FaCodeBranch, FaShareSquare, FaDownload, FaShieldAlt, FaFolder, FaExclamationTriangle,
-    FaInfoCircle, FaCheck, FaRegCircle, FaSpinner, FaArrowLeft, FaGithub, FaTimes, FaColumns
+    FaInfoCircle, FaCheck, FaRegCircle, FaSpinner, FaArrowLeft, FaGithub, FaTimes, FaColumns, FaEye, FaFileArchive, FaSyncAlt
 } from "react-icons/fa"
 import AppLayout from "../../components/app/AppLayout"
 import Markdown from "../../components/studio/Markdown"
 import {
-    getStudioSession, sendStudioMessage, stopStudio, uploadStudioFile, getStudioPatch, verifyStudio, studioFileUrl
+    getStudioSession, sendStudioMessage, stopStudio, uploadStudioFile, getStudioPatch, verifyStudio, studioFileUrl, exportStudio
 } from "../../api"
+import { buildPreview, newFilesFromPatch, inlinePage } from "../../components/studio/preview"
 import Logo from "../../images/logo.svg"
 import "../../styles/studio.css"
 
@@ -124,6 +125,9 @@ function groupMessages(messages) {
 }
 
 function AgentRow({ row }) {
+    if (row.role === "export") {
+        return <div className="st-note"><FaFileArchive /> <span>Making a zip of the whole project...</span></div>
+    }
     if (row.role === "assistant") {
         if (!row.content || row.content.trim() === "") {
             return null
@@ -212,6 +216,38 @@ function FileList({ files, messages }) {
     )
 }
 
+function Preview({ patch }) {
+    const [page, setPage] = useState(null)
+    const [reload, setReload] = useState(0)
+    const result = buildPreview(patch)
+
+    if (result.page === null) {
+        return <p className="st-empty">No web page yet. When Studio creates an .html file in the project, it shows up here, live.</p>
+    }
+
+    let shown = result.page
+    if (page !== null && result.pages.includes(page)) {
+        shown = page
+    }
+    let html = result.html
+    if (shown !== result.page) {
+        html = inlinePage(newFilesFromPatch(patch), shown)
+    }
+
+    return (
+        <div className="st-preview-wrap">
+            <div className="st-panel-actions">
+                <select className="fw-select st-preview-select" value={shown} onChange={(e) => setPage(e.target.value)} aria-label="Page to preview">
+                    {result.pages.map((p) => <option key={p} value={p}>{p}</option>)}
+                </select>
+                <button className="fw-btn fw-btn-ghost fw-btn-sm" onClick={() => setReload(reload + 1)}><FaSyncAlt /> Reload</button>
+            </div>
+            <iframe key={shown + reload} className="st-preview" title="Live preview" sandbox="allow-scripts allow-forms allow-modals" srcDoc={html} />
+            <p className="st-preview-note">Preview of pages Studio created in this chat. Images and files from your repository are not shown here.</p>
+        </div>
+    )
+}
+
 export default function StudioSession() {
     const { id } = useParams()
     const navigate = useNavigate()
@@ -221,7 +257,7 @@ export default function StudioSession() {
     const [text, setText] = useState("")
     const [error, setError] = useState("")
     const [uploading, setUploading] = useState("")
-    const [panel, setPanel] = useState("changes")
+    const [panel, setPanel] = useState("preview")
     const [showPanel, setShowPanel] = useState(window.innerWidth > 1100)
     const [patch, setPatch] = useState("")
     const [notice, setNotice] = useState("")
@@ -240,6 +276,8 @@ export default function StudioSession() {
         patchHash.current = ""
         setMessages([])
 
+        let quiet = 0
+
         async function load() {
             const data = await getStudioSession(id, lastId.current)
             if (stopped) {
@@ -249,13 +287,16 @@ export default function StudioSession() {
                 navigate("/auth/login")
                 return
             }
-            let active = false
+            let delay = 10000
             if (data.Message === true) {
                 setSession(data.session)
-                active = ACTIVE.includes(data.session.status)
+                const isActive = ACTIVE.includes(data.session.status)
                 if (data.messages.length > 0) {
+                    quiet = 0
                     lastId.current = data.messages[data.messages.length - 1].id
                     setMessages((old) => [...old, ...data.messages])
+                } else {
+                    quiet = quiet + 1
                 }
                 if (data.session.patch_hash !== patchHash.current) {
                     patchHash.current = data.session.patch_hash
@@ -264,12 +305,28 @@ export default function StudioSession() {
                         setPatch(newPatch)
                     }
                 }
+                if (isActive && data.session.worker_online) {
+                    delay = quiet < 40 ? 1500 : 3000
+                } else if (isActive) {
+                    delay = 10000
+                }
             } else if (!data.Error) {
                 setMissing(true)
                 return
             }
-            timer = setTimeout(load, active ? 1500 : 6000)
+            if (document.hidden) {
+                delay = 15000
+            }
+            timer = setTimeout(load, delay)
         }
+
+        function onVisible() {
+            if (!document.hidden) {
+                clearTimeout(timer)
+                timer = setTimeout(load, 200)
+            }
+        }
+        document.addEventListener("visibilitychange", onVisible)
 
         wakeUp.current = () => {
             clearTimeout(timer)
@@ -279,6 +336,7 @@ export default function StudioSession() {
         return () => {
             stopped = true
             clearTimeout(timer)
+            document.removeEventListener("visibilitychange", onVisible)
         }
     }, [id, navigate])
 
@@ -287,6 +345,12 @@ export default function StudioSession() {
             listBox.current.scrollTop = listBox.current.scrollHeight
         }
     }, [messages, session])
+
+    useEffect(() => {
+        if (session !== null && !ACTIVE.includes(session.status)) {
+            setNotice((old) => (old.startsWith("Making a zip") ? "" : old))
+        }
+    }, [session])
 
     function onScroll() {
         const box = listBox.current
@@ -369,6 +433,21 @@ export default function StudioSession() {
         }
     }
 
+    async function downloadProject() {
+        setNotice("")
+        const result = await exportStudio(id)
+        if (result.Message === true) {
+            stickToBottom.current = true
+            setSession((old) => ({ ...old, status: "pending" }))
+            setNotice("Making a zip of your project. It appears in the chat in a moment.")
+            if (wakeUp.current) {
+                wakeUp.current()
+            }
+        } else {
+            setNotice(result.error || "Could not make the zip.")
+        }
+    }
+
     function downloadPatch() {
         const blob = new Blob([patch], { type: "text/plain" })
         const link = document.createElement("a")
@@ -435,7 +514,9 @@ export default function StudioSession() {
                         {active && (
                             <div className="st-working">
                                 <span className="st-dots"><i></i><i></i><i></i></span>
-                                {session.status === "pending" ? "Starting your sandbox..." : session.status === "stopping" ? "Stopping..." : "Working..."}
+                                {session.status === "pending" && !session.worker_online
+                                    ? "Studio is offline right now. Your message is saved and starts as soon as Studio is back."
+                                    : session.status === "pending" ? "Starting..." : session.status === "stopping" ? "Stopping..." : "Working..."}
                             </div>
                         )}
                     </div>
@@ -474,25 +555,36 @@ export default function StudioSession() {
                 {showPanel && (
                     <aside className="st-panel">
                         <div className="st-tabs">
+                            <button className={panel === "preview" ? "st-tab st-tab-on" : "st-tab"} onClick={() => setPanel("preview")}><FaEye /> Preview</button>
                             <button className={panel === "changes" ? "st-tab st-tab-on" : "st-tab"} onClick={() => setPanel("changes")}><FaCodeBranch /> Changes</button>
                             <button className={panel === "tasks" ? "st-tab st-tab-on" : "st-tab"} onClick={() => setPanel("tasks")}><FaListUl /> Tasks {todos && todos.length > 0 ? doneCount + "/" + todos.length : ""}</button>
                             <button className={panel === "files" ? "st-tab st-tab-on" : "st-tab"} onClick={() => setPanel("files")}><FaFolder /> Files</button>
                             <button className="fw-icon-btn st-panel-close" onClick={() => setShowPanel(false)} aria-label="Close panel"><FaTimes /></button>
                         </div>
                         <div className="st-panel-body">
+                            {panel === "preview" && <Preview patch={patch} />}
                             {panel === "changes" && (
                                 <>
                                     {patch.trim() !== "" && (
                                         <div className="st-panel-actions">
-                                            <button className="fw-btn fw-btn-primary fw-btn-sm" onClick={downloadPatch}><FaDownload /> Download changes</button>
-                                            <span className="fw-hint" dir="ltr">git apply forkwise-studio-{id}.patch</span>
+                                            <button className="fw-btn fw-btn-primary fw-btn-sm" onClick={downloadProject} disabled={active}><FaFileArchive /> Download project</button>
+                                            <button className="fw-btn fw-btn-ghost fw-btn-sm" onClick={downloadPatch}><FaDownload /> Changes as patch</button>
                                         </div>
                                     )}
                                     <DiffView diff={patch} />
                                 </>
                             )}
                             {panel === "tasks" && <Todos todos={todos} />}
-                            {panel === "files" && <FileList files={session ? session.files : []} messages={messages} />}
+                            {panel === "files" && (
+                                <>
+                                    {session && session.files && session.files.length > 0 && (
+                                        <div className="st-panel-actions">
+                                            <button className="fw-btn fw-btn-primary fw-btn-sm" onClick={downloadProject} disabled={active}><FaFileArchive /> Download project</button>
+                                        </div>
+                                    )}
+                                    <FileList files={session ? session.files : []} messages={messages} />
+                                </>
+                            )}
                         </div>
                     </aside>
                 )}

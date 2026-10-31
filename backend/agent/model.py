@@ -10,12 +10,20 @@ BASE_URL = os.getenv("AGENT_BASE_URL", "https://openrouter.ai/api/v1").rstrip("/
 API_KEY = os.getenv("AGENT_API_KEY")
 MAIN_MODEL = os.getenv("AGENT_MODEL")
 SMALL_MODEL = os.getenv("AGENT_SMALL_MODEL") or MAIN_MODEL
+FALLBACK_MODEL = os.getenv("AGENT_FALLBACK_MODEL")
 
 
 def call_model(messages, tools=None, model=None, max_tokens=4000, temperature=0.4):
     if model is None:
         model = MAIN_MODEL
+    result = call_one_model(messages, tools, model, max_tokens, temperature)
+    if "error" in result and FALLBACK_MODEL and FALLBACK_MODEL != model:
+        print("MODEL: trying the fallback model", FALLBACK_MODEL, flush=True)
+        result = call_one_model(messages, tools, FALLBACK_MODEL, max_tokens, temperature)
+    return result
 
+
+def call_one_model(messages, tools, model, max_tokens, temperature):
     body = {
         "model": model,
         "messages": messages,

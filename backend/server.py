@@ -1147,7 +1147,7 @@ def studio_sessions(request: Request):
     user = get_user(request)
     if user is None:
         return {"Message": "login"}
-    return {"Message": True, "data": studio_db.list_sessions(user["user_id"]), "allowed": studio_allowed(user["user_id"])}
+    return {"Message": True, "data": studio_db.list_sessions(user["user_id"]), "allowed": studio_allowed(user["user_id"]), "worker_online": studio_db.worker_online()}
 
 
 @app.get("/api/studio/sessions/{session_id}")
@@ -1173,7 +1173,8 @@ def studio_session(session_id: int, request: Request, after: int = 0):
         "todos": load_json(session["todos"], []),
         "patch_hash": hashlib.md5(patch.encode("utf-8")).hexdigest(),
         "patch_size": len(patch),
-        "created_at": session["created_at"]
+        "created_at": session["created_at"],
+        "worker_online": studio_db.worker_online()
     }
     return {"Message": True, "session": info, "messages": studio_db.get_messages(session_id, after)}
 
@@ -1259,6 +1260,20 @@ def studio_upload(session_id: int, request: Request, file: UploadFile = File(...
         return {"Message": False, "error": "Could not save the file."}
     studio_db.add_message(session_id, "file", json.dumps({"id": file_id, "name": name, "size": size, "kind": "upload"}))
     return {"Message": True, "id": file_id, "name": name, "size": size}
+
+
+@app.post("/api/studio/sessions/{session_id}/export")
+def studio_export(session_id: int, request: Request):
+    user = get_user(request)
+    if user is None:
+        return {"Message": "login"}
+    session = studio_db.get_session(session_id, user["user_id"])
+    if session is None:
+        return {"Message": False, "error": "This chat was not found."}
+    if session["status"] in ["pending", "running", "stopping"]:
+        return {"Message": False, "error": "Wait until the current answer is finished."}
+    studio_db.request_export(session_id)
+    return {"Message": True}
 
 
 @app.get("/api/studio/files/{file_id}")

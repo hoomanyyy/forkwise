@@ -1,5 +1,7 @@
 import mysql.connector
+import mysql.connector.pooling
 import os
+import threading
 from dotenv import load_dotenv
 from datetime import datetime , timedelta
 import bcrypt
@@ -11,6 +13,31 @@ HOST = os.getenv("DB_HOST")
 USER = os.getenv("DB_USER")
 PASS = os.getenv("DB_PASS")
 NAME = os.getenv("DB_NAME")
+POOL_SIZE = int(os.getenv("DB_POOL_SIZE", "10"))
+
+pools = {}
+pool_lock = threading.Lock()
+
+
+def get_pool(host, user, password, db_name):
+    key = str(host) + "|" + str(user) + "|" + str(db_name)
+    with pool_lock:
+        if key in pools:
+            return pools[key]
+        try:
+            pools[key] = mysql.connector.pooling.MySQLConnectionPool(
+                pool_name="forkwise" + str(len(pools)),
+                pool_size=POOL_SIZE,
+                pool_reset_session=True,
+                host=host,
+                user=user,
+                password=password,
+                database=db_name
+            )
+        except Exception as e:
+            print(f"POOL ERROR: {e}", flush=True)
+            pools[key] = None
+        return pools[key]
 
 def to_text(value):
     if value is None:
@@ -29,6 +56,12 @@ class Mysql():
         self.host = host
 
     def connect_to_mysql(self):
+        pool = get_pool(self.host, self.user, self.password, self.db_name)
+        if pool is not None:
+            try:
+                return pool.get_connection()
+            except Exception as e:
+                print(f"POOL: {e}", flush=True)
         con = mysql.connector.connect(
             host=self.host,
             user=self.user,
