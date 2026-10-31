@@ -371,3 +371,12 @@ export async function verifyStudio(id) {
         return { Message: false, error: "Could not connect to the server." }
     }
 }
+
+export async function exportStudio(id) {
+    try {
+        const response = await axios.post(`${BASE_URL}/api/studio/sessions/${id}/export`, {}, { withCredentials: true })
+        return response.data
+    } catch (e) {
+        return { Message: false, error: "Could not connect to the server." }
+    }
+}

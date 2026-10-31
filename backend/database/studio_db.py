@@ -135,3 +135,26 @@ def list_files(session_id, kind=None):
     if rows is None:
         return []
     return rows
+
+
+def request_export(session_id):
+    add_message(session_id, "export", "")
+    run_query("UPDATE studio_sessions SET status = 'pending', error = NULL, last_active = NOW() WHERE id = %s", (session_id,))
+
+
+def last_message_role(session_id):
+    row = run_query("SELECT role FROM studio_messages WHERE session_id = %s ORDER BY id DESC LIMIT 1", (session_id,), "one")
+    if row is None:
+        return None
+    return row["role"]
+
+
+def beat(name):
+    run_query("INSERT INTO worker_heartbeat (name, seen_at) VALUES (%s, NOW()) ON DUPLICATE KEY UPDATE seen_at = NOW()", (name,))
+
+
+def worker_online():
+    row = run_query("SELECT COUNT(*) AS total FROM worker_heartbeat WHERE seen_at > NOW() - INTERVAL 90 SECOND", (), "one")
+    if row is None:
+        return False
+    return row["total"] > 0

@@ -34,6 +34,7 @@ export default function Studio() {
     const navigate = useNavigate()
     const [sessions, setSessions] = useState([])
     const [allowed, setAllowed] = useState(true)
+    const [online, setOnline] = useState(true)
     const [loading, setLoading] = useState(true)
     const [text, setText] = useState("")
     const [repo, setRepo] = useState("")
@@ -51,6 +52,7 @@ export default function Studio() {
             if (data.Message === true) {
                 setSessions(data.data)
                 setAllowed(data.allowed)
+                setOnline(data.worker_online !== false)
             }
             setLoading(false)
         }
@@ -155,6 +157,10 @@ export default function Studio() {
                 <p className="fw-eyebrow">Forkwise Studio</p>
                 <h1 className="st-home-title">What do you want to build today?</h1>
                 <p className="st-home-lead">Code, fix, research and edit media in one chat. Every change runs in a private sandbox, and every claim is checked.</p>
+
+                {allowed && !online && (
+                    <div className="fw-alert fw-alert-info" style={{ maxWidth: 760, width: "100%" }}>Studio is offline right now. You can still start a chat: it is saved and runs as soon as Studio is back.</div>
+                )}
 
                 {!allowed && (
                     <div className="fw-alert fw-alert-info" style={{ maxWidth: 760, width: "100%" }}>Forkwise Studio is in private beta. It opens for all accounts soon.</div>
