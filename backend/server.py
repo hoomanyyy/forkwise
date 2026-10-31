@@ -18,6 +18,8 @@ from starlette.middleware.sessions import SessionMiddleware
 from itsdangerous import URLSafeTimedSerializer
 from dotenv import load_dotenv
 import requests
+from database import agent_db
+from agent.sandbox import check_repo_url
 
 load_dotenv()
 
@@ -948,6 +950,119 @@ def getInvoices(req: Request):
     except Exception as e:
         print(f"ERROR: {e}")
         return {"Message": False, "detail": "Could not load your invoices."}
+
+
+# ---------------- Forkwise Agent ----------------
+# The API only saves tasks and reads results. The worker (agent_worker.py),
+# on a separate server with Docker, runs them.
+
+AGENT_DAILY_LIMIT = int(os.getenv("AGENT_DAILY_LIMIT", "3"))
+AGENT_MAX_FORKS = int(os.getenv("AGENT_MAX_FORKS", "3"))
+
+
+@app.post("/api/agent/tasks")
+def agent_new_task(data: dict, request: Request):
+    user = get_user(request)
+    if user is None:
+        return {"Message": "login"}
+    user_id = user["user_id"]
+    admin = Mysql().is_admin(user_id)
+
+    repo_url = str(data.get("repo_url", "")).strip()
+    branch = str(data.get("branch", "")).strip() or None
+    task = str(data.get("task", "")).strip()
+    test_command = str(data.get("test_command", "")).strip() or None
+    setup_command = str(data.get("setup_command", "")).strip() or None
+
+    try:
+        forks = int(data.get("forks", 3))
+    except (TypeError, ValueError):
+        forks = 3
+    max_forks = 5 if admin else AGENT_MAX_FORKS
+    forks = max(1, min(forks, max_forks))
+
+    problem = check_repo_url(repo_url)
+    if problem:
+        return {"Message": False, "error": problem}
+    if len(task) < 10:
+        return {"Message": False, "error": "Describe the task in a bit more detail."}
+    if len(task) > 8000:
+        return {"Message": False, "error": "The task is too long. Keep it under 8000 characters."}
+
+    if not admin:
+        if agent_db.count_open_tasks(user_id) > 0:
+            return {"Message": False, "error": "You already have a task running. Wait until it finishes."}
+        if agent_db.count_tasks_today(user_id) >= AGENT_DAILY_LIMIT:
+            return {"Message": False, "error": "You reached your daily limit of " + str(AGENT_DAILY_LIMIT) + " agent tasks."}
+
+    task_id = agent_db.add_task(user_id, repo_url, branch, task, test_command, setup_command, forks)
+    if task_id is None:
+        return {"Message": False, "error": "Could not save the task. Try again."}
+    return {"Message": True, "id": task_id}
+
+
+@app.get("/api/agent/tasks")
+def agent_tasks(request: Request):
+    user = get_user(request)
+    if user is None:
+        return {"Message": "login"}
+    return {"Message": True, "data": agent_db.list_tasks(user["user_id"]), "daily_limit": AGENT_DAILY_LIMIT}
+
+
+@app.get("/api/agent/tasks/{task_id}")
+def agent_task(task_id: int, request: Request, after: int = 0):
+    user = get_user(request)
+    if user is None:
+        return {"Message": "login"}
+    task = agent_db.get_task(task_id, user["user_id"])
+    if task is None:
+        return {"Message": False, "error": "This task was not found."}
+    return {
+        "Message": True,
+        "task": task,
+        "forks": agent_db.get_forks(task_id),
+        "checks": agent_db.get_checks(task_id),
+        "events": agent_db.get_events(task_id, after)
+    }
+
+
+@app.get("/api/agent/tasks/{task_id}/patch")
+def agent_patch(task_id: int, request: Request):
+    user = get_user(request)
+    if user is None:
+        return {"Message": "login"}
+    task = agent_db.get_task(task_id, user["user_id"])
+    if task is None or not task["patch"]:
+        return {"Message": False, "error": "There is no patch for this task."}
+    return Response(
+        content=task["patch"],
+        media_type="text/plain",
+        headers={"Content-Disposition": f'attachment; filename="forkwise-task-{task_id}.patch"'}
+    )
+
+
+@app.post("/api/agent/tasks/{task_id}/again")
+def agent_again(task_id: int, data: dict, request: Request):
+    # Run the same task again, with the user's answer to Forkwise's question added.
+    user = get_user(request)
+    if user is None:
+        return {"Message": "login"}
+    old = agent_db.get_task(task_id, user["user_id"])
+    if old is None:
+        return {"Message": False, "error": "This task was not found."}
+
+    answer = str(data.get("answer", "")).strip()
+    text = old["task"]
+    if answer:
+        text += "\n\nThe user answered this question: " + str(old["question"] or "") + "\nAnswer: " + answer
+    return agent_new_task({
+        "repo_url": old["repo_url"],
+        "branch": old["branch"] or "",
+        "task": text,
+        "test_command": old["test_command"] or "",
+        "setup_command": old["setup_command"] or "",
+        "forks": old["forks"]
+    }, request)
 
 
 if __name__ == "__main__":

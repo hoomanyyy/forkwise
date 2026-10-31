@@ -221,3 +221,59 @@ export async function checkHealth() {
         return { ok: false, ms: Date.now() - started }
     }
 }
+
+// ---------------- Forkwise Agent ----------------
+
+export async function getAgentTasks() {
+    try {
+        const response = await axios.get(`${BASE_URL}/api/agent/tasks`, { withCredentials: true })
+        return response.data
+    } catch (e) {
+        return { Message: false, Error: true }
+    }
+}
+
+export async function createAgentTask(data) {
+    try {
+        const response = await axios.post(`${BASE_URL}/api/agent/tasks`, data, { withCredentials: true })
+        return response.data
+    } catch (e) {
+        return { Message: false, error: "Could not connect to the server." }
+    }
+}
+
+export async function getAgentTask(id, after) {
+    try {
+        const response = await axios.get(`${BASE_URL}/api/agent/tasks/${id}?after=${after || 0}`, { withCredentials: true })
+        return response.data
+    } catch (e) {
+        return { Message: false, Error: true }
+    }
+}
+
+export async function runAgentAgain(id, answer) {
+    try {
+        const response = await axios.post(`${BASE_URL}/api/agent/tasks/${id}/again`, { answer: answer }, { withCredentials: true })
+        return response.data
+    } catch (e) {
+        return { Message: false, error: "Could not connect to the server." }
+    }
+}
+
+export async function downloadAgentPatch(id) {
+    try {
+        const response = await axios.get(`${BASE_URL}/api/agent/tasks/${id}/patch`, { withCredentials: true, responseType: "text" })
+        if (typeof response.data !== "string" || response.data.startsWith("{")) {
+            return false
+        }
+        const blob = new Blob([response.data], { type: "text/plain" })
+        const link = document.createElement("a")
+        link.href = URL.createObjectURL(blob)
+        link.download = `forkwise-task-${id}.patch`
+        link.click()
+        URL.revokeObjectURL(link.href)
+        return true
+    } catch (e) {
+        return false
+    }
+}
