@@ -3,7 +3,8 @@ import { useParams, useNavigate, Link } from "react-router-dom"
 import {
     FaPaperclip, FaArrowUp, FaStop, FaChevronRight, FaChevronDown, FaTerminal, FaFileAlt, FaPen, FaSearch, FaGlobe,
     FaBoxOpen, FaListUl, FaCodeBranch, FaShareSquare, FaDownload, FaShieldAlt, FaFolder, FaExclamationTriangle,
-    FaInfoCircle, FaCheck, FaRegCircle, FaSpinner, FaArrowLeft, FaGithub, FaTimes, FaColumns, FaEye, FaFileArchive, FaSyncAlt
+    FaInfoCircle, FaCheck, FaRegCircle, FaSpinner, FaArrowLeft, FaGithub, FaTimes, FaColumns, FaEye, FaFileArchive, FaSyncAlt,
+    FaDesktop, FaServer, FaMousePointer
 } from "react-icons/fa"
 import AppLayout from "../../components/app/AppLayout"
 import Markdown from "../../components/studio/Markdown"
@@ -26,7 +27,10 @@ const TOOL_ICONS = {
     fetch_url: FaGlobe,
     todo_write: FaListUl,
     show_changes: FaCodeBranch,
-    share_file: FaShareSquare
+    share_file: FaShareSquare,
+    browser: FaGlobe,
+    computer: FaMousePointer,
+    start_server: FaServer
 }
 
 const ACTIVE = ["pending", "running", "stopping"]
@@ -124,7 +128,60 @@ function groupMessages(messages) {
     return groups
 }
 
-function AgentRow({ row }) {
+function ScreenShot({ row, onOpen }) {
+    const info = readJson(row.content)
+    if (!info.id) {
+        return null
+    }
+    return (
+        <button type="button" className="st-shot" onClick={() => onOpen && onOpen(info.id)} title="Show on the Screen panel">
+            <img src={studioFileUrl(info.id)} alt={info.label || "Screenshot"} loading="lazy" />
+            <span dir="ltr"><FaDesktop /> {info.label || "screen"}</span>
+        </button>
+    )
+}
+
+function ScreenPanel({ screens, chosen, onChoose, active }) {
+    if (screens.length === 0) {
+        return (
+            <p className="st-empty">
+                When Studio opens a web page or uses its virtual computer, you see its screen here, live, after every click and key press.
+            </p>
+        )
+    }
+    let current = screens[screens.length - 1]
+    if (chosen !== null) {
+        const found = screens.find((x) => x.id === chosen)
+        if (found) {
+            current = found
+        }
+    }
+    const isLatest = current === screens[screens.length - 1]
+    return (
+        <div className="st-screen">
+            <div className="st-screen-bar">
+                <span className={active && isLatest ? "st-live st-live-on" : "st-live"}>{active && isLatest ? "LIVE" : "screenshot"}</span>
+                <span className="st-screen-label" dir="ltr">{current.label}</span>
+                {!isLatest && <button className="fw-btn fw-btn-ghost fw-btn-sm" onClick={() => onChoose(null)}>Latest</button>}
+            </div>
+            <a href={studioFileUrl(current.id)} target="_blank" rel="noopener noreferrer" className="st-screen-frame">
+                <img src={studioFileUrl(current.id)} alt={current.label || "Screen"} />
+            </a>
+            <div className="st-screen-strip">
+                {screens.slice(-12).map((x) => (
+                    <button key={x.id} className={x.id === current.id ? "st-strip-item st-strip-on" : "st-strip-item"} onClick={() => onChoose(x.id)} title={x.label}>
+                        <img src={studioFileUrl(x.id)} alt="" loading="lazy" />
+                    </button>
+                ))}
+            </div>
+        </div>
+    )
+}
+
+function AgentRow({ row, onScreen }) {
+    if (row.role === "screen") {
+        return <ScreenShot row={row} onOpen={onScreen} />
+    }
     if (row.role === "export") {
         return <div className="st-note"><FaFileArchive /> <span>Making a zip of the whole project...</span></div>
     }
@@ -258,6 +315,8 @@ export default function StudioSession() {
     const [error, setError] = useState("")
     const [uploading, setUploading] = useState("")
     const [panel, setPanel] = useState("preview")
+    const [chosenScreen, setChosenScreen] = useState(null)
+    const screenCount = useRef(0)
     const [showPanel, setShowPanel] = useState(window.innerWidth > 1100)
     const [patch, setPatch] = useState("")
     const [notice, setNotice] = useState("")
@@ -466,6 +525,27 @@ export default function StudioSession() {
     }
 
     const groups = groupMessages(messages)
+    const screens = []
+    for (const m of messages) {
+        if (m.role === "screen") {
+            const info = readJson(m.content)
+            if (info.id) {
+                screens.push({ id: info.id, label: info.label || "" })
+            }
+        }
+    }
+    if (screens.length > screenCount.current) {
+        if (screenCount.current === 0 && active && panel === "preview") {
+            setTimeout(() => setPanel("screen"), 0)
+        }
+        screenCount.current = screens.length
+    }
+
+    function openScreen(fileId) {
+        setChosenScreen(fileId)
+        setPanel("screen")
+        setShowPanel(true)
+    }
     const todos = session ? session.todos : []
     const doneCount = todos ? todos.filter((t) => t.status === "done").length : 0
 
@@ -506,7 +586,7 @@ export default function StudioSession() {
                                 <div key={i} className="st-agent">
                                     <img className="st-avatar" src={Logo} alt="" width="26" height="26" />
                                     <div className="st-agent-body">
-                                        {g.rows.map((r) => <AgentRow key={r.id} row={r} />)}
+                                        {g.rows.map((r) => <AgentRow key={r.id} row={r} onScreen={openScreen} />)}
                                     </div>
                                 </div>
                             )
@@ -556,6 +636,7 @@ export default function StudioSession() {
                     <aside className="st-panel">
                         <div className="st-tabs">
                             <button className={panel === "preview" ? "st-tab st-tab-on" : "st-tab"} onClick={() => setPanel("preview")}><FaEye /> Preview</button>
+                            <button className={panel === "screen" ? "st-tab st-tab-on" : "st-tab"} onClick={() => setPanel("screen")}><FaDesktop /> Screen {screens.length > 0 && active ? <i className="st-live-dot"></i> : null}</button>
                             <button className={panel === "changes" ? "st-tab st-tab-on" : "st-tab"} onClick={() => setPanel("changes")}><FaCodeBranch /> Changes</button>
                             <button className={panel === "tasks" ? "st-tab st-tab-on" : "st-tab"} onClick={() => setPanel("tasks")}><FaListUl /> Tasks {todos && todos.length > 0 ? doneCount + "/" + todos.length : ""}</button>
                             <button className={panel === "files" ? "st-tab st-tab-on" : "st-tab"} onClick={() => setPanel("files")}><FaFolder /> Files</button>
@@ -563,6 +644,7 @@ export default function StudioSession() {
                         </div>
                         <div className="st-panel-body">
                             {panel === "preview" && <Preview patch={patch} />}
+                            {panel === "screen" && <ScreenPanel screens={screens} chosen={chosenScreen} onChoose={setChosenScreen} active={active} />}
                             {panel === "changes" && (
                                 <>
                                     {patch.trim() !== "" && (

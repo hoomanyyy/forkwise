@@ -12,7 +12,9 @@ MEMORY = os.getenv("SANDBOX_MEMORY", "2g")
 CPUS = os.getenv("SANDBOX_CPUS", "1")
 PIDS = os.getenv("SANDBOX_PIDS", "256")
 RUNTIME = os.getenv("SANDBOX_RUNTIME", "")
-INTERNET = os.getenv("SANDBOX_INTERNET", "setup")
+INTERNET = os.getenv("SANDBOX_INTERNET", "setup")   # setup: only while installing, always: all the time, never
+SHM = os.getenv("SANDBOX_SHM", "1g")
+DNS = [d.strip() for d in os.getenv("SANDBOX_DNS", "1.1.1.1,8.8.8.8").split(",") if d.strip()]
 WORK_DIR = os.getenv("AGENT_WORK_DIR", "/tmp/forkwise-agent")
 ALLOWED_GIT_HOSTS = os.getenv("ALLOWED_GIT_HOSTS", "github.com,gitlab.com,bitbucket.org").split(",")
 MAX_REPO_MB = int(os.getenv("MAX_REPO_MB", "200"))
@@ -101,7 +103,10 @@ def start_sandbox(name):
             "--security-opt", "no-new-privileges",
             "--env", "HOME=/home/agent",
             "--env", "PIP_DISABLE_PIP_VERSION_CHECK=1",
+            "--shm-size", SHM,
             "--label", "forkwise-agent=1"]
+    for server in DNS:
+        args = args + ["--dns", server]
     if RUNTIME:
         args = args + ["--runtime", RUNTIME]
     if INTERNET == "never":

@@ -5,6 +5,7 @@
 #   sudo bash install.sh ~/forkwise-backup-XXXX.tar.gz   move everything from the old server
 #   sudo bash install.sh                                 empty install (no backup)
 #   sudo bash install.sh --ssl                           only get the HTTPS certificate (after DNS points here)
+#   sudo bash install.sh --model                         choose the AI model and key for Studio (OpenRouter)
 #
 # Options (put them before the backup file):
 #   --domain api.example.com   API domain (default api.forkwiseai.com)
@@ -29,6 +30,7 @@ DOMAIN="api.forkwiseai.com"
 SITE_URL="https://forkwiseai.com"
 WITH_WORKER=1
 SSL_ONLY=0
+MODEL_ONLY=0
 BACKUP=""
 
 BASE="/opt/forkwise"
@@ -47,6 +49,7 @@ while [ $# -gt 0 ]; do
         --branch) BRANCH="$2"; shift 2 ;;
         --no-worker) WITH_WORKER=0; shift ;;
         --ssl) SSL_ONLY=1; shift ;;
+        --model) MODEL_ONLY=1; shift ;;
         -h|--help) sed -n 2,16p "$FORKWISE_COPY"; exit 0 ;;
         *) BACKUP="$1"; shift ;;
     esac
@@ -130,6 +133,97 @@ get_certificate() {
     return 1
 }
 
+# ----------------------------------------------------------------- AI model
+configure_model() {
+    say "AI model for Studio and Agent (OpenRouter)"
+    [ -f "$WORKER_ENV" ] || fail "install Forkwise first, then run --model"
+    local key main fallback info vision
+    echo "    Get a key at https://openrouter.ai/keys (set a credit limit on the key)."
+    read -rsp "    OpenRouter API key: " key < /dev/tty; echo
+    [ -n "$key" ] || fail "no key given"
+    curl -fsS --max-time 30 https://openrouter.ai/api/v1/models -o /tmp/forkwise-models.json || fail "could not read the model list from OpenRouter"
+    echo
+    echo "    Good models for coding with tools (price in dollars per million tokens, input/output):"
+    "$VENV/bin/python" - <<'PY'
+import json
+data = json.load(open("/tmp/forkwise-models.json"))["data"]
+want = ["anthropic/claude-sonnet", "anthropic/claude-opus", "openai/gpt-5", "openai/gpt-6", "google/gemini", "deepseek/", "z-ai/glm", "moonshotai/kimi", "qwen/qwen3"]
+rows = []
+for m in data:
+    mid = m.get("id", "")
+    if not any(mid.startswith(w) for w in want) or "tools" not in (m.get("supported_parameters") or []):
+        continue
+    p = m.get("pricing") or {}
+    try:
+        cin = float(p.get("prompt", 0)) * 1e6
+        cout = float(p.get("completion", 0)) * 1e6
+    except ValueError:
+        continue
+    img = "image" in ((m.get("architecture") or {}).get("input_modalities") or [])
+    rows.append((cin, mid, cout, img, m.get("created", 0)))
+rows.sort(key=lambda r: -r[4])
+seen = set()
+shown = 0
+for cin, mid, cout, img, created in rows:
+    family = "/".join(mid.split("/")[:1]) + mid.split("/")[1].split("-")[0]
+    if shown >= 24:
+        break
+    print("      %-48s %6.2f / %-6.2f %s" % (mid, cin, cout, "sees images" if img else ""))
+    shown += 1
+PY
+    echo
+    read -rp "    Main model id (strong, ideally 'sees images'): " main < /dev/tty
+    read -rp "    Fallback model id (cheap, used when the main one is busy; Enter = none): " fallback < /dev/tty
+    info="$("$VENV/bin/python" - "$main" "$fallback" <<'PY'
+import json, sys
+data = {m["id"]: m for m in json.load(open("/tmp/forkwise-models.json"))["data"]}
+out = []
+for mid in sys.argv[1:]:
+    if not mid:
+        continue
+    m = data.get(mid)
+    if m is None:
+        print("missing " + mid); sys.exit(0)
+    if "tools" not in (m.get("supported_parameters") or []):
+        print("notools " + mid); sys.exit(0)
+img = "image" in ((data[sys.argv[1]].get("architecture") or {}).get("input_modalities") or [])
+print("ok " + ("true" if img else "false"))
+PY
+)"
+    case "$info" in
+        missing*) fail "OpenRouter has no model called ${info#missing }" ;;
+        notools*) fail "${info#notools } cannot use tools, choose another one" ;;
+    esac
+    vision="${info#ok }"
+    local test_code
+    test_code="$(curl -sS -o /tmp/forkwise-model-test.json -w '%{http_code}' --max-time 90 https://openrouter.ai/api/v1/chat/completions \
+        -H "Authorization: Bearer $key" -H "Content-Type: application/json" \
+        -d "{\"model\": \"$main\", \"max_tokens\": 20, \"messages\": [{\"role\": \"user\", \"content\": \"Say OK\"}]}")"
+    if [ "$test_code" != "200" ]; then
+        cat /tmp/forkwise-model-test.json; echo
+        fail "the test call to $main failed (HTTP $test_code). Check the key and its credit."
+    fi
+    rm -f /tmp/forkwise-model-test.json /tmp/forkwise-models.json
+    ok "test call to $main worked"
+    env_set AGENT_BASE_URL "https://openrouter.ai/api/v1" "$WORKER_ENV"
+    env_set AGENT_API_KEY "$key" "$WORKER_ENV"
+    env_set AGENT_MODEL "$main" "$WORKER_ENV"
+    env_set AGENT_SMALL_MODEL "${fallback:-$main}" "$WORKER_ENV"
+    env_set AGENT_FALLBACK_MODEL "$fallback" "$WORKER_ENV"
+    env_set AGENT_VISION "$vision" "$WORKER_ENV"
+    chown "$WORKER_USER:$WORKER_USER" "$WORKER_ENV"; chmod 600 "$WORKER_ENV"
+    ok "saved in $WORKER_ENV (screenshots for the model: $vision)"
+    systemctl enable forkwise-agent >/dev/null 2>&1
+    systemctl restart forkwise-agent
+    sleep 4
+    systemctl is-active --quiet forkwise-agent && ok "worker restarted with the new model" || warn "the worker did not start: sudo journalctl -u forkwise-agent -n 50"
+}
+
+if [ "$MODEL_ONLY" -eq 1 ]; then
+    configure_model
+    exit 0
+fi
+
 if [ "$SSL_ONLY" -eq 1 ]; then
     get_certificate && curl -fsS --max-time 10 "https://$DOMAIN/health" && echo
     exit 0
@@ -163,6 +257,13 @@ else
     MYSQL_SERVICE="mysql"
 fi
 ok "python: $($PY --version)"
+# MySQL only for this server, so the sandboxes cannot reach it
+if [ "$FAMILY" = "rhel" ]; then MYCNF="/etc/my.cnf.d/forkwise.cnf"; else MYCNF="/etc/mysql/mysql.conf.d/forkwise.cnf"; fi
+if [ ! -f "$MYCNF" ]; then
+    mkdir -p "$(dirname "$MYCNF")"
+    printf '[mysqld]\nbind-address = 127.0.0.1\nmysqlx-bind-address = 127.0.0.1\n' > "$MYCNF"
+    systemctl restart "$MYSQL_SERVICE" >/dev/null 2>&1
+fi
 systemctl enable --now "$MYSQL_SERVICE" >/dev/null 2>&1 || fail "MySQL did not start"
 ok "MySQL: $(mysql --version | awk '{print $3}')"
 
@@ -287,6 +388,10 @@ elif [ "$TABLE_COUNT" -eq 0 ]; then
 else
     ok "database already has $TABLE_COUNT tables, left as it is"
 fi
+# tables added by newer code (CREATE TABLE IF NOT EXISTS, safe to run every time)
+for f in "$APP/backend/database/agent_tables.sql" "$APP/backend/database/studio_tables.sql"; do
+    [ -f "$f" ] && mysql -u root "$DB_NAME" < "$f" 2>/dev/null
+done
 chown -R "$API_USER:$API_USER" "$STUDIO_DIR" "$APP/backend/upload"
 chmod 750 "$STUDIO_DIR"
 
@@ -407,6 +512,78 @@ if [ "$WITH_WORKER" -eq 1 ]; then
         id "$WORKER_USER" >/dev/null 2>&1 || useradd --system --create-home --home-dir "/home/$WORKER_USER" --shell /sbin/nologin "$WORKER_USER"
         usermod -aG docker "$WORKER_USER"
 
+        # sandboxes get the internet, but not this server, the cloud metadata service or private networks
+        command -v iptables >/dev/null 2>&1 || { [ "$FAMILY" = "rhel" ] && dnf -y -q install iptables-nft >/dev/null 2>&1; }
+        cat > "$BASE/sandbox-firewall.sh" <<'FW'
+#!/bin/bash
+iptables -N FW-SANDBOX 2>/dev/null || iptables -F FW-SANDBOX
+iptables -A FW-SANDBOX -m conntrack --ctstate ESTABLISHED,RELATED -j RETURN
+for net in 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16 100.64.0.0/10 127.0.0.0/8; do
+    iptables -A FW-SANDBOX -d "$net" -j DROP
+done
+iptables -A FW-SANDBOX -p tcp -m multiport --dports 25,465,587 -j DROP
+iptables -C DOCKER-USER -i docker0 -j FW-SANDBOX 2>/dev/null || iptables -I DOCKER-USER -i docker0 -j FW-SANDBOX
+iptables -C INPUT -i docker0 -m conntrack --ctstate NEW -j DROP 2>/dev/null || iptables -I INPUT -i docker0 -m conntrack --ctstate NEW -j DROP
+FW
+        chmod 700 "$BASE/sandbox-firewall.sh"
+        cat > /etc/systemd/system/forkwise-sandbox-firewall.service <<EOF
+[Unit]
+Description=Forkwise sandbox firewall
+After=docker.service
+Requires=docker.service
+PartOf=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=$BASE/sandbox-firewall.sh
+
+[Install]
+WantedBy=multi-user.target docker.service
+EOF
+        systemctl daemon-reload
+        systemctl enable forkwise-sandbox-firewall >/dev/null 2>&1
+        if systemctl restart forkwise-sandbox-firewall; then
+            ok "sandbox firewall: internet yes; this server, metadata and private networks no"
+        else
+            warn "the sandbox firewall did not start: sudo journalctl -u forkwise-sandbox-firewall"
+        fi
+
+        # free web search for the agent, no API key
+        mkdir -p "$BASE/searxng"
+        if [ ! -f "$BASE/searxng/settings.yml" ]; then
+            cat > "$BASE/searxng/settings.yml" <<EOF
+use_default_settings: true
+server:
+  secret_key: "$(random_secret 48)"
+  limiter: false
+  image_proxy: false
+  public_instance: false
+search:
+  safe_search: 1
+  formats:
+    - html
+    - json
+EOF
+        fi
+        chown -R 977:977 "$BASE/searxng"; chmod 750 "$BASE/searxng"; chmod 640 "$BASE/searxng/settings.yml"
+        if ! docker ps --format '{{.Names}}' | grep -qx forkwise-searxng; then
+            docker rm -f forkwise-searxng >/dev/null 2>&1
+            docker run -d --name forkwise-searxng --restart unless-stopped -p 127.0.0.1:8888:8080 \
+                --dns 1.1.1.1 --dns 8.8.8.8 -v "$BASE/searxng:/etc/searxng:rw,Z" searxng/searxng:latest >/dev/null 2>&1
+        fi
+        for _ in $(seq 1 30); do
+            curl -fsS --max-time 3 "http://127.0.0.1:8888/search?q=test&format=json" >/dev/null 2>&1 && break
+            sleep 2
+        done
+        if curl -fsS --max-time 10 "http://127.0.0.1:8888/search?q=python&format=json" 2>/dev/null | grep -q '"results"'; then
+            ok "web search (SearXNG) running on 127.0.0.1:8888"
+            SEARX_OK=1
+        else
+            warn "SearXNG did not answer; the agent falls back to DuckDuckGo, Bing and Mojeek. Log: sudo docker logs forkwise-searxng"
+            SEARX_OK=0
+        fi
+
         SANDBOX_IMAGE="forkwise-sandbox"
         echo "    building the sandbox image (5 to 10 minutes the first time)..."
         if docker build -t "$SANDBOX_IMAGE" -f "$APP/backend/agent/Dockerfile.sandbox" "$APP/backend/agent" > "$BASE/sandbox-build.log" 2>&1; then
@@ -414,6 +591,16 @@ if [ "$WITH_WORKER" -eq 1 ]; then
         else
             tail -n 15 "$BASE/sandbox-build.log"
             warn "the sandbox image did not build, see $BASE/sandbox-build.log"
+        fi
+
+        if docker image inspect "$SANDBOX_IMAGE" >/dev/null 2>&1; then
+            OUT_WEB="$(docker run --rm --dns 1.1.1.1 "$SANDBOX_IMAGE" curl -s -o /dev/null -m 10 -w '%{http_code}' https://example.com 2>/dev/null)"
+            OUT_META="$(docker run --rm --dns 1.1.1.1 "$SANDBOX_IMAGE" curl -s -o /dev/null -m 4 -w '%{http_code}' http://169.254.169.254/ 2>/dev/null)"
+            if [ "$OUT_WEB" = "200" ] && [ "$OUT_META" = "000" ]; then
+                ok "sandbox test: internet works, cloud metadata is blocked"
+            else
+                warn "sandbox test: internet=$OUT_WEB (want 200), metadata=$OUT_META (want 000)"
+            fi
         fi
 
         NEW_W="$(mktemp)"
@@ -429,6 +616,14 @@ if [ "$WITH_WORKER" -eq 1 ]; then
         done
         env_set FORKWISE_API_URL "http://127.0.0.1:$PORT" "$NEW_W"
         env_default SANDBOX_IMAGE "$SANDBOX_IMAGE" "$NEW_W"
+        env_default SANDBOX_INTERNET "always" "$NEW_W"
+        env_default STUDIO_MAX_STEPS "150" "$NEW_W"
+        env_default STUDIO_LIMIT_WAIT_MINUTES "20" "$NEW_W"
+        RAM_GB="$(awk '/MemTotal/ {printf "%d", $2/1024/1024}' /proc/meminfo)"
+        if [ "${RAM_GB:-0}" -ge 16 ]; then env_default SANDBOX_MEMORY "4g" "$NEW_W"; env_default SANDBOX_CPUS "2" "$NEW_W"; fi
+        if [ "${SEARX_OK:-0}" -eq 1 ]; then env_set SEARXNG_URL "http://127.0.0.1:8888" "$NEW_W"; fi
+        # the old Cloudflare setting had a stray quote in the model name
+        sed -i -E 's/^(AGENT_[A-Z_]*MODEL=)"/\1/' "$NEW_W"
         install -m 600 -o "$WORKER_USER" -g "$WORKER_USER" "$NEW_W" "$WORKER_ENV"
         rm -f "$NEW_W"
 
@@ -454,7 +649,7 @@ EOF
         systemctl daemon-reload
         if [ -z "$(env_get AGENT_API_KEY "$WORKER_ENV")" ]; then
             systemctl disable --now forkwise-agent >/dev/null 2>&1 || true
-            warn "worker installed but not started: AGENT_API_KEY is empty. Add it to $WORKER_ENV, then: sudo systemctl enable --now forkwise-agent"
+            warn "worker installed but not started: no AI model yet. Run:  sudo bash $APP/deploy/install.sh --model"
         else
             systemctl enable forkwise-agent >/dev/null 2>&1
             systemctl restart forkwise-agent

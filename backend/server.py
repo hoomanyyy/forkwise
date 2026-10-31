@@ -21,7 +21,7 @@ import requests
 from database import agent_db
 from database import studio_db
 from agent.sandbox import check_repo_url
-from fastapi import UploadFile, File
+from fastapi import UploadFile, File, Form
 from fastapi.responses import FileResponse
 import hashlib
 
@@ -1351,13 +1351,18 @@ def internal_studio_file(file_id: int, request: Request):
 
 
 @app.post("/internal/studio/sessions/{session_id}/outputs")
-def internal_studio_output(session_id: int, request: Request, file: UploadFile = File(...)):
+def internal_studio_output(session_id: int, request: Request, file: UploadFile = File(...), kind: str = Form("output")):
     if not worker_ok(request):
         return {"Message": False, "error": "not allowed"}
     if studio_db.get_session(session_id) is None:
         return {"Message": False, "error": "chat not found"}
 
-    name = unique_file_name(session_id, safe_file_name(file.filename))
+    if kind not in ["output", "screen"]:
+        kind = "output"
+    if kind == "screen":
+        name = "screen-" + uuid.uuid4().hex[:8] + ".jpg"
+    else:
+        name = unique_file_name(session_id, safe_file_name(file.filename))
     folder = os.path.join(STUDIO_FILES_DIR, str(session_id))
     os.makedirs(folder, exist_ok=True)
     path = os.path.join(folder, uuid.uuid4().hex + "_" + name)
@@ -1371,7 +1376,7 @@ def internal_studio_output(session_id: int, request: Request, file: UploadFile =
         out.write(chunk)
     out.close()
 
-    file_id = studio_db.add_file(session_id, name, "output", size, path)
+    file_id = studio_db.add_file(session_id, name, kind, size, path)
     return {"Message": True, "id": file_id, "name": name}
 
 

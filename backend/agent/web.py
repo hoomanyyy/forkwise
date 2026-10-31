@@ -14,61 +14,116 @@ MAX_PAGE_BYTES = 2 * 1024 * 1024
 MAX_TEXT = 15000
 
 
-def free_search(query):
-    try:
-        response = requests.post("https://html.duckduckgo.com/html/", data={"q": query},
-                                 headers={"User-Agent": "Mozilla/5.0 (ForkwiseStudio)"}, timeout=20)
-    except Exception as e:
-        return "Search failed: " + str(e)[:200]
+SEARXNG_URL = (os.getenv("SEARXNG_URL") or "").rstrip("/")
+BROWSER_AGENT = "Mozilla/5.0 (X11; Linux aarch64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"
+
+
+def clean(text):
+    return html.unescape(re.sub(r"<[^>]+>", "", text or "")).strip()
+
+
+def as_lines(results):
+    lines = []
+    for title, link, snippet in results[:8]:
+        lines.append("- " + title + "\n  " + link + "\n  " + snippet)
+    return "\n".join(lines)
+
+
+def searxng_search(query):
+    response = requests.get(SEARXNG_URL + "/search", params={"q": query, "format": "json"}, timeout=20)
     if response.status_code != 200:
-        return "Search failed with status " + str(response.status_code)
+        return []
+    results = []
+    for r in response.json().get("results", []):
+        results.append((r.get("title", ""), r.get("url", ""), clean(r.get("content", ""))))
+    return results
+
+
+def brave_search(query):
+    response = requests.get("https://api.search.brave.com/res/v1/web/search", params={"q": query, "count": 8},
+                            headers={"Accept": "application/json", "X-Subscription-Token": SEARCH_API_KEY}, timeout=20)
+    if response.status_code != 200:
+        return []
+    results = []
+    for r in response.json().get("web", {}).get("results", []):
+        results.append((r.get("title", ""), r.get("url", ""), clean(r.get("description", ""))))
+    return results
+
+
+def duckduckgo_search(query):
+    response = requests.post("https://html.duckduckgo.com/html/", data={"q": query},
+                             headers={"User-Agent": BROWSER_AGENT}, timeout=20)
+    if response.status_code != 200:
+        return []
     page = response.text
     titles = re.findall(r'<a[^>]*class="result__a"[^>]*href="([^"]+)"[^>]*>(.*?)</a>', page, re.S)
     snippets = re.findall(r'class="result__snippet"[^>]*>(.*?)</a>', page, re.S)
-    if len(titles) == 0:
-        return "No results."
-    lines = []
-    count = 0
-    for item in titles:
-        if count >= 8:
-            break
+    results = []
+    for i, item in enumerate(titles):
         link = html.unescape(item[0])
         if "uddg=" in link:
             link = unquote(link.split("uddg=")[1].split("&")[0])
-        title = html.unescape(re.sub(r"<[^>]+>", "", item[1])).strip()
-        snippet = ""
-        if count < len(snippets):
-            snippet = html.unescape(re.sub(r"<[^>]+>", "", snippets[count])).strip()
-        lines.append("- " + title + "\n  " + link + "\n  " + snippet)
-        count = count + 1
-    return "\n".join(lines)
+        results.append((clean(item[1]), link, clean(snippets[i]) if i < len(snippets) else ""))
+    return results
+
+
+def bing_search(query):
+    response = requests.get("https://www.bing.com/search", params={"q": query, "setlang": "en"},
+                            headers={"User-Agent": BROWSER_AGENT, "Accept-Language": "en-US,en;q=0.9"}, timeout=20)
+    if response.status_code != 200:
+        return []
+    results = []
+    for block in re.findall(r'<li class="b_algo"(.*?)</li>', response.text, re.S):
+        found = re.search(r'<h2[^>]*>\s*<a[^>]*href="([^"]+)"[^>]*>(.*?)</a>', block, re.S)
+        if not found:
+            continue
+        snippet = re.search(r"<p[^>]*>(.*?)</p>", block, re.S)
+        results.append((clean(found.group(2)), html.unescape(found.group(1)), clean(snippet.group(1)) if snippet else ""))
+    return results
+
+
+def mojeek_search(query):
+    response = requests.get("https://www.mojeek.com/search", params={"q": query},
+                            headers={"User-Agent": BROWSER_AGENT}, timeout=20)
+    if response.status_code != 200:
+        return []
+    results = []
+    for block in re.findall(r'<li class="r\d*"(.*?)</li>', response.text, re.S):
+        found = re.search(r'<a[^>]*class="title"[^>]*href="([^"]+)"[^>]*>(.*?)</a>', block, re.S) or \
+            re.search(r'<h2>\s*<a[^>]*href="([^"]+)"[^>]*>(.*?)</a>', block, re.S)
+        if not found:
+            continue
+        snippet = re.search(r'<p class="s"[^>]*>(.*?)</p>', block, re.S)
+        results.append((clean(found.group(2)), html.unescape(found.group(1)), clean(snippet.group(1)) if snippet else ""))
+    return results
+
+
+def free_search(query):
+    """Search without any API key. Several engines are tried in turn, because a single free engine
+    sometimes blocks server addresses."""
+    engines = []
+    if SEARXNG_URL:
+        engines.append(("searxng", searxng_search))
+    if SEARCH_API_KEY:
+        engines.append(("brave", brave_search))
+    engines = engines + [("duckduckgo", duckduckgo_search), ("bing", bing_search), ("mojeek", mojeek_search)]
+    problems = []
+    for name, engine in engines:
+        try:
+            results = [r for r in engine(query) if r[1].startswith("http")]
+        except Exception as e:
+            problems.append(name + ": " + str(e)[:80])
+            continue
+        if results:
+            return as_lines(results)
+        problems.append(name + ": no results")
+    return "No results. (" + "; ".join(problems) + ")"
 
 
 def web_search(query):
     if not query.strip():
         return "Write what to search for."
-    if not SEARCH_API_KEY:
-        return free_search(query)
-    try:
-        response = requests.get(
-            "https://api.search.brave.com/res/v1/web/search",
-            params={"q": query, "count": 8},
-            headers={"Accept": "application/json", "X-Subscription-Token": SEARCH_API_KEY},
-            timeout=20
-        )
-        if response.status_code != 200:
-            return "Search failed with status " + str(response.status_code)
-        results = response.json().get("web", {}).get("results", [])
-    except Exception as e:
-        return "Search failed: " + str(e)
-
-    if len(results) == 0:
-        return "No results."
-    lines = []
-    for r in results:
-        description = re.sub(r"<[^>]+>", "", r.get("description", ""))
-        lines.append("- " + r.get("title", "") + "\n  " + r.get("url", "") + "\n  " + html.unescape(description))
-    return "\n".join(lines)
+    return free_search(query)
 
 
 def is_public_host(host):
