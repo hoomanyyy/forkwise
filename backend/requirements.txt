@@ -1,6 +1,6 @@
 fastapi
 uvicorn[standard]
-mysql-connector
+mysql-connector-python
 requests
 pydantic
 python-multipart
