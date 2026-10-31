@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useRef, useState } from "r
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom"
 import {
     FaHome, FaPlus, FaFlask, FaComments, FaDatabase, FaThLarge, FaChartPie, FaReceipt, FaCog, FaBook,
-    FaLifeRing, FaShieldAlt, FaCodeBranch, FaSearch, FaBars, FaTimes, FaSignOutAlt, FaArrowUp, FaChevronDown, FaExternalLinkAlt
+    FaLifeRing, FaShieldAlt, FaCodeBranch, FaTerminal, FaSearch, FaBars, FaTimes, FaSignOutAlt, FaArrowUp, FaChevronDown, FaExternalLinkAlt
 } from "react-icons/fa"
 import Logo from "../../images/logo.svg"
 import Seo from "../Seo"
@@ -17,6 +17,7 @@ export function useMe() {
 
 const MAIN_LINKS = [
     { to: "/dashboard", icon: FaHome, label: "Overview" },
+    { to: "/studio", icon: FaTerminal, label: "Studio" },
     { to: "/chat", icon: FaPlus, label: "New analysis" },
     { to: "/runs", icon: FaFlask, label: "Runs" },
     { to: "/agent", icon: FaCodeBranch, label: "Agent" },

@@ -47,6 +47,8 @@ import Settings from "./pages/app/Settings"
 import Help from "./pages/app/Help"
 import Agent from "./pages/app/Agent"
 import AgentTask from "./pages/app/AgentTask"
+import Studio from "./pages/app/Studio"
+import StudioSession from "./pages/app/StudioSession"
 
 function ScrollToTop() {
     const { pathname } = useLocation()
@@ -101,6 +103,8 @@ export default function App() {
                 <Route path="/chat" element={<Chat />} />
                 <Route path="/runs" element={<Runs />} />
                 <Route path="/runs/:id" element={<PredictResult />} />
+                <Route path="/studio" element={<Studio />} />
+                <Route path="/studio/:id" element={<StudioSession />} />
                 <Route path="/agent" element={<Agent />} />
                 <Route path="/agent/:id" element={<AgentTask />} />
                 <Route path="/assistant" element={<Assistant />} />

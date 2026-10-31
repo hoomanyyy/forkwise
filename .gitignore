@@ -18,3 +18,4 @@ frontend/.git-backup/
 .vscode/
 Thumbs.db
 .DS_Store
+backend/studio_files/

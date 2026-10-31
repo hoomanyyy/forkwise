@@ -1,18 +1,10 @@
-# The Verifier: checks the forks against each other and gives the verdict.
-#
-# The main idea (cross testing):
-#   every fork writes its own tests. We run the tests of fork A on the code of fork B.
-#   - all forks pass each other's tests  -> they behave the same     -> verified
-#   - they fail each other's tests a lot -> the task can be read in more than one way -> choice_dependent
-#   - something in between, or only one fork works -> fragile
-#   - no fork passes its tests -> failing
-
 import os
 import shlex
 from agent import sandbox
 from agent.model import ask_json
 
 TEST_TIMEOUT = 300
+TEST_ENDINGS = [".test.js", ".spec.js", ".test.ts", ".spec.ts", ".test.jsx", ".test.tsx"]
 
 
 def detect_test_command(box):
@@ -33,7 +25,7 @@ def is_test_file(path):
         return True
     if name.endswith("_test.py") or name.endswith("_test.go"):
         return True
-    for ending in [".test.js", ".spec.js", ".test.ts", ".spec.ts", ".test.jsx", ".test.tsx"]:
+    for ending in TEST_ENDINGS:
         if name.endswith(ending):
             return True
     if "tests" in folders or "__tests__" in folders:
@@ -45,50 +37,63 @@ def run_tests(box, test_command):
     result = sandbox.run(box, test_command, timeout=TEST_TIMEOUT)
     ok = result["code"] == 0
     if "pytest" in test_command and result["code"] == 5:
-        # pytest exit code 5 means "no tests found"
         ok = False
-        result["output"] += "\n[no tests were found]"
+        result["output"] = result["output"] + "\n[no tests were found]"
     return {"ok": ok, "output": result["output"]}
 
 
 def cross_command(test_command, test_files):
-    if "pytest" in test_command:
-        python_files = [shlex.quote(f) for f in test_files if f.endswith(".py")]
-        if python_files:
-            return "python3 -m pytest -q -p no:cacheprovider " + " ".join(python_files)
-    return test_command
+    if "pytest" not in test_command:
+        return test_command
+    python_files = []
+    for path in test_files:
+        if path.endswith(".py"):
+            python_files.append(shlex.quote(path))
+    if len(python_files) == 0:
+        return test_command
+    return "python3 -m pytest -q -p no:cacheprovider " + " ".join(python_files)
 
 
 def compute_verdict(forks, checks):
-    # forks:  [{"fork_no": 1, "tests_ok": True, "diff": "..."}, ...]
-    # checks: [{"tests_from": 1, "code_of": 2, "passed": True}, ...]
-    good = [f for f in forks if f.get("tests_ok")]
+    good = []
+    good_numbers = []
+    for fork in forks:
+        if fork.get("tests_ok"):
+            good.append(fork)
+            good_numbers.append(fork["fork_no"])
 
     if len(good) == 0:
         return {"verdict": "failing", "chosen": None, "agree": None}
 
-    good_numbers = [f["fork_no"] for f in good]
-    pairs = [c for c in checks if c["tests_from"] in good_numbers and c["code_of"] in good_numbers and c["tests_from"] != c["code_of"]]
-    passed = [c for c in pairs if c["passed"]]
+    pairs = 0
+    passed = 0
+    passed_by_fork = {}
+    for check in checks:
+        if check["tests_from"] == check["code_of"]:
+            continue
+        if check["tests_from"] not in good_numbers or check["code_of"] not in good_numbers:
+            continue
+        pairs = pairs + 1
+        if check["passed"]:
+            passed = passed + 1
+            old = passed_by_fork.get(check["code_of"], 0)
+            passed_by_fork[check["code_of"]] = old + 1
 
-    # Pick the fork that passes the most tests written by the others, then the smallest change.
     best = None
-    best_score = None
-    for f in good:
-        score = len([c for c in passed if c["code_of"] == f["fork_no"]])
-        size = len(f.get("diff") or "")
-        key = (score, -size)
-        if best is None or key > best_score:
-            best = f
-            best_score = key
+    best_score = -1
+    best_size = 0
+    for fork in good:
+        score = passed_by_fork.get(fork["fork_no"], 0)
+        size = len(fork.get("diff") or "")
+        if best is None or score > best_score or (score == best_score and size < best_size):
+            best = fork
+            best_score = score
+            best_size = size
 
-    if len(good) == 1:
-        return {"verdict": "fragile", "chosen": best["fork_no"], "agree": None}
-    if len(pairs) == 0:
-        # Several forks work, but none wrote tests we could share, so we cannot compare them.
+    if len(good) == 1 or pairs == 0:
         return {"verdict": "fragile", "chosen": best["fork_no"], "agree": None}
 
-    agree = len(passed) / len(pairs)
+    agree = passed / pairs
     if agree == 1:
         verdict = "verified"
     elif agree < 0.5:
@@ -99,31 +104,35 @@ def compute_verdict(forks, checks):
 
 
 def explain(task, forks, checks, result):
-    # Ask the cheap model for a short, honest summary (and a question if the forks disagree).
     lines = []
-    for f in forks:
-        lines.append("Fork " + str(f["fork_no"]) + " (tests " + ("passed" if f.get("tests_ok") else "failed") + "): " + (f.get("summary") or "")[:600])
-    failed = [c for c in checks if not c["passed"]][:4]
-    for c in failed:
-        lines.append("Tests of fork " + str(c["tests_from"]) + " FAILED on the code of fork " + str(c["code_of"]) + ":\n" + (c.get("output") or "")[-1200:])
+    for fork in forks:
+        state = "failed"
+        if fork.get("tests_ok"):
+            state = "passed"
+        lines.append("Fork " + str(fork["fork_no"]) + " (tests " + state + "): " + (fork.get("summary") or "")[:600])
 
-    prompt = f"""Task given to several independent engineers:
-{task}
+    shown = 0
+    for check in checks:
+        if check["passed"] or shown >= 4:
+            continue
+        shown = shown + 1
+        lines.append("Tests of fork " + str(check["tests_from"]) + " FAILED on the code of fork " + str(check["code_of"]) + ":\n" + (check.get("output") or "")[-1200:])
 
-Verdict: {result["verdict"]}  (verified, fragile, choice_dependent or failing)
-Chosen fork: {result["chosen"]}
+    prompt = "Task given to several independent engineers:\n" + task + "\n\n"
+    prompt = prompt + "Verdict: " + result["verdict"] + "  (verified, fragile, choice_dependent or failing)\n"
+    prompt = prompt + "Chosen fork: " + str(result["chosen"]) + "\n\n"
+    prompt = prompt + "What happened:\n" + "\n".join(lines) + "\n\n"
+    prompt = prompt + "Write JSON with two keys:\n"
+    prompt = prompt + '"summary": 2 or 3 plain sentences for the user about what was built and how sure we are.\n'
+    prompt = prompt + '"question": only if the verdict is choice_dependent or fragile, ONE question that asks the user to choose between the different behaviours the forks chose. Otherwise "".\n'
 
-What happened:
-{chr(10).join(lines)}
-
-Write JSON with two keys:
-"summary": 2 or 3 plain sentences for the user about what was built and how sure we are.
-"question": only if the verdict is choice_dependent or fragile, ONE question that asks the user to choose between the different behaviours the forks chose. Otherwise "".
-"""
     answer = ask_json(prompt)
     if answer is None:
         return default_explanation(result)
-    return {"summary": str(answer.get("summary") or default_explanation(result)["summary"]), "question": str(answer.get("question") or "")}
+    summary = str(answer.get("summary") or "")
+    if summary == "":
+        summary = default_explanation(result)["summary"]
+    return {"summary": summary, "question": str(answer.get("question") or "")}
 
 
 def default_explanation(result):

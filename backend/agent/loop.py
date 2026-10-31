@@ -1,13 +1,11 @@
-# The agent loop: the model thinks, picks a tool, we run the tool in the sandbox,
-# we give the result back to the model, and repeat until it calls "finish".
-
 import json
 import shlex
 from agent import sandbox
 from agent.model import call_model
+from database import agent_db
 
 MAX_STEPS = 40
-KEEP_LAST = 16            # the last 16 messages are always kept in full
+KEEP_LAST = 16
 MAX_HISTORY_CHARS = 150000
 
 TOOLS = [
@@ -162,8 +160,6 @@ def run_tool(name, args, box):
 
 
 def shrink_history(messages):
-    # Short term memory: keep the task and the last messages in full,
-    # and replace old, long tool outputs with a short note.
     total = 0
     for m in messages:
         total += len(m.get("content") or "")
@@ -185,8 +181,7 @@ def tool_label(name, args):
     return name
 
 
-def run_agent(box, task, style, test_command, log):
-    # log(kind, text) writes to the live log the user sees.
+def run_agent(box, task, style, test_command, task_id, fork_no):
     messages = [
         {"role": "system", "content": make_system_prompt(style, test_command)},
         {"role": "user", "content": "Task:\n" + task}
@@ -198,7 +193,7 @@ def run_agent(box, task, style, test_command, log):
         shrink_history(messages)
         result = call_model(messages, tools=TOOLS)
         if "error" in result:
-            log("error", "Model error: " + result["error"][:300])
+            agent_db.add_event(task_id, fork_no, "error", "Model error: " + result["error"][:300])
             return {"ok": False, "summary": "The model did not answer.", "steps": step, "tokens": tokens}
 
         tokens += result["tokens"]
@@ -207,7 +202,7 @@ def run_agent(box, task, style, test_command, log):
         calls = message.get("tool_calls") or []
 
         if text.strip():
-            log("think", text.strip()[:1500])
+            agent_db.add_event(task_id, fork_no, "think", text.strip()[:1500])
 
         assistant = {"role": "assistant", "content": text}
         if calls:
@@ -230,12 +225,12 @@ def run_agent(box, task, style, test_command, log):
 
             if name == "finish":
                 summary = args.get("summary", "")
-                log("info", "Finished: " + summary[:1000])
+                agent_db.add_event(task_id, fork_no, "info", "Finished: " + summary[:1000])
                 return {"ok": True, "summary": summary, "steps": step, "tokens": tokens}
 
-            log("tool", tool_label(name, args))
+            agent_db.add_event(task_id, fork_no, "tool", tool_label(name, args))
             output = run_tool(name, args, box)
             messages.append({"role": "tool", "tool_call_id": call.get("id", name), "content": output})
 
-    log("error", "Stopped after " + str(MAX_STEPS) + " steps.")
+    agent_db.add_event(task_id, fork_no, "error", "Stopped after " + str(MAX_STEPS) + " steps.")
     return {"ok": False, "summary": "The agent used all its steps before finishing.", "steps": MAX_STEPS, "tokens": tokens}

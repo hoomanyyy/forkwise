@@ -1,4 +1,4 @@
-# Forkwise Agent (phase 0)
+# Forkwise Agent and Studio
 
 A coding agent that proves its work. Several independent agents ("forks") solve the same task in
 locked sandboxes, then the tests of each fork are run on the code of every other fork. The result is
@@ -106,7 +106,74 @@ sudo systemctl daemon-reload && sudo systemctl enable --now forkwise-agent
 
 The new pages are `/agent` and `/agent/:id` (sidebar: Agent). Deploy the frontend as usual.
 
-## Safety in phase 0
+
+## Forkwise Studio (chat coding and media editing)
+
+One chat, one private sandbox. The user writes in any language, attaches files, and the agent
+reads, writes and runs code, tests and debugs, searches the web, installs packages and edits
+video, audio and images with ffmpeg. Results are shown live and files come back as downloads.
+
+| File | What it does |
+|---|---|
+| `database/studio_tables.sql` | 3 tables: chats, messages, files |
+| `database/studio_db.py` | read and write those tables |
+| `agent/studio.py` | the chat agent: sandbox per chat, tools, uploads, shared files |
+| `agent/web.py` | web search (Brave Search API) and reading pages, private addresses blocked |
+| `frontend/src/pages/app/Studio.js` | Studio home: new chat, attachments, recent chats |
+| `frontend/src/pages/app/StudioSession.js` | the chat: steps, files, changes, tasks |
+
+Tools of the Studio agent: list, read, search, write, edit, run command, install packages
+(internet only for that command), web search, read web page, task list, show changes, share file.
+
+How files move: the browser uploads to the API server (`STUDIO_FILES_DIR`). The worker downloads
+them with `WORKER_KEY` and puts them in `/home/agent/uploads` inside the sandbox. Files the agent
+shares are sent back to the API server and appear in the chat with a preview and a download button.
+
+A sandbox that is idle for `STUDIO_IDLE_MINUTES` is stopped. All changes are saved as a patch after
+every message, so the next message rebuilds it exactly as it was.
+
+### Studio setup
+
+Database (once):
+
+```
+mysql -u USER -p DB_NAME < database/studio_tables.sql
+```
+
+API server, extra settings (for example with `sudo systemctl edit forkwise`):
+
+```
+Environment="WORKER_KEY=a-long-random-secret"
+Environment="STUDIO_FILES_DIR=/opt/forkwise/studio_files"
+Environment="STUDIO_FOR_ALL=false"          # false: only admins can use Studio
+Environment="STUDIO_DAILY_MESSAGES=50"
+Environment="STUDIO_MAX_UPLOAD_MB=300"
+```
+
+```
+sudo mkdir -p /opt/forkwise/studio_files && sudo chown www-data:www-data /opt/forkwise/studio_files
+```
+
+nginx on the API server must allow big uploads, inside the `server { }` block of the API:
+
+```
+client_max_body_size 300M;
+proxy_read_timeout 600s;
+```
+
+Worker `.env`, extra settings:
+
+```
+FORKWISE_API_URL=https://api.forkwiseai.com
+WORKER_KEY=a-long-random-secret     # the same value as on the API server
+SEARCH_API_KEY=...                  # Brave Search API key, optional
+STUDIO_SLOTS=3                      # chats that can work at the same time
+STUDIO_IDLE_MINUTES=30
+```
+
+The worker runs Agent tasks and Studio chats together. With Studio, give it at least 8 GB RAM.
+
+## Safety
 
 - Only `https` links to github.com, gitlab.com and bitbucket.org, max 200 MB, public repositories.
 - Every fork: its own container, user `agent` (not root), no Linux capabilities, 2 GB memory, 1 CPU,

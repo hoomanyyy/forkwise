@@ -19,7 +19,11 @@ from itsdangerous import URLSafeTimedSerializer
 from dotenv import load_dotenv
 import requests
 from database import agent_db
+from database import studio_db
 from agent.sandbox import check_repo_url
+from fastapi import UploadFile, File
+from fastapi.responses import FileResponse
+import hashlib
 
 load_dotenv()
 
@@ -952,10 +956,6 @@ def getInvoices(req: Request):
         return {"Message": False, "detail": "Could not load your invoices."}
 
 
-# ---------------- Forkwise Agent ----------------
-# The API only saves tasks and reads results. The worker (agent_worker.py),
-# on a separate server with Docker, runs them.
-
 AGENT_DAILY_LIMIT = int(os.getenv("AGENT_DAILY_LIMIT", "3"))
 AGENT_MAX_FORKS = int(os.getenv("AGENT_MAX_FORKS", "3"))
 
@@ -1043,7 +1043,6 @@ def agent_patch(task_id: int, request: Request):
 
 @app.post("/api/agent/tasks/{task_id}/again")
 def agent_again(task_id: int, data: dict, request: Request):
-    # Run the same task again, with the user's answer to Forkwise's question added.
     user = get_user(request)
     if user is None:
         return {"Message": "login"}
@@ -1063,6 +1062,302 @@ def agent_again(task_id: int, data: dict, request: Request):
         "setup_command": old["setup_command"] or "",
         "forks": old["forks"]
     }, request)
+
+
+STUDIO_FOR_ALL = os.getenv("STUDIO_FOR_ALL", "false") == "true"
+STUDIO_DAILY_MESSAGES = int(os.getenv("STUDIO_DAILY_MESSAGES", "50"))
+STUDIO_MAX_UPLOAD_MB = int(os.getenv("STUDIO_MAX_UPLOAD_MB", "300"))
+STUDIO_FILES_DIR = os.getenv("STUDIO_FILES_DIR", os.path.join(os.path.dirname(os.path.abspath(__file__)), "studio_files"))
+WORKER_KEY = os.getenv("WORKER_KEY", "")
+
+
+def studio_allowed(user_id):
+    if STUDIO_FOR_ALL:
+        return True
+    return Mysql().is_admin(user_id)
+
+
+def load_json(text, empty):
+    try:
+        value = json.loads(text or "")
+        return value
+    except ValueError:
+        return empty
+
+
+def safe_file_name(name):
+    name = os.path.basename(str(name or "file")).strip()
+    clean = ""
+    for letter in name:
+        if letter in "/\\:*?\"<>|" or ord(letter) < 32:
+            clean = clean + "_"
+        else:
+            clean = clean + letter
+    clean = clean.lstrip(".")
+    if clean == "":
+        clean = "file"
+    if len(clean) > 120:
+        clean = clean[-120:]
+    return clean
+
+
+def unique_file_name(session_id, name):
+    used = []
+    for item in studio_db.list_files(session_id):
+        used.append(item["name"])
+    if name not in used:
+        return name
+    base, ext = os.path.splitext(name)
+    number = 2
+    while base + "-" + str(number) + ext in used:
+        number = number + 1
+    return base + "-" + str(number) + ext
+
+
+def worker_ok(request):
+    return WORKER_KEY != "" and request.headers.get("X-Worker-Key", "") == WORKER_KEY
+
+
+@app.post("/api/studio/sessions")
+def studio_new_session(data: dict, request: Request):
+    user = get_user(request)
+    if user is None:
+        return {"Message": "login"}
+    if not studio_allowed(user["user_id"]):
+        return {"Message": False, "error": "Forkwise Studio is not open for your account yet."}
+
+    repo_url = str(data.get("repo_url", "")).strip() or None
+    branch = str(data.get("branch", "")).strip() or None
+    title = str(data.get("title", "")).strip()[:200] or "New project"
+    if repo_url:
+        problem = check_repo_url(repo_url)
+        if problem:
+            return {"Message": False, "error": problem}
+        if title == "New project":
+            title = repo_url.replace("https://", "").replace(".git", "")[:200]
+
+    session_id = studio_db.add_session(user["user_id"], title, repo_url, branch)
+    if session_id is None:
+        return {"Message": False, "error": "Could not create the chat. Try again."}
+    return {"Message": True, "id": session_id}
+
+
+@app.get("/api/studio/sessions")
+def studio_sessions(request: Request):
+    user = get_user(request)
+    if user is None:
+        return {"Message": "login"}
+    return {"Message": True, "data": studio_db.list_sessions(user["user_id"]), "allowed": studio_allowed(user["user_id"])}
+
+
+@app.get("/api/studio/sessions/{session_id}")
+def studio_session(session_id: int, request: Request, after: int = 0):
+    user = get_user(request)
+    if user is None:
+        return {"Message": "login"}
+    session = studio_db.get_session(session_id, user["user_id"])
+    if session is None:
+        return {"Message": False, "error": "This chat was not found."}
+
+    patch = session["patch"] or ""
+    info = {
+        "id": session["id"],
+        "title": session["title"],
+        "repo_url": session["repo_url"],
+        "branch": session["branch"],
+        "status": session["status"],
+        "box": session["box"],
+        "error": session["error"],
+        "tokens": session["tokens"],
+        "files": load_json(session["files"], []),
+        "todos": load_json(session["todos"], []),
+        "patch_hash": hashlib.md5(patch.encode("utf-8")).hexdigest(),
+        "patch_size": len(patch),
+        "created_at": session["created_at"]
+    }
+    return {"Message": True, "session": info, "messages": studio_db.get_messages(session_id, after)}
+
+
+@app.post("/api/studio/sessions/{session_id}/messages")
+def studio_send(session_id: int, data: dict, request: Request):
+    user = get_user(request)
+    if user is None:
+        return {"Message": "login"}
+    user_id = user["user_id"]
+    session = studio_db.get_session(session_id, user_id)
+    if session is None:
+        return {"Message": False, "error": "This chat was not found."}
+    if not studio_allowed(user_id):
+        return {"Message": False, "error": "Forkwise Studio is not open for your account yet."}
+    if session["status"] in ["pending", "running", "stopping"]:
+        return {"Message": False, "error": "Wait until the current answer is finished, or press Stop."}
+
+    text = str(data.get("text", "")).strip()
+    if text == "":
+        return {"Message": False, "error": "Write a message."}
+    if len(text) > 20000:
+        return {"Message": False, "error": "The message is too long. Keep it under 20000 characters."}
+    if not Mysql().is_admin(user_id) and studio_db.count_messages_today(user_id) >= STUDIO_DAILY_MESSAGES:
+        return {"Message": False, "error": "You reached your daily limit of " + str(STUDIO_DAILY_MESSAGES) + " Studio messages."}
+
+    if session["title"] == "New project":
+        studio_db.update_session(session_id, {"title": text[:60]})
+    message_id = studio_db.send_message(session_id, text)
+    return {"Message": True, "id": message_id}
+
+
+@app.post("/api/studio/sessions/{session_id}/stop")
+def studio_stop(session_id: int, request: Request):
+    user = get_user(request)
+    if user is None:
+        return {"Message": "login"}
+    session = studio_db.get_session(session_id, user["user_id"])
+    if session is None:
+        return {"Message": False, "error": "This chat was not found."}
+    if session["status"] == "pending":
+        studio_db.update_session(session_id, {"status": "idle"})
+        studio_db.add_message(session_id, "info", "Stopped.")
+    elif session["status"] == "running":
+        studio_db.update_session(session_id, {"status": "stopping"})
+    return {"Message": True}
+
+
+@app.post("/api/studio/sessions/{session_id}/upload")
+def studio_upload(session_id: int, request: Request, file: UploadFile = File(...)):
+    user = get_user(request)
+    if user is None:
+        return {"Message": "login"}
+    session = studio_db.get_session(session_id, user["user_id"])
+    if session is None:
+        return {"Message": False, "error": "This chat was not found."}
+    if not studio_allowed(user["user_id"]):
+        return {"Message": False, "error": "Forkwise Studio is not open for your account yet."}
+
+    name = unique_file_name(session_id, safe_file_name(file.filename))
+    folder = os.path.join(STUDIO_FILES_DIR, str(session_id))
+    os.makedirs(folder, exist_ok=True)
+    path = os.path.join(folder, uuid.uuid4().hex + "_" + name)
+
+    limit = STUDIO_MAX_UPLOAD_MB * 1024 * 1024
+    size = 0
+    out = open(path, "wb")
+    while True:
+        chunk = file.file.read(1024 * 1024)
+        if not chunk:
+            break
+        size = size + len(chunk)
+        if size > limit:
+            out.close()
+            os.remove(path)
+            return {"Message": False, "error": "The file is larger than " + str(STUDIO_MAX_UPLOAD_MB) + " MB."}
+        out.write(chunk)
+    out.close()
+
+    file_id = studio_db.add_file(session_id, name, "upload", size, path)
+    if file_id is None:
+        os.remove(path)
+        return {"Message": False, "error": "Could not save the file."}
+    studio_db.add_message(session_id, "file", json.dumps({"id": file_id, "name": name, "size": size, "kind": "upload"}))
+    return {"Message": True, "id": file_id, "name": name, "size": size}
+
+
+@app.get("/api/studio/files/{file_id}")
+def studio_download(file_id: int, request: Request):
+    user = get_user(request)
+    if user is None:
+        return {"Message": "login"}
+    item = studio_db.get_file(file_id)
+    if item is None or studio_db.get_session(item["session_id"], user["user_id"]) is None:
+        return {"Message": False, "error": "This file was not found."}
+    if not os.path.exists(item["path"]):
+        return {"Message": False, "error": "This file is no longer on the server."}
+    return FileResponse(item["path"], filename=item["name"])
+
+
+@app.get("/api/studio/sessions/{session_id}/patch")
+def studio_patch(session_id: int, request: Request):
+    user = get_user(request)
+    if user is None:
+        return {"Message": "login"}
+    session = studio_db.get_session(session_id, user["user_id"])
+    if session is None:
+        return {"Message": False, "error": "This chat was not found."}
+    return Response(
+        content=session["patch"] or "",
+        media_type="text/plain",
+        headers={"Content-Disposition": f'attachment; filename="forkwise-studio-{session_id}.patch"'}
+    )
+
+
+@app.delete("/api/studio/sessions/{session_id}")
+def studio_delete(session_id: int, request: Request):
+    user = get_user(request)
+    if user is None:
+        return {"Message": "login"}
+    session = studio_db.get_session(session_id, user["user_id"])
+    if session is None:
+        return {"Message": False, "error": "This chat was not found."}
+    for item in studio_db.list_files(session_id):
+        full = studio_db.get_file(item["id"])
+        if full is not None and os.path.exists(full["path"]):
+            os.remove(full["path"])
+    studio_db.delete_session(session_id, user["user_id"])
+    return {"Message": True}
+
+
+@app.post("/api/studio/sessions/{session_id}/verify")
+def studio_verify(session_id: int, request: Request):
+    user = get_user(request)
+    if user is None:
+        return {"Message": "login"}
+    session = studio_db.get_session(session_id, user["user_id"])
+    if session is None:
+        return {"Message": False, "error": "This chat was not found."}
+    if not session["repo_url"]:
+        return {"Message": False, "error": "Verify with forks needs a GitHub repository."}
+
+    last_text = ""
+    for row in studio_db.get_messages(session_id):
+        if row["role"] == "user":
+            last_text = row["content"] or ""
+    if last_text == "":
+        return {"Message": False, "error": "Send a message first."}
+    return agent_new_task({"repo_url": session["repo_url"], "branch": session["branch"] or "", "task": last_text, "forks": 3}, request)
+
+
+@app.get("/internal/studio/files/{file_id}")
+def internal_studio_file(file_id: int, request: Request):
+    if not worker_ok(request):
+        return Response(status_code=403)
+    item = studio_db.get_file(file_id)
+    if item is None or not os.path.exists(item["path"]):
+        return Response(status_code=404)
+    return FileResponse(item["path"], filename=item["name"])
+
+
+@app.post("/internal/studio/sessions/{session_id}/outputs")
+def internal_studio_output(session_id: int, request: Request, file: UploadFile = File(...)):
+    if not worker_ok(request):
+        return {"Message": False, "error": "not allowed"}
+    if studio_db.get_session(session_id) is None:
+        return {"Message": False, "error": "chat not found"}
+
+    name = unique_file_name(session_id, safe_file_name(file.filename))
+    folder = os.path.join(STUDIO_FILES_DIR, str(session_id))
+    os.makedirs(folder, exist_ok=True)
+    path = os.path.join(folder, uuid.uuid4().hex + "_" + name)
+    size = 0
+    out = open(path, "wb")
+    while True:
+        chunk = file.file.read(1024 * 1024)
+        if not chunk:
+            break
+        size = size + len(chunk)
+        out.write(chunk)
+    out.close()
+
+    file_id = studio_db.add_file(session_id, name, "output", size, path)
+    return {"Message": True, "id": file_id, "name": name}
 
 
 if __name__ == "__main__":
