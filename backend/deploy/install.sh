@@ -38,18 +38,31 @@ say() {
 }
 
 say "System packages"
+PY="python3"
 if command -v apt-get >/dev/null 2>&1; then
     apt-get update -y
     DEBIAN_FRONTEND=noninteractive apt-get install -y git curl python3 python3-venv python3-pip nginx certbot python3-certbot-nginx iptables
+    if ! command -v docker >/dev/null 2>&1; then
+        curl -fsSL https://get.docker.com | sh
+    fi
 else
-    dnf install -y git curl python3 python3-pip nginx iptables
-    dnf install -y epel-release || true
-    dnf install -y certbot python3-certbot-nginx || true
-fi
-if ! command -v docker >/dev/null 2>&1; then
-    curl -fsSL https://get.docker.com | sh
+    dnf install -y --allowerasing git curl nginx iptables python3.11 python3.11-pip dnf-plugins-core
+    PY="python3.11"
+    if ! command -v docker >/dev/null 2>&1; then
+        dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+        dnf install -y --allowerasing docker-ce docker-ce-cli containerd.io docker-buildx-plugin
+    fi
+    if ! command -v certbot >/dev/null 2>&1; then
+        "$PY" -m venv /opt/certbot
+        /opt/certbot/bin/pip install -q certbot certbot-nginx
+        ln -sf /opt/certbot/bin/certbot /usr/local/bin/certbot
+    fi
 fi
 systemctl enable --now docker
+echo "Architecture: $(uname -m), system: $(. /etc/os-release && echo "$PRETTY_NAME")"
+if command -v getenforce >/dev/null 2>&1; then
+    echo "SELinux: $(getenforce)"
+fi
 
 say "Stopping the old Forkwise services if they exist"
 for old in forkwise forkwise-agent; do
@@ -73,7 +86,7 @@ fi
 git config --global --add safe.directory "$CODE"
 
 say "Python"
-[ -d "$VENV" ] || python3 -m venv "$VENV"
+[ -d "$VENV" ] || "$PY" -m venv "$VENV"
 "$VENV/bin/pip" install --upgrade pip -q
 "$VENV/bin/pip" install -r "$CODE/backend/requirements.txt" -q
 
@@ -124,7 +137,7 @@ User=$SERVICE_USER
 Group=$SERVICE_USER
 WorkingDirectory=$CODE/backend
 Environment=ENV_FILE=$ENV_FILE
-ExecStart=$VENV/bin/uvicorn app.main:app --host 127.0.0.1 --port $PORT_VALUE --proxy-headers --forwarded-allow-ips 127.0.0.1 --timeout-keep-alive 75
+ExecStart=$VENV/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port $PORT_VALUE --proxy-headers --forwarded-allow-ips 127.0.0.1 --timeout-keep-alive 75
 Restart=always
 RestartSec=3
 LimitNOFILE=65535
