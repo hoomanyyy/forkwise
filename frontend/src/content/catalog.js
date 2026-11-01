@@ -1,0 +1,163 @@
+export const PLANS = [
+  {
+    key: "free",
+    name: "Free",
+    desc: "Try Forkwise on small questions and projects.",
+    monthly: 0,
+    yearly: 0,
+    cta: "Start free",
+    to: "/register",
+    features: ["Chat, web research and memory", "A private computer per chat", "Live preview of what it builds", "Daily usage limit", "Community support"],
+  },
+  {
+    key: "pro",
+    name: "Pro",
+    desc: "For people who build with Forkwise every week.",
+    monthly: 20,
+    yearly: 16,
+    cta: "Get Pro",
+    to: "/register?plan=pro",
+    featured: true,
+    tag: "Most popular",
+    features: ["Everything in Free", "About 10 times the daily usage", "The strongest models", "Projects with shared files and notes", "Tools and skills Forkwise makes for you", "Email support"],
+  },
+  {
+    key: "premium",
+    name: "Premium",
+    desc: "Long builds, big files and heavy research.",
+    monthly: 49,
+    yearly: 39,
+    cta: "Get Premium",
+    to: "/register?plan=premium",
+    features: ["Everything in Pro", "About 30 times the daily usage", "Bigger computers for heavy jobs", "Longer running tasks", "MCP connectors", "Priority support"],
+  },
+  {
+    key: "teams",
+    name: "Teams",
+    desc: "Your own Forkwise for your company.",
+    monthly: null,
+    yearly: null,
+    cta: "Talk to us",
+    to: "/contact?topic=Teams",
+    features: ["Run it on your own server", "Your own models and keys", "Admin dashboard and limits", "Single sign-on on request", "Setup help and training"],
+  },
+]
+
+export const USE_CASES = [
+  {
+    slug: "websites",
+    title: "Websites and apps",
+    short: "From one sentence to a live site you can open, share and download.",
+    hero: "Describe the site. Watch it go live.",
+    lead: "Forkwise writes the pages, starts a real server and shows the result next to the chat. It checks the desktop and phone layouts itself and fixes what looks wrong.",
+    image: "/images/shot-chat.png",
+    color: ["#6e5cff", "#1fa2ec"],
+    points: [
+      ["Real code you own", "HTML, React, Vue or a full stack app with an API and a database. Download everything as a zip at any time."],
+      ["Checked like a person would", "It opens the site in a real browser, takes screenshots, reads the console and fixes errors before it says done."],
+      ["Change it by talking", "\"Make the header darker\", \"add a booking form\", \"translate it to Persian\". Every change is shown line by line."],
+      ["Undo anything", "Go back to any earlier message and the files return to how they were."],
+    ],
+    prompts: ["Build a landing page for my bakery with a menu and an order form", "Make a portfolio site from my CV (attached) with a dark theme", "Create a small shop with products, a cart and a checkout page"],
+  },
+  {
+    slug: "data",
+    title: "Data and reports",
+    short: "Upload a spreadsheet, ask a question, get a dashboard you can open.",
+    hero: "Your spreadsheet, finally answering back.",
+    lead: "Attach CSV, Excel or JSON files. Forkwise cleans them with Python, finds what matters, draws the charts and builds an interactive dashboard or a report you can send.",
+    image: "/images/shot-files.png",
+    color: ["#1fa2ec", "#16a34a"],
+    points: [
+      ["Python does the math", "Numbers come from pandas and real code, not from guessing. You can read every line it ran."],
+      ["Dashboards, not walls of text", "It builds a live dashboard with filters and charts and shows it in the preview."],
+      ["Files you can send", "Excel exports, PDF reports and PNG charts, ready to download."],
+      ["Remembers your setup", "Tell it once how your columns work and it keeps that for next time."],
+    ],
+    prompts: ["Here are our sales for 2026. Which products grew and which fell?", "Clean this messy contact list and remove duplicates", "Make a monthly report as a PDF with charts from this file"],
+  },
+  {
+    slug: "automation",
+    title: "Automation",
+    short: "Bots, scrapers, API scripts and jobs that keep running.",
+    hero: "Tell it the chore. Get a working script.",
+    lead: "Forkwise writes and runs scripts that talk to APIs, read websites, convert files and send messages. When it needs something again, it turns it into a permanent tool.",
+    image: "/images/shot-abilities.png",
+    color: ["#8b7bff", "#c77a05"],
+    points: [
+      ["Runs the code for real", "It installs packages, calls the API, reads the reply and fixes problems on the spot."],
+      ["Background jobs", "Servers and long jobs keep running, and you can see and stop them in the terminal panel."],
+      ["Tools it keeps", "A price checker or a converter becomes a tool it can use in every later chat."],
+      ["Connect your apps", "Add MCP connectors to reach the services you already use."],
+    ],
+    prompts: ["Write a Telegram bot that replies with the gold price", "Check these 50 links and tell me which are broken", "Make yourself a tool that converts currencies with a free API"],
+  },
+  {
+    slug: "media",
+    title: "Images, audio and video",
+    short: "Convert, cut, resize and combine media files by asking.",
+    hero: "Media edits without the editing software.",
+    lead: "Upload videos, audio and images. Forkwise uses ffmpeg and ImageMagick on its computer to trim, merge, convert, add subtitles, compress and resize, then hands you the result.",
+    image: "/images/shot-plan.png",
+    color: ["#d6334f", "#8b7bff"],
+    points: [
+      ["Any format", "MP4, WebM, MOV, MP3, WAV, PNG, JPG, WebP, GIF and more."],
+      ["Batch jobs", "Resize 300 photos, convert a folder of audio, or make thumbnails for every video."],
+      ["Preview before download", "Results appear in the chat with a player or preview and a download button."],
+      ["Precise when you need it", "Exact times, sizes and quality settings, or just say \"make it smaller for Instagram\"."],
+    ],
+    prompts: ["Cut the first 12 seconds of this video and make it 1080x1920", "Turn these photos into a slideshow video with music", "Compress this video under 25 MB without losing much quality"],
+  },
+]
+
+export const TEMPLATES = [
+  { slug: "landing", category: "Websites", title: "Landing page", text: "A modern one-page site with hero, features, pricing and a contact form.", prompt: "Build a modern landing page for my business with a hero section, features, pricing, testimonials and a working contact form. Ask me for the business name first." },
+  { slug: "portfolio", category: "Websites", title: "Portfolio from a CV", text: "Attach your CV and get a personal site with projects and contact links.", prompt: "I will attach my CV. Build a personal portfolio website from it with an about section, projects, skills and contact links. Use a clean dark theme." },
+  { slug: "shop", category: "Websites", title: "Small online shop", text: "Product grid, product pages, cart and checkout pages.", prompt: "Build a small online shop with a product grid, product detail pages, a cart that remembers items and a checkout page. Use sample products I can replace." },
+  { slug: "booking", category: "Websites", title: "Booking site", text: "Services, prices and a booking form that saves requests.", prompt: "Build a booking website for a barbershop with services and prices, a booking form with date and time, and a simple admin page that lists bookings saved in SQLite." },
+  { slug: "dashboard", category: "Data", title: "Sales dashboard", text: "Upload a spreadsheet and get charts with filters.", prompt: "I will attach a sales spreadsheet. Clean it and build an interactive dashboard with totals, trends by month, top products and filters, then show it in the preview." },
+  { slug: "report", category: "Data", title: "PDF report", text: "Turn data into a short report with charts as a PDF.", prompt: "Analyse the attached file and write a short report as a PDF with the key findings, three charts and a summary table." },
+  { slug: "cleanup", category: "Data", title: "Clean a messy file", text: "Fix columns, remove duplicates and export a clean Excel file.", prompt: "Clean the attached file: fix column names, trim spaces, unify dates and phone numbers, remove duplicates, and give me a clean Excel file plus a list of what you changed." },
+  { slug: "price-tool", category: "Automation", title: "Price checker tool", text: "Forkwise makes itself a permanent tool for live prices.", prompt: "Make yourself a permanent tool that returns the live price of gold, the US dollar and bitcoin from free public sources. Test it and show me the result." },
+  { slug: "telegram", category: "Automation", title: "Telegram bot", text: "A bot that answers commands, ready to deploy.", prompt: "Write a Telegram bot in Python that answers /start and /price with useful replies. Explain how to get the token and run it, and test the code as far as possible." },
+  { slug: "scraper", category: "Automation", title: "Website checker", text: "Check pages for broken links, titles and speed.", prompt: "Check the website I give you: list every page you can reach, broken links, missing titles and descriptions, and slow pages. Save the results as a spreadsheet." },
+  { slug: "video", category: "Media", title: "Vertical video", text: "Cut and resize a video for Reels, Shorts or TikTok.", prompt: "I will attach a video. Make a 1080x1920 vertical version, keep the most important part centred, cut it to under 60 seconds and compress it for Instagram." },
+  { slug: "images", category: "Media", title: "Batch image resize", text: "Resize and convert many images at once.", prompt: "I will attach images. Resize them to 1600px wide, convert them to WebP with good quality, and give me a zip file." },
+]
+
+export const FAQ = [
+  {
+    group: "The basics",
+    items: [
+      ["What is Forkwise?", "Forkwise is an AI assistant with its own computer. You chat with it like any assistant, but when a request needs real work, it writes code, runs it, shows you the live result and keeps going until it is done."],
+      ["Do I need to know how to code?", "No. You describe what you want in plain words, in English or Persian. If you do code, you can read every file, edit it yourself and use the terminal."],
+      ["Which languages can I write in?", "Any language the AI model understands. Forkwise answers in the language you write in, and keeps code and file names in English."],
+      ["Which AI models does it use?", "Forkwise works with leading models through an OpenAI-compatible API. You can pick the model per chat from the model menu."],
+    ],
+  },
+  {
+    group: "How it works",
+    items: [
+      ["Why doesn't it open a project when I say hello?", "Forkwise decides what each message needs. Greetings and simple questions get a direct answer. Current facts get a web search with sources. Only real work turns on the computer."],
+      ["How does memory work?", "When you ask it to remember something, it saves a short fact to your memory and uses it in every later chat. You can see and delete memories in Settings."],
+      ["What are abilities?", "When Forkwise needs something it will use again, it can write itself a tool, test it and keep it. Tools and saved skills appear under Abilities, where you can turn them off."],
+      ["Can I stop it or undo what it did?", "Yes. Press stop at any time. Every message is a checkpoint, so you can go back to it and the files return to how they were."],
+    ],
+  },
+  {
+    group: "Projects and files",
+    items: [
+      ["Where are my files?", "Each chat, or each project, has its own folder on Forkwise's computer. Open the Files panel to browse and edit them, or download everything as a zip."],
+      ["Can I upload files?", "Yes. Attach documents, spreadsheets, images, audio and video to any message. They are saved in the uploads folder of the project."],
+      ["Can I share what it built?", "The live preview has its own link you can open in a new tab. For a permanent site, download the files and host them anywhere."],
+    ],
+  },
+  {
+    group: "Security and billing",
+    items: [
+      ["Is my work private?", "Each workspace runs in its own isolated container that cannot see other users or the server. Read the Security page for details."],
+      ["Can I run Forkwise on my own server?", "Yes. The Teams plan includes self-hosting with your own models and keys. Contact us to set it up."],
+      ["How do I pay?", "Paid plans open soon. Free accounts work today, and you can upgrade from Billing in the app when payments go live."],
+    ],
+  },
+]

@@ -1,2 +1,4 @@
-
-backend/test.py
+.env
+data/
+__pycache__/
+*.pyc
