@@ -50,7 +50,7 @@ export const USE_CASES = [
     short: "From one sentence to a live site you can open, share and download.",
     hero: "Describe the site. Watch it go live.",
     lead: "Forkwise writes the pages, starts a real server and shows the result next to the chat. It checks the desktop and phone layouts itself and fixes what looks wrong.",
-    image: "/images/shot-chat.png",
+    image: "/images/shot-chat.webp",
     color: ["#6e5cff", "#1fa2ec"],
     points: [
       ["Real code you own", "HTML, React, Vue or a full stack app with an API and a database. Download everything as a zip at any time."],
@@ -66,7 +66,7 @@ export const USE_CASES = [
     short: "Upload a spreadsheet, ask a question, get a dashboard you can open.",
     hero: "Your spreadsheet, finally answering back.",
     lead: "Attach CSV, Excel or JSON files. Forkwise cleans them with Python, finds what matters, draws the charts and builds an interactive dashboard or a report you can send.",
-    image: "/images/shot-files.png",
+    image: "/images/shot-files.webp",
     color: ["#1fa2ec", "#16a34a"],
     points: [
       ["Python does the math", "Numbers come from pandas and real code, not from guessing. You can read every line it ran."],
@@ -82,7 +82,7 @@ export const USE_CASES = [
     short: "Bots, scrapers, API scripts and jobs that keep running.",
     hero: "Tell it the chore. Get a working script.",
     lead: "Forkwise writes and runs scripts that talk to APIs, read websites, convert files and send messages. When it needs something again, it turns it into a permanent tool.",
-    image: "/images/shot-abilities.png",
+    image: "/images/shot-abilities.webp",
     color: ["#8b7bff", "#c77a05"],
     points: [
       ["Runs the code for real", "It installs packages, calls the API, reads the reply and fixes problems on the spot."],
@@ -98,7 +98,7 @@ export const USE_CASES = [
     short: "Convert, cut, resize and combine media files by asking.",
     hero: "Media edits without the editing software.",
     lead: "Upload videos, audio and images. Forkwise uses ffmpeg and ImageMagick on its computer to trim, merge, convert, add subtitles, compress and resize, then hands you the result.",
-    image: "/images/shot-plan.png",
+    image: "/images/shot-plan.webp",
     color: ["#d6334f", "#8b7bff"],
     points: [
       ["Any format", "MP4, WebM, MOV, MP3, WAV, PNG, JPG, WebP, GIF and more."],

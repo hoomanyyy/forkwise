@@ -8,6 +8,8 @@ export function StoreProvider({ children }) {
   const [models, setModels] = useState([])
   const [usage, setUsage] = useState(null)
   const [ready, setReady] = useState(false)
+  const [chatsReady, setChatsReady] = useState(false)
+  const [hint, setHintState] = useState(() => readHint())
   const [chats, setChats] = useState([])
   const [projects, setProjects] = useState([])
   const [theme, setThemeState] = useState(() => readTheme())
@@ -19,8 +21,14 @@ export function StoreProvider({ children }) {
       setUser(data.user)
       setModels(data.models)
       setUsage(data.usage)
+      writeHint(true)
+      setHintState(true)
     } catch (problem) {
       setUser(null)
+      if (problem.status === 401) {
+        writeHint(false)
+        setHintState(false)
+      }
     }
     setReady(true)
   }, [])
@@ -32,6 +40,7 @@ export function StoreProvider({ children }) {
     } catch (problem) {
       setChats([])
     }
+    setChatsReady(true)
   }, [])
 
   const loadProjects = useCallback(async () => {
@@ -80,14 +89,45 @@ export function StoreProvider({ children }) {
     setTimeout(() => setToasts((list) => list.filter((item) => item.id !== id)), 4200)
   }
 
+  function signIn(nextUser) {
+    setUser(nextUser)
+    writeHint(true)
+    setHintState(true)
+  }
+
+  function signOut() {
+    setUser(null)
+    setChats([])
+    setChatsReady(false)
+    writeHint(false)
+    setHintState(false)
+  }
+
   const value = {
-    user, setUser, models, usage, ready, loadMe,
-    chats, loadChats, patchChat, addChat, removeChat,
+    user, setUser, signIn, signOut, hint, models, usage, ready, loadMe,
+    chats, chatsReady, loadChats, patchChat, addChat, removeChat,
     projects, loadProjects, setProjects,
     theme, setTheme: setThemeState,
     toasts, toast,
   }
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>
+}
+
+function readHint() {
+  try {
+    return localStorage.getItem("fw-auth") === "1"
+  } catch (problem) {
+    return false
+  }
+}
+
+function writeHint(value) {
+  try {
+    if (value) localStorage.setItem("fw-auth", "1")
+    else localStorage.removeItem("fw-auth")
+  } catch (problem) {
+    return
+  }
 }
 
 function readTheme() {

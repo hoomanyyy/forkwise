@@ -3,6 +3,7 @@ import { Navigate, Outlet, useNavigate } from "react-router-dom"
 import { Menu, PanelLeftOpen } from "lucide-react"
 import Sidebar from "../../components/app/Sidebar"
 import { LogoMark } from "../../components/ui/Logo"
+import { AppSkeleton } from "../../components/ui/Skeleton"
 import { useStore } from "../../lib/store"
 
 export default function AppShell() {
@@ -45,7 +46,7 @@ export default function AppShell() {
   }, [navigate])
 
   if (!ready) {
-    return <div className="boot"><LogoMark size={48} thinking /></div>
+    return <AppSkeleton />
   }
   if (!user) return <Navigate to={"/login?next=" + encodeURIComponent(window.location.pathname + window.location.search)} replace />
 

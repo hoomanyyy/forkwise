@@ -16,7 +16,16 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash TEXT NOT NULL,
     is_admin INTEGER NOT NULL DEFAULT 0,
     settings TEXT NOT NULL DEFAULT '{}',
+    verified INTEGER NOT NULL DEFAULT 1,
     created_at REAL NOT NULL
+);
+CREATE TABLE IF NOT EXISTS email_codes (
+    email TEXT PRIMARY KEY,
+    code_hash TEXT NOT NULL,
+    salt TEXT NOT NULL,
+    expires_at REAL NOT NULL,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    last_sent REAL NOT NULL
 );
 CREATE TABLE IF NOT EXISTS sessions (
     token TEXT PRIMARY KEY,
@@ -156,6 +165,11 @@ def connect():
         CONNECTION.execute("PRAGMA synchronous=NORMAL")
         CONNECTION.execute("PRAGMA foreign_keys=ON")
         CONNECTION.executescript(SCHEMA)
+        columns = []
+        for row in CONNECTION.execute("PRAGMA table_info(users)").fetchall():
+            columns.append(row["name"])
+        if "verified" not in columns:
+            CONNECTION.execute("ALTER TABLE users ADD COLUMN verified INTEGER NOT NULL DEFAULT 1")
     return CONNECTION
 
 

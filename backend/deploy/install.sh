@@ -65,8 +65,8 @@ if command -v getenforce >/dev/null 2>&1; then
 fi
 
 say "Stopping the old Forkwise services if they exist"
-for old in forkwise forkwise-agent; do
-    if systemctl list-unit-files | grep -q "^$old.service"; then
+for old in forkwise forkwise-agent forkwise-sandbox-firewall; do
+    if systemctl cat "$old.service" >/dev/null 2>&1; then
         systemctl disable --now "$old" || true
     fi
 done

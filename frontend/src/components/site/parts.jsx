@@ -25,7 +25,7 @@ export function SiteLayout() {
   return (
     <div className="site">
       <SiteHeader />
-      <main className="site-main"><Outlet /></main>
+      <main className="site-main" key={location.pathname}><Outlet /></main>
       <SiteFooter />
     </div>
   )
@@ -103,14 +103,14 @@ export function Reveal({ children, className, delay }) {
   return <div ref={ref} className={"reveal" + (shown ? " in" : "") + (className ? " " + className : "")} style={delay ? { transitionDelay: delay + "ms" } : undefined}>{children}</div>
 }
 
-export function Frame({ src, alt, url, className, children }) {
+export function Frame({ src, alt, url, className, children, priority }) {
   return (
     <figure className={"frame" + (className ? " " + className : "")}>
       <div className="frame-bar">
         <span /><span /><span />
         <div className="frame-url mono">{url || "forkwiseai.com/app"}</div>
       </div>
-      {src ? <img src={src} alt={alt || ""} loading="lazy" /> : children}
+      {src ? <img src={src} alt={alt || ""} width="1440" height="880" decoding="async" loading={priority ? "eager" : "lazy"} fetchPriority={priority ? "high" : "auto"} /> : children}
     </figure>
   )
 }

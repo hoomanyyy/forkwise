@@ -38,10 +38,10 @@ const ASKS = [
 ]
 
 const SHOWCASE = [
-  { key: "preview", label: "Live preview", icon: MonitorPlay, title: "See it while it builds", text: "Sites and apps run on Forkwise's computer and appear next to the chat. Switch to phone size, reload, or open it in a new tab.", image: "/images/shot-chat.png" },
-  { key: "files", label: "Files", icon: FolderTree, title: "Every file is yours", text: "Browse the project, edit any file in a full code editor, and download it all as a zip.", image: "/images/shot-files.png" },
-  { key: "changes", label: "Changes", icon: FileDiff, title: "Know exactly what changed", text: "Each task ends with a clear list of changed files and line-by-line differences.", image: "/images/shot-changes.png" },
-  { key: "plan", label: "Plan mode", icon: ListChecks, title: "Approve before it builds", text: "In Plan mode Forkwise researches first and writes a plan. Nothing changes until you approve it.", image: "/images/shot-plan.png" },
+  { key: "preview", label: "Live preview", icon: MonitorPlay, title: "See it while it builds", text: "Sites and apps run on Forkwise's computer and appear next to the chat. Switch to phone size, reload, or open it in a new tab.", image: "/images/shot-chat.webp" },
+  { key: "files", label: "Files", icon: FolderTree, title: "Every file is yours", text: "Browse the project, edit any file in a full code editor, and download it all as a zip.", image: "/images/shot-files.webp" },
+  { key: "changes", label: "Changes", icon: FileDiff, title: "Know exactly what changed", text: "Each task ends with a clear list of changed files and line-by-line differences.", image: "/images/shot-changes.webp" },
+  { key: "plan", label: "Plan mode", icon: ListChecks, title: "Approve before it builds", text: "In Plan mode Forkwise researches first and writes a plan. Nothing changes until you approve it.", image: "/images/shot-plan.webp" },
 ]
 
 function Showcase() {
@@ -91,7 +91,7 @@ export default function Home() {
           </div>
         </div>
         <div className="hero-stage">
-          <Frame src="/images/shot-chat.png" alt="Forkwise building a coffee roastery website with the live preview open" />
+          <Frame priority src="/images/shot-chat.webp" alt="Forkwise building a coffee roastery website with the live preview open" />
         </div>
       </section>
 

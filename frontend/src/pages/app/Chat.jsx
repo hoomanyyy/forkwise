@@ -6,6 +6,7 @@ import MessageList from "../../components/app/MessageList"
 import Workspace from "../../components/app/workspace/Workspace"
 import { TodoList } from "../../components/app/ToolCall"
 import { LogoMark } from "../../components/ui/Logo"
+import { ChatSkeleton } from "../../components/ui/Skeleton"
 import { useChat } from "../../lib/useChat"
 import { useStore } from "../../lib/store"
 import { api, apiUrl } from "../../lib/api"
@@ -184,7 +185,7 @@ export default function Chat() {
   }
 
   if (state.loading || !state.chat) {
-    return <div className="center-page"><LogoMark size={40} thinking /></div>
+    return <ChatSkeleton />
   }
 
   const chat = state.chat

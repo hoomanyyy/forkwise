@@ -99,7 +99,8 @@ function Mega({ menu, onClose }) {
 }
 
 export default function SiteHeader() {
-  const { user } = useStore()
+  const { user, hint, ready } = useStore()
+  const signed = Boolean(user) || (!ready && hint)
   const [open, setOpen] = useState(null)
   const [mobile, setMobile] = useState(false)
   const [scrolled, setScrolled] = useState(false)
@@ -142,7 +143,7 @@ export default function SiteHeader() {
           <NavLink to="/docs" className="site-nav-item" onMouseEnter={() => setOpen(null)}>Docs</NavLink>
         </nav>
         <div className="site-actions">
-          {user ? (
+          {signed ? (
             <Link to="/app" className="btn btn-primary btn-sm">Open Forkwise</Link>
           ) : (
             <>
@@ -171,8 +172,8 @@ export default function SiteHeader() {
             <Link to="/contact">Contact</Link>
           </div>
           <div className="mobile-cta">
-            {!user && <Link to="/login" className="btn btn-ghost wide">Sign in</Link>}
-            <Link to={user ? "/app" : "/register"} className="btn btn-primary wide">{user ? "Open Forkwise" : "Start free"}</Link>
+            {!signed && <Link to="/login" className="btn btn-ghost wide">Sign in</Link>}
+            <Link to={signed ? "/app" : "/register"} className="btn btn-primary wide">{signed ? "Open Forkwise" : "Start free"}</Link>
           </div>
         </div>
       )}
