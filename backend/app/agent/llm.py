@@ -53,7 +53,12 @@ async def stream_chat(model, messages, tools=None, on_delta=None, max_tokens=160
             return await stream_once(model, body, on_delta, streamed, stop_flag)
         except ModelError as problem:
             last_problem = str(problem)
-            if streamed["any"] or not retryable(last_problem):
+            if streamed["any"]:
+                raise
+            if last_problem.startswith("HTTP 400") and "stream_options" in last_problem and "stream_options" in body:
+                del body["stream_options"]
+                continue
+            if not retryable(last_problem):
                 raise
         except (httpx.TransportError, httpx.TimeoutException) as problem:
             last_problem = "Connection problem: " + str(problem)
@@ -76,6 +81,7 @@ async def stream_once(model, body, on_delta, streamed, stop_flag):
     calls = {}
     usage = {"prompt_tokens": 0, "completion_tokens": 0}
     finish = ""
+    last_index = 0
     timeout = httpx.Timeout(connect=20, read=300, write=60, pool=20)
     async with httpx.AsyncClient(timeout=timeout) as client:
         async with client.stream("POST", model["url"] + "/chat/completions", headers=headers_for(model), json=body) as response:
@@ -126,7 +132,12 @@ async def stream_once(model, body, on_delta, streamed, stop_flag):
                         await on_delta("text", piece)
                 for call in delta.get("tool_calls") or []:
                     streamed["any"] = True
-                    index = call.get("index", 0)
+                    index = call.get("index")
+                    if index is None:
+                        index = last_index
+                        if call.get("id") and last_index in calls and calls[last_index]["id"] and calls[last_index]["id"] != call["id"]:
+                            index = last_index + 1
+                    last_index = index
                     if index not in calls:
                         calls[index] = {"id": "", "type": "function", "function": {"name": "", "arguments": ""}}
                     slot = calls[index]
@@ -138,9 +149,12 @@ async def stream_once(model, body, on_delta, streamed, stop_flag):
                         if on_delta:
                             await on_delta("tool_name", {"index": index, "id": slot["id"], "name": slot["function"]["name"]})
                     if function.get("arguments"):
-                        slot["function"]["arguments"] = slot["function"]["arguments"] + function["arguments"]
+                        piece_args = function["arguments"]
+                        if not isinstance(piece_args, str):
+                            piece_args = json.dumps(piece_args, ensure_ascii=False)
+                        slot["function"]["arguments"] = slot["function"]["arguments"] + piece_args
                         if on_delta:
-                            await on_delta("tool_args", {"index": index, "id": slot["id"], "name": slot["function"]["name"], "delta": function["arguments"]})
+                            await on_delta("tool_args", {"index": index, "id": slot["id"], "name": slot["function"]["name"], "delta": piece_args})
     tool_calls = []
     for index in sorted(calls.keys()):
         slot = calls[index]

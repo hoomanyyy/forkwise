@@ -76,3 +76,11 @@ cd frontend && npm install && npm run dev      http://localhost:5173
 ## پیش‌نمایش سایت‌هایی که ایجنت می‌سازد
 
 در Cloudflare یک رکورد `*` (proxied) به IP سرور بسازید و در `backend.env` بگذارید `PREVIEW_HOST=forkwiseai.com`، سپس `install.sh` را با `--preview-host forkwiseai.com` دوباره اجرا کنید. پیش‌نمایش‌ها روی `p-...forkwiseai.com` باز می‌شوند و از کوکی‌های حساب کاربر جدا هستند.
+
+## Model provider: Cloudflare Workers AI
+
+On the server run:
+
+    sudo bash /opt/forkwise/repo/backend/deploy/workers-ai.sh
+
+It asks for the Cloudflare Account ID and an API token with the Workers AI permission, writes them into `/opt/forkwise/backend.env`, restarts `forkwise-api` and prints the status. The previous env file is saved next to it as a backup.

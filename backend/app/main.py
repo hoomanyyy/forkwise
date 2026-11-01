@@ -14,6 +14,7 @@ async def on_start():
     loop = asyncio.get_running_loop()
     loop.create_task(sandbox.reaper())
     loop.create_task(runs.cleaner())
+    loop.create_task(site.sampler())
     db.execute("UPDATE runs SET status = 'stopped' WHERE status = 'running'")
 
 

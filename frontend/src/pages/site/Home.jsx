@@ -3,6 +3,7 @@ import { Link } from "react-router-dom"
 import { Bot, Brain, FileDiff, FolderTree, Globe, History, ListChecks, MessageSquare, MonitorPlay, Plug, Sparkles } from "lucide-react"
 import { BranchField, CtaBand, Frame, FeatureGrid, Reveal, Section, Steps, usePageTitle } from "../../components/site/parts"
 import { Cover } from "../../components/site/Cover"
+import LiveStrip from "../../components/site/LiveStrip"
 import { FAQ, TEMPLATES } from "../../content/catalog"
 
 const WORDS = ["a booking site", "a sales dashboard", "a Telegram bot", "a price tracker", "a portfolio", "a PDF report"]
@@ -94,6 +95,8 @@ export default function Home() {
           <Frame priority src="/images/shot-chat.webp" alt="Forkwise building a coffee roastery website with the live preview open" />
         </div>
       </section>
+
+      <section className="live-wrap"><LiveStrip /></section>
 
       <Section title="It knows what each message needs" intro="Most assistants either only talk, or open a whole project when you say hello. Forkwise reads the request and picks the right kind of work.">
         <div className="asks">

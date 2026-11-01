@@ -228,12 +228,14 @@ export function Status() {
   const [data, setData] = useState(null)
   const [error, setError] = useState(false)
   const [checked, setChecked] = useState(null)
+  const [history, setHistory] = useState(null)
 
   async function load() {
     try {
       const result = await api.get("/api/status")
       setData(result)
       setError(false)
+      setHistory(await api.get("/api/status/history?days=30"))
     } catch (problem) {
       setError(true)
     }
@@ -271,6 +273,24 @@ export function Status() {
             </div>
             <button className="btn btn-ghost btn-sm" onClick={load}><RefreshCw size={14} />Check again</button>
           </div>
+          {history && (
+            <div className="uptime-card">
+              <div className="uptime-head">
+                <strong>Last 30 days</strong>
+                <span className="muted small">{history.uptime !== null ? (history.uptime * 100).toFixed(2) + "% available" : "Collecting data"}</span>
+              </div>
+              <div className="uptime-bars" role="img" aria-label="Daily availability for the last 30 days">
+                {history.days.map((day) => {
+                  let level = "none"
+                  if (day.availability !== null) level = day.availability >= 0.99 ? "ok" : day.availability >= 0.9 ? "warn" : "bad"
+                  const label = day.day + (day.availability === null ? ": no data" : ": " + (day.availability * 100).toFixed(1) + "% available")
+                  return <span key={day.day} className={"uptime-bar " + level} title={label} />
+                })}
+              </div>
+              <div className="uptime-foot"><span>30 days ago</span><span>Today</span></div>
+              <p className="faint small" style={{ margin: "10px 0 0" }}>The platform checks itself every 5 minutes. Days before the first check show no data.</p>
+            </div>
+          )}
           {rows.length > 0 && (
             <div className="status-list">
               {rows.map((row) => (

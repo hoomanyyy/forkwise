@@ -144,6 +144,10 @@ CREATE TABLE IF NOT EXISTS contact_messages (
     created_at REAL NOT NULL,
     handled INTEGER NOT NULL DEFAULT 0
 );
+CREATE TABLE IF NOT EXISTS status_samples (
+    ts REAL PRIMARY KEY,
+    ok INTEGER NOT NULL
+);
 CREATE TABLE IF NOT EXISTS usage (
     user_id TEXT NOT NULL,
     day TEXT NOT NULL,
