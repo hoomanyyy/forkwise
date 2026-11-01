@@ -22,6 +22,33 @@ def with_cache(messages, model):
     return result
 
 
+def flat_text(content):
+    if isinstance(content, str):
+        return content
+    if content is None:
+        return ""
+    pieces = []
+    if isinstance(content, list):
+        for part in content:
+            if isinstance(part, dict) and part.get("type") == "text":
+                pieces.append(part.get("text") or "")
+            elif isinstance(part, str):
+                pieces.append(part)
+    return "\n".join(pieces)
+
+
+def for_plain_models(messages, model):
+    if not model["id"].startswith("@cf/"):
+        return messages
+    result = []
+    for message in messages:
+        copy = dict(message)
+        if isinstance(copy.get("content"), list) or copy.get("content") is None:
+            copy["content"] = flat_text(copy.get("content"))
+        result.append(copy)
+    return result
+
+
 def headers_for(model):
     return {
         "Authorization": "Bearer " + model["api_key"],
@@ -36,7 +63,7 @@ async def stream_chat(model, messages, tools=None, on_delta=None, max_tokens=160
         raise ModelError("No AI model is set up. Add LLM_API_KEY and LLM_MODELS to the .env file.")
     body = {
         "model": model["id"],
-        "messages": with_cache(messages, model),
+        "messages": for_plain_models(with_cache(messages, model), model),
         "stream": True,
         "max_tokens": max_tokens,
         "stream_options": {"include_usage": True},
