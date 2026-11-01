@@ -103,8 +103,14 @@ def start_sandbox(name):
             "--security-opt", "no-new-privileges",
             "--env", "HOME=/home/agent",
             "--env", "PIP_DISABLE_PIP_VERSION_CHECK=1",
+            "--env", "PATH=/home/agent/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
             "--shm-size", SHM,
             "--label", "forkwise-agent=1"]
+    preview = os.getenv("PREVIEW_URL", "")
+    if preview:
+        # Vite refuses requests for unknown host names; the preview host is allowed
+        host = urlparse(preview).hostname or ""
+        args = args + ["--env", "__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS=" + host]
     for server in DNS:
         args = args + ["--dns", server]
     if RUNTIME:
@@ -116,6 +122,17 @@ def start_sandbox(name):
     result = docker(args)
     if result["code"] != 0:
         return "Could not start the sandbox: " + short(result["output"], 1500)
+    return None
+
+
+def box_ip(name):
+    """The address of the sandbox on the Docker network, so the API server can show its running app."""
+    result = docker(["inspect", "-f", "{{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}", name], timeout=30)
+    if result["code"] != 0:
+        return None
+    for part in result["output"].split():
+        if part.count(".") == 3:
+            return part
     return None
 
 

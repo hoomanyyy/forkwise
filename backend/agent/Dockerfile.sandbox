@@ -1,22 +1,44 @@
+FROM node:22-bookworm-slim AS node
+
 FROM python:3.12-slim
 
 # tools for code, media, a real browser and a virtual desktop the agent can control
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        git nodejs npm ca-certificates coreutils curl procps psmisc \
+        git ca-certificates coreutils curl procps psmisc ripgrep sqlite3 \
         ffmpeg fonts-dejavu-core fonts-vazirmatn fonts-noto-color-emoji \
         chromium xvfb xdotool fluxbox scrot x11-utils x11-xserver-utils xterm \
-    && rm -rf /var/lib/apt/lists/* \
-    && pip install --no-cache-dir pytest pillow playwright requests
+    && rm -rf /var/lib/apt/lists/*
+
+# Node.js 22 (Debian's own Node is too old for Vite 8)
+COPY --from=node /usr/local/bin/node /usr/local/bin/node
+COPY --from=node /usr/local/lib/node_modules /usr/local/lib/node_modules
+RUN ln -sf ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
+    && ln -sf ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx \
+    && node --version && npm --version
+
+# Python packages most projects need, so the agent does not wait for installs:
+# web backends, tests, data analysis and charts
+RUN pip install --no-cache-dir \
+        pytest httpx requests pillow playwright \
+        fastapi "uvicorn[standard]" sqlmodel python-multipart pyjwt bcrypt \
+        pandas numpy matplotlib plotly openpyxl scipy
 
 RUN useradd -m -u 1000 agent && mkdir /workspace && chown agent:agent /workspace
 
 COPY box/fwtool.py /opt/forkwise/fwtool.py
 RUN chmod 755 /opt/forkwise/fwtool.py
 
+# ready project templates with their packages installed (create_project copies them)
+COPY --chown=agent:agent box/templates /opt/templates
+USER agent
+RUN cd /opt/templates/react && npm ci --no-audit --no-fund && npx vite build && rm -rf dist
+USER root
+
 ENV FW_CHROMIUM=/usr/bin/chromium \
     FW_DISPLAY=:99 \
-    PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+    PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
+    PATH=/home/agent/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 USER agent
 WORKDIR /workspace

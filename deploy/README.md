@@ -51,14 +51,30 @@ Point the `A` record of `api.forkwiseai.com` to the new IP. A few minutes later:
 sudo bash /opt/forkwise/app/deploy/install.sh --ssl
 ```
 
-## 6. AI model for Studio and Agent
+## 6. AI models for Studio and Agent
 
 ```
-sudo bash /opt/forkwise/app/deploy/install.sh --model
+sudo bash /opt/forkwise/app/deploy/install.sh --add-provider
 ```
 
-It asks for an OpenRouter key, shows current models with prices, checks the one you choose and restarts the worker.
-Set a credit limit on the key at https://openrouter.ai/keys.
+Run it once for every provider (NVIDIA, Groq, OpenRouter, Mistral or any OpenAI-style API). It checks the key,
+lists the coding models, makes a test call and only then saves. Users pick the model in Studio; when one
+provider hits its limit, Studio moves to the next one by itself.
+
+`--model` still sets an OpenRouter model as the main one.
+
+## 7. Live preview
+
+Add a DNS `A` record for `preview.forkwiseai.com` to the server IP, then `sudo bash /opt/forkwise/app/deploy/install.sh --ssl`.
+The Preview panel in Studio then shows the app Studio is running (React, FastAPI, anything with a port), live.
+
+## Updating later
+
+```
+sudo bash /opt/forkwise/app/deploy/install.sh --update
+```
+
+Gets the newest code, keeps settings and data, rebuilds the sandbox image only when it changed, restarts.
 
 ## What Studio can use
 
@@ -68,8 +84,11 @@ Set a credit limit on the key at https://openrouter.ai/keys.
 - internet inside the sandbox (`SANDBOX_INTERNET=always`), with a firewall that blocks this server, the cloud metadata
   service, private networks and mail ports
 - free web search without a key through SearXNG on 127.0.0.1:8888, then DuckDuckGo, Bing and Mojeek
-- when the model hits a rate limit it waits (up to `STUDIO_LIMIT_WAIT_MINUTES`) and continues; `AGENT_FALLBACK_MODEL`
-  can be a comma separated list of models to try first
+- when the model hits a rate limit it tries the other models and providers, then waits (up to `STUDIO_LIMIT_WAIT_MINUTES`)
+  and continues
+- ready templates (React + Vite + Tailwind, FastAPI, fullstack, static) with packages already installed
+- files written as text blocks or Codex-style patches (no broken JSON), tool names from other agents are understood
+- long chats are summarized automatically (`STUDIO_CONTEXT_TOKENS`), and `/workspace/AGENTS.md` keeps project notes
 
 ## Layout on the new server
 
@@ -86,4 +105,4 @@ Set a credit limit on the key at https://openrouter.ai/keys.
 | `forkwise-sandbox-firewall.service` | firewall rules for the sandboxes |
 | `forkwise-searxng` (Docker) | free web search for the agent |
 
-Update the code later: `sudo bash /opt/forkwise/app/deploy/install.sh` (keeps settings and data).
+Full reinstall (also keeps settings and data): `sudo bash /opt/forkwise/app/deploy/install.sh`.

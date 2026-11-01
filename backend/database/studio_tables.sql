@@ -17,6 +17,8 @@ CREATE TABLE IF NOT EXISTS studio_sessions (
   installs TEXT DEFAULT NULL,                     -- JSON list of install commands, replayed when the sandbox restarts
   error TEXT DEFAULT NULL,
   tokens INT NOT NULL DEFAULT 0,
+  preview TEXT DEFAULT NULL,                      -- JSON {"ip", "port"} of the app running in the sandbox
+  model VARCHAR(250) DEFAULT NULL,                -- model key the user picked
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   last_active DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX (user_id),
@@ -52,4 +54,14 @@ CREATE TABLE IF NOT EXISTS studio_files (
 CREATE TABLE IF NOT EXISTS worker_heartbeat (
   name VARCHAR(50) PRIMARY KEY,
   seen_at DATETIME NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Models Studio can use. The worker fills it at start (names only, the keys stay in the worker settings).
+CREATE TABLE IF NOT EXISTS studio_models (
+  model_key VARCHAR(250) PRIMARY KEY,
+  label VARCHAR(200) NOT NULL,
+  provider VARCHAR(100) NOT NULL,
+  vision TINYINT NOT NULL DEFAULT 0,
+  position INT NOT NULL DEFAULT 0,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -4,12 +4,13 @@ import {
     FaPaperclip, FaArrowUp, FaStop, FaChevronRight, FaChevronDown, FaTerminal, FaFileAlt, FaPen, FaSearch, FaGlobe,
     FaBoxOpen, FaListUl, FaCodeBranch, FaShareSquare, FaDownload, FaShieldAlt, FaFolder, FaExclamationTriangle,
     FaInfoCircle, FaCheck, FaRegCircle, FaSpinner, FaArrowLeft, FaGithub, FaTimes, FaColumns, FaEye, FaFileArchive, FaSyncAlt,
-    FaDesktop, FaServer, FaMousePointer
+    FaDesktop, FaServer, FaMousePointer, FaExternalLinkAlt, FaMobileAlt, FaTabletAlt, FaRocket, FaMicrochip, FaCompressAlt
 } from "react-icons/fa"
 import AppLayout from "../../components/app/AppLayout"
 import Markdown from "../../components/studio/Markdown"
 import {
-    getStudioSession, sendStudioMessage, stopStudio, uploadStudioFile, getStudioPatch, verifyStudio, studioFileUrl, exportStudio
+    getStudioSession, sendStudioMessage, stopStudio, uploadStudioFile, getStudioPatch, verifyStudio, studioFileUrl, exportStudio,
+    getStudioModels, setStudioModel
 } from "../../api"
 import { buildPreview, newFilesFromPatch, inlinePage } from "../../components/studio/preview"
 import Logo from "../../images/logo.svg"
@@ -33,7 +34,9 @@ const TOOL_ICONS = {
     share_file: FaShareSquare,
     browser: FaGlobe,
     computer: FaMousePointer,
-    start_server: FaServer
+    start_server: FaServer,
+    create_project: FaRocket,
+    block_patch: FaPen
 }
 
 const ACTIVE = ["pending", "running", "stopping"]
@@ -200,6 +203,9 @@ function AgentRow({ row, onScreen }) {
     if (row.role === "file") {
         return <FileCard info={readJson(row.content)} />
     }
+    if (row.role === "summary") {
+        return <div className="st-note"><FaCompressAlt /> <span>Older steps were summarized so Studio can keep going.</span></div>
+    }
     if (row.role === "error") {
         return <div className="st-note st-note-error" dir="auto"><FaExclamationTriangle /> <span>{row.content}</span></div>
     }
@@ -276,13 +282,60 @@ function FileList({ files, messages }) {
     )
 }
 
-function Preview({ patch }) {
+const DEVICES = [
+    { id: "desktop", icon: FaDesktop, width: "100%", label: "Desktop" },
+    { id: "tablet", icon: FaTabletAlt, width: "820px", label: "Tablet" },
+    { id: "phone", icon: FaMobileAlt, width: "390px", label: "Phone" }
+]
+
+function LivePreview({ url, port, patchHash }) {
+    const [reload, setReload] = useState(0)
+    const [device, setDevice] = useState("desktop")
+    const width = DEVICES.find((d) => d.id === device).width
+    const firstHash = useRef(patchHash)
+
+    // apps without hot reload (a FastAPI page, plain files) are reloaded when the project changes
+    useEffect(() => {
+        if (patchHash === firstHash.current) {
+            return
+        }
+        firstHash.current = patchHash
+        const timer = setTimeout(() => setReload((n) => n + 1), port === 5173 ? 4000 : 1200)
+        return () => clearTimeout(timer)
+    }, [patchHash, port])
+
+    return (
+        <div className="st-preview-wrap">
+            <div className="st-panel-actions st-live-bar">
+                <span className="st-live-badge"><i className="st-live-dot"></i> Live app{port ? " · port " + port : ""}</span>
+                <div className="st-device-group" role="group" aria-label="Screen size">
+                    {DEVICES.map((d) => (
+                        <button key={d.id} type="button" className={device === d.id ? "st-device st-device-on" : "st-device"}
+                            onClick={() => setDevice(d.id)} aria-label={d.label} title={d.label}><d.icon /></button>
+                    ))}
+                </div>
+                <button className="fw-btn fw-btn-ghost fw-btn-sm" onClick={() => setReload(reload + 1)}><FaSyncAlt /> Reload</button>
+                <a className="fw-btn fw-btn-ghost fw-btn-sm" href={url} target="_blank" rel="noreferrer"><FaExternalLinkAlt /> Open</a>
+            </div>
+            <div className="st-preview-stage">
+                <iframe key={reload} className="st-preview st-preview-live" style={{ width: width }} title="Live app preview"
+                    src={url} allow="clipboard-write" />
+            </div>
+        </div>
+    )
+}
+
+function Preview({ patch, session }) {
     const [page, setPage] = useState(null)
     const [reload, setReload] = useState(0)
     const result = buildPreview(patch)
 
+    if (session && session.preview_url) {
+        return <LivePreview url={session.preview_url} port={session.preview_port} patchHash={session.patch_hash} />
+    }
+
     if (result.page === null) {
-        return <p className="st-empty">No web page yet. When Studio creates an .html file in the project, it shows up here, live.</p>
+        return <p className="st-empty">No app yet. When Studio starts the app it builds, it shows up here, live.</p>
     }
 
     let shown = result.page
@@ -304,6 +357,67 @@ function Preview({ patch }) {
             </div>
             <iframe key={shown + reload} className="st-preview" title="Live preview" sandbox="allow-scripts allow-forms allow-modals" srcDoc={html} />
             <p className="st-preview-note">Preview of pages Studio created in this chat. Images and files from your repository are not shown here.</p>
+        </div>
+    )
+}
+
+function ModelPicker({ models, value, open, setOpen, onChoose, disabled }) {
+    const box = useRef(null)
+    const current = models.find((m) => m.key === value) || models[0]
+
+    useEffect(() => {
+        if (!open) {
+            return
+        }
+        function away(e) {
+            if (box.current && !box.current.contains(e.target)) {
+                setOpen(false)
+            }
+        }
+        function esc(e) {
+            if (e.key === "Escape") {
+                setOpen(false)
+            }
+        }
+        document.addEventListener("mousedown", away)
+        document.addEventListener("keydown", esc)
+        return () => {
+            document.removeEventListener("mousedown", away)
+            document.removeEventListener("keydown", esc)
+        }
+    }, [open, setOpen])
+
+    const providers = []
+    for (const m of models) {
+        if (!providers.includes(m.provider)) {
+            providers.push(m.provider)
+        }
+    }
+
+    return (
+        <div className="st-model" ref={box}>
+            <button type="button" className="st-tool-btn st-model-btn" onClick={() => setOpen(!open)} disabled={disabled}
+                aria-haspopup="listbox" aria-expanded={open}>
+                <FaMicrochip /> <span>{current.label}</span> <FaChevronDown className="st-model-caret" />
+            </button>
+            {open && (
+                <div className="st-model-menu" role="listbox">
+                    {providers.map((p) => (
+                        <div key={p} className="st-model-group">
+                            <p className="st-model-provider">{p}</p>
+                            {models.filter((m) => m.provider === p).map((m) => (
+                                <button key={m.key} type="button" role="option" aria-selected={m.key === current.key}
+                                    className={m.key === current.key ? "st-model-item st-model-item-on" : "st-model-item"}
+                                    onClick={() => onChoose(m.key)}>
+                                    <span>{m.label}</span>
+                                    {m.vision ? <em>sees images</em> : null}
+                                    {m.key === current.key ? <FaCheck /> : null}
+                                </button>
+                            ))}
+                        </div>
+                    ))}
+                </div>
+            )}
         </div>
     )
 }
@@ -330,6 +444,25 @@ export default function StudioSession() {
     const fileInput = useRef(null)
     const textBox = useRef(null)
     const wakeUp = useRef(null)
+    const [models, setModels] = useState([])
+    const [modelOpen, setModelOpen] = useState(false)
+
+    useEffect(() => {
+        getStudioModels().then((data) => {
+            if (data.Message === true) {
+                setModels(data.data || [])
+            }
+        })
+    }, [])
+
+    async function chooseModel(key) {
+        setModelOpen(false)
+        setSession((old) => ({ ...old, model: key }))
+        const result = await setStudioModel(id, key)
+        if (result.Message !== true) {
+            setError(result.error || "Could not change the model.")
+        }
+    }
 
     useEffect(() => {
         let stopped = false
@@ -625,6 +758,10 @@ export default function StudioSession() {
                                     <button type="button" className="st-tool-btn" onClick={verify}><FaShieldAlt /> <span>Verify with forks</span></button>
                                 )}
                                 <input ref={fileInput} type="file" multiple hidden onChange={pickFiles} />
+                                {models.length > 0 && (
+                                    <ModelPicker models={models} value={session ? session.model : null} open={modelOpen}
+                                        setOpen={setModelOpen} onChoose={chooseModel} disabled={active} />
+                                )}
                             </div>
                             {active ? (
                                 <button type="button" className="st-send st-send-stop" onClick={stop} aria-label="Stop"><FaStop /></button>
@@ -646,7 +783,7 @@ export default function StudioSession() {
                             <button className="fw-icon-btn st-panel-close" onClick={() => setShowPanel(false)} aria-label="Close panel"><FaTimes /></button>
                         </div>
                         <div className="st-panel-body">
-                            {panel === "preview" && <Preview patch={patch} />}
+                            {panel === "preview" && <Preview patch={patch} session={session} />}
                             {panel === "screen" && <ScreenPanel screens={screens} chosen={chosenScreen} onChoose={setChosenScreen} active={active} />}
                             {panel === "changes" && (
                                 <>

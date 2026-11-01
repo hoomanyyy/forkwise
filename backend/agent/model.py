@@ -16,6 +16,78 @@ SMALL_MODEL = os.getenv("AGENT_SMALL_MODEL") or MAIN_MODEL
 FALLBACK_MODELS = [m.strip() for m in (os.getenv("AGENT_FALLBACK_MODEL") or "").split(",") if m.strip()]
 SITE_URL = os.getenv("BASE_SITE_URL", "https://forkwiseai.com")
 
+
+def read_providers():
+    """Every model Studio can use. The main provider comes from AGENT_BASE_URL / AGENT_API_KEY / AGENT_MODEL.
+    More providers, each with its own key, from numbered settings:
+        PROVIDER_1_NAME=NVIDIA
+        PROVIDER_1_URL=https://integrate.api.nvidia.com/v1
+        PROVIDER_1_KEY=nvapi-...
+        PROVIDER_1_MODELS=moonshotai/kimi-k3=Kimi K3,deepseek-ai/deepseek-v4-pro=DeepSeek V4 Pro
+        PROVIDER_1_VISION=false
+    Returns a list of {"key", "label", "provider", "url", "api_key", "model", "vision"}; key is "N:model"."""
+    entries = []
+    main = []
+    for name in [MAIN_MODEL] + FALLBACK_MODELS:
+        if name and name not in main:
+            main.append(name)
+    for name in main:
+        entries.append({"key": "0:" + name, "label": pretty(name), "provider": os.getenv("AGENT_PROVIDER_NAME", "Main"),
+                        "url": BASE_URL, "api_key": API_KEY, "model": name,
+                        "vision": os.getenv("AGENT_VISION", "false") == "true"})
+    for number in range(1, 10):
+        url = (os.getenv("PROVIDER_" + str(number) + "_URL") or "").rstrip("/")
+        key = os.getenv("PROVIDER_" + str(number) + "_KEY")
+        models = os.getenv("PROVIDER_" + str(number) + "_MODELS") or ""
+        if not url or not key or not models:
+            continue
+        provider = os.getenv("PROVIDER_" + str(number) + "_NAME") or ("Provider " + str(number))
+        vision = os.getenv("PROVIDER_" + str(number) + "_VISION", "false") == "true"
+        for item in models.split(","):
+            item = item.strip()
+            if not item:
+                continue
+            model, label = item, ""
+            if "=" in item:
+                model, label = item.split("=", 1)
+            model = model.strip()
+            entries.append({"key": str(number) + ":" + model, "label": label.strip() or pretty(model),
+                            "provider": provider, "url": url, "api_key": key, "model": model, "vision": vision})
+    return entries
+
+
+def pretty(model):
+    name = model.split("/")[-1].replace("-", " ").replace("_", " ")
+    return " ".join(word.upper() if len(word) <= 3 and any(c.isdigit() for c in word) else word.capitalize()
+                    for word in name.split())
+
+
+PROVIDERS = read_providers()
+# the model new chats start with, for example "1:moonshotai/kimi-k3" (set by install.sh --add-provider)
+DEFAULT_KEY = os.getenv("STUDIO_DEFAULT_MODEL", "")
+if DEFAULT_KEY and any(e["key"] == DEFAULT_KEY for e in PROVIDERS):
+    PROVIDERS = [e for e in PROVIDERS if e["key"] == DEFAULT_KEY] + [e for e in PROVIDERS if e["key"] != DEFAULT_KEY]
+
+
+def find_model(key):
+    """A key like "1:moonshotai/kimi-k3", or a bare model name (the old settings)."""
+    for entry in PROVIDERS:
+        if entry["key"] == key:
+            return entry
+    for entry in PROVIDERS:
+        if entry["model"] == key:
+            return entry
+    if key:
+        return {"key": "0:" + key, "label": key, "provider": "Main", "url": BASE_URL, "api_key": API_KEY,
+                "model": key, "vision": False}
+    return None
+
+
+def public_models():
+    """What users may see: no urls, no keys."""
+    return [{"key": e["key"], "label": e["label"], "provider": e["provider"], "vision": e["vision"]} for e in PROVIDERS]
+
+
 LIMIT_WORDS = ["rate limit", "rate_limit", "too many requests", "quota", "daily free allocation", "credits",
                "insufficient", "overloaded", "capacity", "exceeded"]
 
@@ -66,26 +138,34 @@ def with_cache_marks(messages, model):
 
 
 def call_model(messages, tools=None, model=None, max_tokens=4000, temperature=0.4):
-    """Returns {"message", "tokens", "model"} or {"error", "limit": bool}.
-    On a limit error it tries every fallback model before giving up."""
-    first = model or MAIN_MODEL
-    order = [first] + [m for m in FALLBACK_MODELS if m != first]
-    result = {"error": "No model is set. Put AGENT_MODEL in the worker settings.", "limit": False}
-    for i, name in enumerate(order):
-        if not name:
-            continue
+    """Returns {"message", "tokens", "model", "key"} or {"error", "limit": bool}.
+    model is a key from PROVIDERS (or a bare model name). When it fails, every other model is tried,
+    first the ones of the same provider, then the other providers."""
+    first = find_model(model or (PROVIDERS[0]["key"] if PROVIDERS else MAIN_MODEL))
+    if first is None:
+        return {"error": "No model is set. Put AGENT_MODEL in the worker settings.", "limit": False}
+    same = [e for e in PROVIDERS if e["url"] == first["url"] and e["key"] != first["key"]]
+    other = [e for e in PROVIDERS if e["url"] != first["url"]]
+    order = [first] + same + other
+    result = {"error": "No model answered.", "limit": False}
+    for i, entry in enumerate(order):
         if i > 0:
-            print("MODEL: trying the fallback model", name, flush=True)
-        result = call_one_model(messages, tools, name, max_tokens, temperature)
+            print("MODEL: trying", entry["provider"], entry["model"], flush=True)
+        result = call_one_model(messages, tools, entry, max_tokens, temperature)
         if "error" not in result:
-            result["model"] = name
+            result["model"] = entry["model"]
+            result["key"] = entry["key"]
+            return result
+        if result.get("bad_tool_json") and i == 0:
+            # the next turn of the loop will ask the same model again, with a hint
             return result
     return result
 
 
-def call_one_model(messages, tools, model, max_tokens, temperature):
-    if not API_KEY:
-        return {"error": "AGENT_API_KEY is empty in the worker settings.", "limit": False}
+def call_one_model(messages, tools, entry, max_tokens, temperature):
+    model = entry["model"]
+    if not entry.get("api_key"):
+        return {"error": "The API key for " + entry["provider"] + " is empty in the worker settings.", "limit": False}
     body = {
         "model": model,
         "messages": with_cache_marks(messages, model),
@@ -96,7 +176,7 @@ def call_one_model(messages, tools, model, max_tokens, temperature):
         body["tools"] = tools
 
     headers = {
-        "Authorization": "Bearer " + str(API_KEY),
+        "Authorization": "Bearer " + str(entry["api_key"]),
         "Content-Type": "application/json",
         "HTTP-Referer": SITE_URL,
         "X-Title": "Forkwise Studio"
@@ -107,7 +187,7 @@ def call_one_model(messages, tools, model, max_tokens, temperature):
     bad_json = False
     for attempt in range(4):
         try:
-            response = requests.post(BASE_URL + "/chat/completions", headers=headers, json=body, timeout=240)
+            response = requests.post(entry["url"] + "/chat/completions", headers=headers, json=body, timeout=240)
             if response.status_code == 200:
                 data = response.json()
                 if data.get("error"):
@@ -145,7 +225,7 @@ def call_one_model(messages, tools, model, max_tokens, temperature):
                     continue
                 break
             # a used up daily allowance will not come back in a few seconds, so go to the next model
-            if response.status_code == 402 or "daily" in response.text.lower():
+            if response.status_code == 402 or any(word in response.text.lower() for word in ["daily", "per day", "(tpd)", "(rpd)"]):
                 break
             if limit:
                 time.sleep(wait_seconds(response, attempt))

@@ -1,6 +1,6 @@
 from database.agent_db import run_query, make_update
 
-ALLOWED_SESSION_FIELDS = ["title", "status", "box", "patch", "files", "todos", "installs", "error", "tokens"]
+ALLOWED_SESSION_FIELDS = ["title", "status", "box", "patch", "files", "todos", "installs", "error", "tokens", "preview", "model"]
 
 
 def add_session(user_id, title, repo_url, branch):
@@ -57,7 +57,7 @@ def get_messages(session_id, after_id=0):
 
 
 def all_messages(session_id):
-    query = "SELECT role, content, calls, call_id, tool, tool_args FROM studio_messages WHERE session_id = %s ORDER BY id"
+    query = "SELECT id, role, content, calls, call_id, tool, tool_args FROM studio_messages WHERE session_id = %s ORDER BY id"
     rows = run_query(query, (session_id,), "all")
     if rows is None:
         return []
@@ -158,3 +158,42 @@ def worker_online():
     if row is None:
         return False
     return row["total"] > 0
+
+
+# ---------------------------------------------------------------- schema updates
+# CREATE TABLE IF NOT EXISTS does not add new columns to an old table, so they are added here.
+NEW_COLUMNS = [
+    ("studio_sessions", "preview", "TEXT DEFAULT NULL"),          # JSON {"ip", "port"} of the running app
+    ("studio_sessions", "model", "VARCHAR(250) DEFAULT NULL"),    # model key the user picked
+]
+
+
+def ensure_schema():
+    for table, column, kind in NEW_COLUMNS:
+        row = run_query("""SELECT COUNT(*) AS total FROM information_schema.COLUMNS
+                           WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s AND COLUMN_NAME = %s""", (table, column), "one")
+        if row is not None and row["total"] == 0:
+            run_query("ALTER TABLE " + table + " ADD COLUMN " + column + " " + kind)
+    run_query("""CREATE TABLE IF NOT EXISTS studio_models (
+                   model_key VARCHAR(250) PRIMARY KEY,
+                   label VARCHAR(200) NOT NULL,
+                   provider VARCHAR(100) NOT NULL,
+                   vision TINYINT NOT NULL DEFAULT 0,
+                   position INT NOT NULL DEFAULT 0,
+                   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4""")
+
+
+def save_models(models):
+    """The worker knows the providers (and their keys); the API only gets names to show."""
+    run_query("DELETE FROM studio_models")
+    for position, item in enumerate(models):
+        run_query("INSERT INTO studio_models (model_key, label, provider, vision, position) VALUES (%s, %s, %s, %s, %s)",
+                  (item["key"], item["label"][:200], item["provider"][:100], 1 if item.get("vision") else 0, position))
+
+
+def list_models():
+    rows = run_query("SELECT model_key AS `key`, label, provider, vision FROM studio_models ORDER BY position", (), "all")
+    if rows is None:
+        return []
+    return rows

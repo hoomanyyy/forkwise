@@ -22,24 +22,28 @@ from database import agent_db
 from database import studio_db
 from agent.sandbox import check_repo_url
 from fastapi import UploadFile, File, Form
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 import hashlib
+import hmac
+import ipaddress
 
 load_dotenv()
 
 app = FastAPI()
 
+ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "https://forkwiseai.com",
+    "https://www.forkwiseai.com",
+    "https://localhost",
+    "http://localhost",
+    "capacitor://localhost",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "https://forkwiseai.com",
-        "https://www.forkwiseai.com",
-        "https://localhost",
-        "http://localhost",
-        "capacitor://localhost",
-    ],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -308,6 +312,12 @@ async def analyze(request: Request):
 
 @app.websocket("/ws/auth")
 async def register(websocket: WebSocket):
+    # browsers send the cookie of this site with a websocket from any page of the same site (for example an app
+    # shown in the Studio preview), so only our own pages may open it
+    origin = websocket.headers.get("origin")
+    if origin and origin not in ALLOWED_ORIGINS:
+        await websocket.close(code=4403)
+        return
     try:
         await websocket.accept()
         data = await websocket.receive_json()
@@ -1069,6 +1079,23 @@ STUDIO_DAILY_MESSAGES = int(os.getenv("STUDIO_DAILY_MESSAGES", "50"))
 STUDIO_MAX_UPLOAD_MB = int(os.getenv("STUDIO_MAX_UPLOAD_MB", "300"))
 STUDIO_FILES_DIR = os.getenv("STUDIO_FILES_DIR", os.path.join(os.path.dirname(os.path.abspath(__file__)), "studio_files"))
 WORKER_KEY = os.getenv("WORKER_KEY", "")
+PREVIEW_URL = (os.getenv("PREVIEW_URL") or "").rstrip("/")
+PREVIEW_SECRET = os.getenv("PREVIEW_SECRET") or os.getenv("SESSION_SECRET_KEY") or ""
+try:
+    studio_db.ensure_schema()
+except Exception as e:
+    print("schema check failed:", e, flush=True)
+
+
+def preview_sig(session_id):
+    return hmac.new(PREVIEW_SECRET.encode(), ("preview:" + str(session_id)).encode(), hashlib.sha256).hexdigest()[:32]
+
+
+def preview_link(session):
+    """Link for the Preview panel: it opens the running app of this chat on the preview host."""
+    if not PREVIEW_URL or not PREVIEW_SECRET or not session.get("preview"):
+        return None
+    return PREVIEW_URL + "/_fw/open/" + str(session["id"]) + "/" + preview_sig(session["id"])
 
 
 def studio_allowed(user_id):
@@ -1174,9 +1201,70 @@ def studio_session(session_id: int, request: Request, after: int = 0):
         "patch_hash": hashlib.md5(patch.encode("utf-8")).hexdigest(),
         "patch_size": len(patch),
         "created_at": session["created_at"],
-        "worker_online": studio_db.worker_online()
+        "worker_online": studio_db.worker_online(),
+        "model": session.get("model"),
+        "preview_url": preview_link(session),
+        "preview_port": load_json(session.get("preview"), {}).get("port") if session.get("preview") else None,
+        "preview_at": load_json(session.get("preview"), {}).get("at") if session.get("preview") else None
     }
     return {"Message": True, "session": info, "messages": studio_db.get_messages(session_id, after)}
+
+
+@app.get("/api/studio/models")
+def studio_models(request: Request):
+    if get_user(request) is None:
+        return {"Message": "login"}
+    return {"Message": True, "data": studio_db.list_models()}
+
+
+@app.post("/api/studio/sessions/{session_id}/model")
+def studio_set_model(session_id: int, data: dict, request: Request):
+    user = get_user(request)
+    if user is None:
+        return {"Message": "login"}
+    if studio_db.get_session(session_id, user["user_id"]) is None:
+        return {"Message": False, "error": "This chat was not found."}
+    key = str(data.get("model") or "")
+    if key not in [m["key"] for m in studio_db.list_models()]:
+        return {"Message": False, "error": "This model is not available."}
+    studio_db.update_session(session_id, {"model": key})
+    return {"Message": True}
+
+
+# ------------------------------------------------------------------ live preview
+# nginx serves the preview host (for example preview.forkwiseai.com). It asks /internal/preview-auth before
+# every request and sends the request on to the sandbox the answer names. The app runs at the root of
+# the preview host, so links like /api/items and /assets/x.js work without changes.
+
+@app.get("/preview/open/{session_id}/{sig}")
+def preview_open(session_id: int, sig: str):
+    if not PREVIEW_SECRET or not hmac.compare_digest(sig, preview_sig(session_id)):
+        return Response("This preview link is not valid.", status_code=403)
+    response = RedirectResponse("/", status_code=302)
+    response.set_cookie("fw_preview", str(session_id) + "." + sig, httponly=True, secure=True, samesite="lax",
+                        max_age=60 * 60 * 24 * 30, path="/")
+    return response
+
+
+@app.get("/internal/preview-auth")
+def preview_auth(request: Request):
+    value = request.cookies.get("fw_preview", "")
+    if "." not in value:
+        return Response(status_code=401)
+    session_id, sig = value.split(".", 1)
+    if not session_id.isdigit() or not PREVIEW_SECRET or not hmac.compare_digest(sig, preview_sig(int(session_id))):
+        return Response(status_code=401)
+    session = studio_db.get_session(int(session_id))
+    target = load_json((session or {}).get("preview"), {}) if session else {}
+    ip = str(target.get("ip") or "")
+    port = target.get("port")
+    try:
+        private = ipaddress.ip_address(ip).is_private
+    except ValueError:
+        private = False
+    if not private or not isinstance(port, int) or port < 1024 or port > 65535:
+        return Response(status_code=403)
+    return Response(status_code=204, headers={"X-Fw-Target": ip + ":" + str(port)})
 
 
 @app.post("/api/studio/sessions/{session_id}/messages")

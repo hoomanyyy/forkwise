@@ -380,3 +380,22 @@ export async function exportStudio(id) {
         return { Message: false, error: "Could not connect to the server." }
     }
 }
+
+
+export async function getStudioModels() {
+    try {
+        const response = await axios.get(`${BASE_URL}/api/studio/models`, { withCredentials: true })
+        return response.data
+    } catch (e) {
+        return { Message: false, Error: true }
+    }
+}
+
+export async function setStudioModel(id, model) {
+    try {
+        const response = await axios.post(`${BASE_URL}/api/studio/sessions/${id}/model`, { model: model }, { withCredentials: true })
+        return response.data
+    } catch (e) {
+        return { Message: false, error: "Could not connect to the server." }
+    }
+}

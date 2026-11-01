@@ -6,9 +6,12 @@
 #   sudo bash install.sh                                 empty install (no backup)
 #   sudo bash install.sh --ssl                           only get the HTTPS certificate (after DNS points here)
 #   sudo bash install.sh --model                         choose the AI model and key for Studio (OpenRouter)
+#   sudo bash install.sh --add-provider                  add one more AI provider (NVIDIA, Groq, Mistral, any OpenAI-style API)
+#   sudo bash install.sh --update                        get the newest code, keep settings and data (fast)
 #
 # Options (put them before the backup file):
 #   --domain api.example.com   API domain (default api.forkwiseai.com)
+#   --preview-domain NAME      host for the live preview of Studio apps (default preview.forkwiseai.com)
 #   --no-worker                do not install Docker and the Agent/Studio worker
 #   --branch NAME              git branch to install (default main)
 #
@@ -31,6 +34,9 @@ SITE_URL="https://forkwiseai.com"
 WITH_WORKER=1
 SSL_ONLY=0
 MODEL_ONLY=0
+PROVIDER_ONLY=0
+UPDATE_ONLY=0
+PREVIEW_DOMAIN=""
 BACKUP=""
 
 BASE="/opt/forkwise"
@@ -50,10 +56,17 @@ while [ $# -gt 0 ]; do
         --no-worker) WITH_WORKER=0; shift ;;
         --ssl) SSL_ONLY=1; shift ;;
         --model) MODEL_ONLY=1; shift ;;
-        -h|--help) sed -n 2,16p "$FORKWISE_COPY"; exit 0 ;;
+        --add-provider) PROVIDER_ONLY=1; shift ;;
+        --update) UPDATE_ONLY=1; shift ;;
+        --preview-domain) PREVIEW_DOMAIN="$2"; shift 2 ;;
+        -h|--help) sed -n 2,20p "$FORKWISE_COPY"; exit 0 ;;
         *) BACKUP="$1"; shift ;;
     esac
 done
+
+[ -n "$PREVIEW_DOMAIN" ] || PREVIEW_DOMAIN="preview.${DOMAIN#api.}"
+# git refuses to work in a folder owned by another user unless it is marked safe
+GIT="git -c safe.directory=$APP"
 
 say() { printf '\n\033[1;34m==> %s\033[0m\n' "$*"; }
 ok() { printf '    \033[32mOK\033[0m %s\n' "$*"; }
@@ -104,6 +117,7 @@ public_ip() {
 
 # ------------------------------------------------------------------------- SSL
 get_certificate() {
+    local DOMAIN="${1:-$DOMAIN}"
     say "HTTPS certificate for $DOMAIN"
     local token check
     token="$(random_secret 24)"
@@ -219,13 +233,139 @@ PY
     systemctl is-active --quiet forkwise-agent && ok "worker restarted with the new model" || warn "the worker did not start: sudo journalctl -u forkwise-agent -n 50"
 }
 
+add_provider() {
+    say "Add an AI provider for Studio"
+    [ -f "$WORKER_ENV" ] || fail "install Forkwise first, then run --add-provider"
+    local name url key list models number n first code
+    echo "    Examples:"
+    echo "      NVIDIA      https://integrate.api.nvidia.com/v1   (key starts with nvapi-, free for testing)"
+    echo "      Groq        https://api.groq.com/openai/v1        (key starts with gsk_)"
+    echo "      OpenRouter  https://openrouter.ai/api/v1          (key starts with sk-or-)"
+    echo "      Mistral     https://api.mistral.ai/v1"
+    read -rp "    Name to show (for example NVIDIA): " name < /dev/tty
+    read -rp "    API address (base URL, ends with /v1): " url < /dev/tty
+    url="${url%/}"
+    read -rsp "    API key (paste with a right click, it stays hidden): " key < /dev/tty; echo
+    [ -n "$name" ] && [ -n "$url" ] && [ -n "$key" ] || fail "name, address and key are all needed"
+    list="$(curl -sS --max-time 30 "$url/models" -H "Authorization: Bearer $key" | "$VENV/bin/python" -c '
+import sys, json
+try:
+    data = json.load(sys.stdin).get("data", [])
+except Exception:
+    data = []
+words = ["kimi", "deepseek", "qwen3", "glm", "nemotron", "gpt-oss", "minimax", "llama-4", "devstral", "mistral-large",
+         "mistral-medium", "codestral", "claude", "gpt-5", "gpt-6", "gemini", "grok"]
+for m in data:
+    i = m.get("id", "")
+    if any(w in i.lower() for w in words):
+        print(i)
+' 2>/dev/null)"
+    [ -n "$list" ] || fail "the key was not accepted or the address is wrong. Nothing was changed."
+    echo "    Models of $name for coding:"
+    echo "$list" | sed 's/^/      /'
+    read -rp "    Model ids to use, separated by commas (the first is the default): " models < /dev/tty
+    models="$(echo "$models" | tr -d ' ')"
+    [ -n "$models" ] || fail "no model given"
+    first="${models%%,*}"
+    code="$(curl -sS -o /tmp/forkwise-provider-test.json -w '%{http_code}' --max-time 120 "$url/chat/completions" \
+        -H "Authorization: Bearer $key" -H "Content-Type: application/json" \
+        -d "{\"model\": \"$first\", \"max_tokens\": 20, \"messages\": [{\"role\": \"user\", \"content\": \"Say OK\"}]}")"
+    if [ "$code" != "200" ]; then
+        head -c 400 /tmp/forkwise-provider-test.json; echo
+        rm -f /tmp/forkwise-provider-test.json
+        fail "the test call to $first failed (HTTP $code). Nothing was changed."
+    fi
+    rm -f /tmp/forkwise-provider-test.json
+    ok "test call to $first worked"
+    number=""
+    for n in 1 2 3 4 5 6 7 8 9; do
+        if [ "$(env_get "PROVIDER_${n}_NAME" "$WORKER_ENV")" = "$name" ] || [ -z "$(env_get "PROVIDER_${n}_URL" "$WORKER_ENV")" ]; then
+            number="$n"; break
+        fi
+    done
+    [ -n "$number" ] || fail "there are already 9 providers"
+    env_set "PROVIDER_${number}_NAME" "$name" "$WORKER_ENV"
+    env_set "PROVIDER_${number}_URL" "$url" "$WORKER_ENV"
+    env_set "PROVIDER_${number}_KEY" "$key" "$WORKER_ENV"
+    env_set "PROVIDER_${number}_MODELS" "$models" "$WORKER_ENV"
+    if [ -z "$(env_get AGENT_API_KEY "$WORKER_ENV")" ]; then
+        # no main provider yet: this one becomes the default
+        env_set AGENT_BASE_URL "$url" "$WORKER_ENV"
+        env_set AGENT_API_KEY "$key" "$WORKER_ENV"
+        env_set AGENT_MODEL "$first" "$WORKER_ENV"
+        env_set AGENT_SMALL_MODEL "$first" "$WORKER_ENV"
+        env_set AGENT_PROVIDER_NAME "$name" "$WORKER_ENV"
+    fi
+    local answer
+    read -rp "    Start new Studio chats with $first? (y/N): " answer < /dev/tty
+    if [ "$answer" = "y" ] || [ "$answer" = "Y" ]; then
+        env_set STUDIO_DEFAULT_MODEL "${number}:${first}" "$WORKER_ENV"
+        ok "new chats start with $first"
+    fi
+    chown "$WORKER_USER:$WORKER_USER" "$WORKER_ENV"; chmod 600 "$WORKER_ENV"
+    systemctl restart forkwise-agent
+    sleep 4
+    if systemctl is-active --quiet forkwise-agent; then
+        ok "$name added as provider $number. Users can pick its models in Studio."
+    else
+        warn "the worker did not start: sudo journalctl -u forkwise-agent -n 50"
+    fi
+}
+
+quick_update() {
+    say "Getting the newest code ($BRANCH)"
+    $GIT -C "$APP" fetch -q origin "$BRANCH" && $GIT -C "$APP" reset -q --hard "origin/$BRANCH" || fail "git update failed"
+    ok "$($GIT -C "$APP" log -1 --format='%h %s')"
+    "$VENV/bin/pip" install -q -r "$APP/backend/requirements.txt" >/dev/null 2>&1 || warn "pip install had problems"
+    if command -v docker >/dev/null 2>&1 && systemctl list-unit-files forkwise-agent.service >/dev/null 2>&1; then
+        local stamp new
+        stamp="$BASE/sandbox-image.hash"
+        new="$(cd "$APP/backend/agent" && cat Dockerfile.sandbox $(find box -type f | sort) | sha256sum | cut -c1-16)"
+        if [ "$(cat "$stamp" 2>/dev/null)" != "$new" ]; then
+            echo "    the sandbox changed, building it again (5 to 10 minutes)..."
+            if docker build --network host -t forkwise-sandbox -f "$APP/backend/agent/Dockerfile.sandbox" "$APP/backend/agent" > "$BASE/sandbox-build.log" 2>&1; then
+                echo "$new" > "$stamp"
+                ok "sandbox image built"
+            else
+                tail -n 15 "$BASE/sandbox-build.log"
+                warn "the sandbox image did not build, see $BASE/sandbox-build.log"
+            fi
+        else
+            ok "sandbox image is up to date"
+        fi
+    fi
+    systemctl restart forkwise
+    systemctl restart forkwise-agent 2>/dev/null || true
+    sleep 4
+    if systemctl is-active --quiet forkwise; then ok "API restarted"; else warn "the API did not start: sudo journalctl -u forkwise -n 50"; fi
+    if systemctl is-active --quiet forkwise-agent; then ok "worker restarted"; fi
+}
+
 if [ "$MODEL_ONLY" -eq 1 ]; then
     configure_model
     exit 0
 fi
 
+if [ "$PROVIDER_ONLY" -eq 1 ]; then
+    add_provider
+    exit 0
+fi
+
+if [ "$UPDATE_ONLY" -eq 1 ]; then
+    quick_update
+    if [ ! -f /etc/nginx/conf.d/forkwise-preview.conf ]; then
+        echo
+        echo "    New in this version: live preview. Run the full installer once to set it up:"
+        echo "      sudo bash $APP/deploy/install.sh"
+    fi
+    exit 0
+fi
+
 if [ "$SSL_ONLY" -eq 1 ]; then
-    get_certificate && curl -fsS --max-time 10 "https://$DOMAIN/health" && echo
+    get_certificate "$DOMAIN" && curl -fsS --max-time 10 "https://$DOMAIN/health" && echo
+    if [ -f /etc/nginx/conf.d/forkwise-preview.conf ]; then
+        get_certificate "$PREVIEW_DOMAIN" || true
+    fi
     exit 0
 fi
 
@@ -276,12 +416,13 @@ ok "user $API_USER (runs the API)"
 # --------------------------------------------------------------------- code
 say "Getting the code from GitHub ($BRANCH)"
 if [ -d "$APP/.git" ]; then
-    git -C "$APP" fetch -q origin "$BRANCH" && git -C "$APP" reset -q --hard "origin/$BRANCH" || fail "git update failed"
+    $GIT -C "$APP" fetch -q origin "$BRANCH" && $GIT -C "$APP" reset -q --hard "origin/$BRANCH" || fail "git update failed"
 else
     rm -rf "$APP"
     git clone -q --branch "$BRANCH" "$REPO_URL" "$APP" || fail "git clone failed"
 fi
-ok "$(git -C "$APP" log -1 --format='%h %s')"
+git config --system --add safe.directory "$APP" 2>/dev/null || true
+ok "$($GIT -C "$APP" log -1 --format='%h %s')"
 mkdir -p "$APP/backend/upload"
 
 # ------------------------------------------------------------------- python
@@ -341,6 +482,8 @@ env_set HTTPS_ONLY "true" "$NEW_ENV"
 env_set STUDIO_FILES_DIR "$STUDIO_DIR" "$NEW_ENV"
 env_default BASE_API_URL "https://$DOMAIN" "$NEW_ENV"
 env_default BASE_SITE_URL "$SITE_URL" "$NEW_ENV"
+env_default PREVIEW_URL "https://$PREVIEW_DOMAIN" "$NEW_ENV"
+env_default PREVIEW_SECRET "$(random_secret 48)" "$NEW_ENV"
 install -m 600 -o "$API_USER" -g "$API_USER" "$NEW_ENV" "$API_ENV"
 rm -f "$NEW_ENV"
 ok "$API_ENV"
@@ -470,6 +613,62 @@ if [ -f /etc/letsencrypt/live/$DOMAIN/fullchain.pem ]; then
     # keep HTTPS from an earlier run
     certbot install --nginx --cert-name "$DOMAIN" -d "$DOMAIN" --redirect --non-interactive >/dev/null 2>&1 || true
 fi
+
+# live preview of Studio apps: every request asks the API which sandbox it belongs to (auth_request),
+# then goes straight to that sandbox. The app runs at the root of the host, websockets work (hot reload).
+mkdir -p /var/www/forkwise-preview
+cat > /var/www/forkwise-preview/sleeping.html <<'HTML'
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Preview</title>
+<style>body{margin:0;display:grid;place-items:center;min-height:100vh;font-family:system-ui,sans-serif;background:#0b0b12;color:#c7c7d1}div{text-align:center;max-width:420px;padding:24px}h1{font-size:20px;color:#fff}p{line-height:1.6}</style></head>
+<body><div><h1>The app is not running</h1><p>Studio stops sandboxes that are not used for a while. Send a message in Studio, for example "start the app", and the preview comes back.</p></div></body></html>
+HTML
+chmod -R a+rX /var/www/forkwise-preview
+command -v restorecon >/dev/null 2>&1 && restorecon -R /var/www/forkwise-preview 2>/dev/null
+cat > /etc/nginx/conf.d/forkwise-preview.conf <<PREVIEW
+server {
+    listen 80;
+    listen [::]:80;
+    server_name $PREVIEW_DOMAIN;
+    client_max_body_size 50M;
+
+    location /.well-known/forkwise-check/ {
+        alias /var/www/forkwise-check/;
+    }
+    location = /_fw_auth {
+        internal;
+        proxy_pass http://127.0.0.1:$PORT/internal/preview-auth;
+        proxy_pass_request_body off;
+        proxy_set_header Content-Length "";
+        proxy_set_header Cookie \$http_cookie;
+    }
+    location /_fw/open/ {
+        proxy_pass http://127.0.0.1:$PORT/preview/open/;
+    }
+    location = /_fw/sleeping.html {
+        root /var/www/forkwise-preview;
+        rewrite ^ /sleeping.html break;
+    }
+    location / {
+        auth_request /_fw_auth;
+        auth_request_set \$fw_target \$upstream_http_x_fw_target;
+        error_page 401 403 502 503 504 = /_fw/sleeping.html;
+        proxy_pass http://\$fw_target;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection \$connection_upgrade;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_read_timeout 3600s;
+        proxy_buffering off;
+        proxy_hide_header Content-Security-Policy;
+        proxy_hide_header X-Frame-Options;
+        add_header Content-Security-Policy "frame-ancestors https://forkwiseai.com https://www.forkwiseai.com http://localhost:3000" always;
+    }
+}
+PREVIEW
+if [ -f /etc/letsencrypt/live/$PREVIEW_DOMAIN/fullchain.pem ]; then
+    certbot install --nginx --cert-name "$PREVIEW_DOMAIN" -d "$PREVIEW_DOMAIN" --redirect --non-interactive >/dev/null 2>&1 || true
+fi
 if command -v getenforce >/dev/null 2>&1 && [ "$(getenforce)" != "Disabled" ]; then
     setsebool -P httpd_can_network_connect 1
     ok "SELinux: nginx may connect to the API"
@@ -591,6 +790,7 @@ EOF
         echo "    building the sandbox image (5 to 10 minutes the first time)..."
         if docker build --network host -t "$SANDBOX_IMAGE" -f "$APP/backend/agent/Dockerfile.sandbox" "$APP/backend/agent" > "$BASE/sandbox-build.log" 2>&1; then
             ok "sandbox image $SANDBOX_IMAGE built for $ARCH"
+            (cd "$APP/backend/agent" && cat Dockerfile.sandbox $(find box -type f | sort) | sha256sum | cut -c1-16) > "$BASE/sandbox-image.hash"
         else
             tail -n 15 "$BASE/sandbox-build.log"
             warn "the sandbox image did not build, see $BASE/sandbox-build.log"
@@ -614,7 +814,7 @@ EOF
         else
             grep -E "^(AGENT_|SANDBOX_|SEARCH_API_KEY|STUDIO_)" "$API_ENV" > "$NEW_W" || true
         fi
-        for k in DB_HOST DB_NAME DB_USER DB_PASS WORKER_KEY; do
+        for k in DB_HOST DB_NAME DB_USER DB_PASS WORKER_KEY PREVIEW_URL; do
             env_set "$k" "$(env_get "$k" "$API_ENV")" "$NEW_W"
         done
         env_set FORKWISE_API_URL "http://127.0.0.1:$PORT" "$NEW_W"
@@ -622,6 +822,7 @@ EOF
         env_default SANDBOX_INTERNET "always" "$NEW_W"
         env_default STUDIO_MAX_STEPS "150" "$NEW_W"
         env_default STUDIO_LIMIT_WAIT_MINUTES "20" "$NEW_W"
+        env_default STUDIO_CONTEXT_TOKENS "60000" "$NEW_W"
         RAM_GB="$(awk '/MemTotal/ {printf "%d", $2/1024/1024}' /proc/meminfo)"
         if [ "${RAM_GB:-0}" -ge 16 ]; then env_default SANDBOX_MEMORY "4g" "$NEW_W"; env_default SANDBOX_CPUS "2" "$NEW_W"; fi
         if [ "${SEARX_OK:-0}" -eq 1 ]; then env_set SEARXNG_URL "http://127.0.0.1:8888" "$NEW_W"; fi
@@ -667,7 +868,8 @@ fi
 [ -n "$EXTRACT" ] && rm -rf "$EXTRACT"
 
 # ---------------------------------------------------------------------- SSL
-get_certificate || true
+get_certificate "$DOMAIN" || true
+get_certificate "$PREVIEW_DOMAIN" || warn "live preview needs a DNS A record for $PREVIEW_DOMAIN to this server, then: sudo bash $APP/deploy/install.sh --ssl"
 
 # -------------------------------------------------------------------- summary
 IP="$(public_ip)"

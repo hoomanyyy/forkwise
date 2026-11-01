@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import time
 import shlex
@@ -10,8 +11,8 @@ from dotenv import load_dotenv
 from database import studio_db
 from agent import sandbox, web
 from agent.loop import TOOLS as BASE_TOOLS, run_tool, tool_label, shrink_history
-from agent.model import call_model
-from agent import blocks, router
+from agent.model import call_model, find_model, public_models, PROVIDERS
+from agent import blocks, router, tooling, prompts, compact
 
 load_dotenv()
 
@@ -25,6 +26,13 @@ API_URL = os.getenv("FORKWISE_API_URL", "https://api.forkwiseai.com").rstrip("/"
 WORKER_KEY = os.getenv("WORKER_KEY", "")
 MAX_SHARE_MB = int(os.getenv("STUDIO_MAX_SHARE_MB", "500"))
 VISION = os.getenv("AGENT_VISION", "false") == "true"
+TEMPLATES_DIR = "/opt/templates"
+TURN = threading.local()   # settings of the turn this thread is running (vision depends on the chosen model)
+
+
+def can_see():
+    return getattr(TURN, "vision", VISION)
+TEMPLATE_NAMES = ["react", "fullstack", "fastapi", "static"]
 MAX_IMAGE_BYTES = 4 * 1024 * 1024
 MAX_RETRY_NUDGES = 3
 UPLOADS = "/home/agent/uploads"
@@ -135,6 +143,14 @@ EXTRA_TOOLS = [
         }, "required": ["action"]}
     }},
     {"type": "function", "function": {
+        "name": "create_project",
+        "description": "Start a new app from a ready template with its packages already installed (much faster and safer than an empty folder). Templates: react (Vite + React + Tailwind + React Router + lucide icons), fullstack (react in /workspace/web + FastAPI in /workspace/api), fastapi (API with SQLite), static (HTML, CSS, JS).",
+        "parameters": {"type": "object", "properties": {
+            "template": {"type": "string", "enum": ["react", "fullstack", "fastapi", "static"]},
+            "title": {"type": "string", "description": "Name of the app, shown in the page title"}
+        }, "required": ["template"]}
+    }},
+    {"type": "function", "function": {
         "name": "share_file",
         "description": "Give a file to the user as a download, for example a video, image or zip you made. Use the full path.",
         "parameters": {"type": "object", "properties": {
@@ -223,8 +239,20 @@ def internet_text():
     return "The sandbox has no internet, except while install_packages runs. Use web_search and fetch_url to read the web."
 
 
-def system_prompt():
-    return SYSTEM_PROMPT.replace("{internet}", internet_text())
+def system_prompt(model_key=None, memory=""):
+    entry = find_model(model_key) if model_key else (PROVIDERS[0] if PROVIDERS else None)
+    parts = [SYSTEM_PROMPT.replace("{internet}", internet_text()), prompts.KEEP_GOING, prompts.TEMPLATES, prompts.PROJECT_MEMORY]
+    notes = prompts.model_notes(entry["model"] if entry else "")
+    if notes:
+        parts.append(notes)
+    if memory.strip():
+        parts.append("Contents of /workspace/AGENTS.md (your project memory):\n" + memory[:6000])
+    return "\n\n".join(parts)
+
+
+def model_vision(model_key):
+    entry = find_model(model_key) if model_key else (PROVIDERS[0] if PROVIDERS else None)
+    return bool(entry and entry.get("vision"))
 
 
 def all_tools():
@@ -320,6 +348,7 @@ def ensure_box(session):
 
 
 def stop_box(session_id):
+    studio_db.update_session(session_id, {"preview": None})
     box = box_name(session_id)
     if sandbox.is_running(box):
         save_state(session_id, box)
@@ -472,7 +501,7 @@ def box_tool(kind, args, box, session_id, label, images, shots):
 
     if data.get("screenshot"):
         url = post_screen(session_id, box, data["screenshot"], label, shots)
-        if url and VISION:
+        if url and can_see():
             images.append(url)
 
     parts = []
@@ -488,7 +517,7 @@ def box_tool(kind, args, box, session_id, label, images, shots):
     if data.get("text"):
         parts.append("visible text:\n" + data["text"])
     if data.get("screenshot"):
-        if VISION:
+        if can_see():
             parts.append("A screenshot of the screen after this action follows.")
         else:
             parts.append("A screenshot was shown to the user. You cannot see images, so rely on the text above.")
@@ -514,9 +543,7 @@ def add_images(messages, images):
 def for_model(messages):
     clean = []
     for m in messages:
-        if "screenshot" in m:
-            m = {k: v for k, v in m.items() if k != "screenshot"}
-        clean.append(m)
+        clean.append({k: v for k, v in m.items() if k != "screenshot" and not k.startswith("_")})
     return clean
 
 
@@ -527,14 +554,22 @@ def build_history(rows, session_id):
             answered.append(row["call_id"])
 
     images = {}
-    if VISION:
+    if can_see():
         for item in studio_db.list_files(session_id, "upload"):
             images[item["name"]] = item
 
     messages = []
+    # after a compaction only the summary and the rows it did not cover are sent again
+    for row in reversed(rows):
+        if row["role"] == "summary":
+            info = load_dict(row["content"])
+            keep_from = info.get("keep_from") or row["id"]
+            messages.append({"role": "user", "content": compact.PREFIX + str(info.get("text", ""))})
+            rows = [r for r in rows if r.get("id", 0) >= keep_from and r["role"] != "summary"]
+            break
     for row in rows:
         if row["role"] == "user":
-            messages.append({"role": "user", "content": row["content"] or ""})
+            messages.append({"role": "user", "content": row["content"] or "", "_id": row.get("id")})
         elif row["role"] == "file":
             info = load_dict(row["content"])
             if info.get("kind") == "upload":
@@ -551,7 +586,7 @@ def build_history(rows, session_id):
                         {"type": "image_url", "image_url": {"url": url}}
                     ]})
         elif row["role"] == "assistant":
-            message = {"role": "assistant", "content": row["content"] or ""}
+            message = {"role": "assistant", "content": row["content"] or "", "_id": row.get("id")}
             calls = []
             for call in load_list(row["calls"]):
                 if call.get("id") in answered:
@@ -667,7 +702,25 @@ def run_studio_tool(name, args, box, session_id, images=None, shots=None):
     if name == "computer":
         return box_tool("computer", args, box, session_id, studio_label(name, args), images, shots)
     if name == "start_server":
-        return box_tool("server", args, box, session_id, studio_label(name, args), images, shots)
+        args = dict(args)
+        args["command"] = reachable_command(box, str(args.get("command", "")), str(args.get("cwd") or "/workspace"))
+        output = box_tool("server", args, box, session_id, studio_label(name, args), images, shots)
+        remember_preview(session_id, box, args, output)
+        return output
+    if name == "create_project":
+        return create_project(box, str(args.get("template", "react")), str(args.get("title") or ""))
+    if name == "apply_patch":
+        return patch_in_box(box, str(args.get("patch") or ""))
+    if name == "run_python":
+        code = str(args.get("code") or args.get("command") or args.get("input") or "")
+        result = sandbox.run(box, "python3 - <<'FORKWISE_PY'\n" + code + "\nFORKWISE_PY", timeout=300)
+        return "exit code " + str(result["code"]) + "\n" + result["output"]
+    if name == "finish":
+        return "Noted. If everything is built and checked, answer with your final summary as plain text, without tool calls."
+    if name == "run_command":
+        patch = tooling.patch_from_command(str(args.get("command", "")))
+        if patch is not None:
+            return patch_in_box(box, patch)
     if name == "web_search":
         return web.web_search(str(args.get("query", "")))
     if name == "research":
@@ -707,6 +760,80 @@ def read_arguments(call):
     if cut:
         args["_cut"] = True
     return args
+
+
+def patch_in_box(box, patch):
+    return tooling.patch_report(tooling.run_patch(patch, *patch_helpers(box)))
+
+
+def create_project(box, template, title):
+    if template not in TEMPLATE_NAMES:
+        return "Unknown template. Use one of: " + ", ".join(TEMPLATE_NAMES)
+    check = sandbox.run(box, "test -d " + TEMPLATES_DIR + "/react && echo yes", timeout=30)
+    if "yes" not in check["output"]:
+        return "The templates are not in this sandbox image yet. Build the project by hand (npm create vite@latest, pip install fastapi)."
+    if template == "fullstack":
+        command = ("mkdir -p /workspace/web /workspace/api && cp -a " + TEMPLATES_DIR + "/react/. /workspace/web/ && "
+                   "cp -a " + TEMPLATES_DIR + "/fastapi/. /workspace/api/ && cp " + TEMPLATES_DIR + "/fullstack/AGENTS.md /workspace/AGENTS.md")
+        where = "/workspace/web (React, port 5173) and /workspace/api (FastAPI, port 8000)"
+    else:
+        command = "cp -a " + TEMPLATES_DIR + "/" + template + "/. /workspace/"
+        where = "/workspace"
+    result = sandbox.run(box, command + " && cd /workspace && git add -A >/dev/null 2>&1; true", timeout=300)
+    if result["code"] != 0:
+        return "Could not copy the template: " + result["output"][-800:]
+    if title.strip():
+        safe = title.replace("\\", "").replace("\"", "").replace("<", "").replace(">", "")[:80]
+        for page in ["/workspace/index.html", "/workspace/web/index.html"]:
+            text = sandbox.read_text(box, page)
+            if text and "<title>" in text:
+                start = text.index("<title>") + 7
+                end = text.index("</title>", start)
+                sandbox.write_text(box, page, text[:start] + safe + text[end:])
+    files = sandbox.run(box, "cd /workspace && find . -path ./node_modules -prune -o -path '*/node_modules' -prune -o -path ./.git -prune -o -type f -print | sort | head -60", timeout=30)
+    guide = sandbox.read_text(box, "/workspace/AGENTS.md") or ""
+    return ("Created the " + template + " template in " + where + ". Packages are already installed.\n\nFiles:\n" + files["output"] +
+            "\n\nAGENTS.md:\n" + guide[:3000])
+
+
+def reachable_command(box, command, cwd):
+    """Servers must listen on all addresses (not only 127.0.0.1), or the Preview panel cannot reach them."""
+    plain = command.strip()
+    if re.search(r"\buvicorn\b", plain) and "--host" not in plain:
+        return plain + " --host 0.0.0.0"
+    if re.search(r"\bflask\b.*\brun\b", plain) and "--host" not in plain and " -h " not in plain:
+        return plain + " --host 0.0.0.0"
+    if re.search(r"\bnext\s+dev\b", plain) and " -H " not in plain and "--hostname" not in plain:
+        return plain + " -H 0.0.0.0"
+    if re.search(r"(^|\s)(npx\s+)?vite(\s|$)", plain) and "--host" not in plain:
+        return plain + " --host 0.0.0.0"
+    match = re.match(r"^(npm|pnpm|yarn)\s+(run\s+)?(dev|start)\s*$", plain)
+    if match:
+        package = sandbox.read_text(box, cwd.rstrip("/") + "/package.json") or ""
+        try:
+            script = json.loads(package).get("scripts", {}).get(match.group(3), "")
+        except ValueError:
+            script = ""
+        if "vite" in script and "--host" not in script:
+            return plain + (" -- --host 0.0.0.0" if match.group(1) == "npm" else " --host 0.0.0.0")
+    return command
+
+
+def remember_preview(session_id, box, args, output):
+    """The API server shows the running app in the Preview panel through the preview host."""
+    if output.lower().startswith("error") or "not answer" in output.lower()[:200]:
+        return
+    try:
+        port = int(args.get("port"))
+    except (TypeError, ValueError):
+        return
+    ip = sandbox.box_ip(box)
+    if ip:
+        studio_db.update_session(session_id, {"preview": json.dumps({"ip": ip, "port": port, "at": int(time.time())})})
+
+
+def read_memory(box):
+    return sandbox.read_text(box, "/workspace/AGENTS.md") or ""
 
 
 def prepare(session, state):
@@ -797,9 +924,9 @@ def project_note(rows):
     return str(len(tools)) + " steps so far, the last ones: " + "; ".join(names)
 
 
-def chat_turn(session_id, rows, tokens):
+def chat_turn(session_id, rows, tokens, model_key=None):
     messages = [{"role": "system", "content": CHAT_PROMPT}] + text_history(rows)
-    result = call_model(messages, max_tokens=1500, temperature=0.6)
+    result = call_model(messages, model=model_key, max_tokens=1500, temperature=0.6)
     if "error" in result and result.get("limit"):
         result = wait_for_model(session_id, messages, tools=None)
     if "error" in result:
@@ -808,14 +935,14 @@ def chat_turn(session_id, rows, tokens):
     return tokens + result["tokens"], None
 
 
-def answer_turn(session_id, rows, query, tokens):
+def answer_turn(session_id, rows, query, tokens, model_key=None):
     studio_db.update_session(session_id, {"status": "running"})
     text, used = web.research(query)
     shown = "Read " + str(len(used)) + " pages:\n" + "\n".join("- " + title + " " + link for title, link in used)
     studio_db.add_message(session_id, "tool", shown if used else text[:3000], tool="research", tool_args="research: " + query)
     messages = [{"role": "system", "content": ANSWER_PROMPT}] + text_history(rows)
     messages.append({"role": "user", "content": "[Forkwise] Web pages for the question above (searched: " + query + "):\n\n" + text[:24000]})
-    result = call_model(messages, max_tokens=2000, temperature=0.2)
+    result = call_model(messages, model=model_key, max_tokens=2000, temperature=0.2)
     if "error" in result and result.get("limit"):
         result = wait_for_model(session_id, messages, tools=None)
     if "error" in result:
@@ -836,6 +963,47 @@ def unfinished_todos(session_id):
     session = studio_db.get_session(session_id) or {}
     items = load_list(session.get("todos"))
     return [item.get("text", "") for item in items if isinstance(item, dict) and item.get("status") != "done"]
+
+
+PERMISSION_WORDS = ["let me know", "would you like", "do you want", "shall i", "should i", "want me to", "if you'd like",
+                    "if you want", "ready to proceed", "می‌خواهید", "میخواهید", "می خواهید", "بگویید", "بگید", "اجازه",
+                    "آیا ادامه", "ادامه بدهم", "ادامه بدم", "شروع کنم"]
+
+
+def asks_permission(text):
+    end = (text or "").strip().lower()[-400:]
+    return any(word in end for word in PERMISSION_WORDS)
+
+
+def patch_helpers(box):
+    def read(path):
+        return sandbox.read_text(box, path)
+
+    def write(path, text):
+        return sandbox.write_text(box, path, text)
+
+    def delete(path):
+        result = sandbox.run(box, "rm -f -- " + shlex.quote(path), timeout=30)
+        return None if result["code"] == 0 else "Could not delete " + path
+
+    return read, write, delete
+
+
+def compact_now(session_id, messages):
+    """Replaces the older part of the chat with a handoff summary and saves it, so the next message
+    starts from the summary too."""
+    studio_db.add_message(session_id, "info", "This chat is long, so Studio summarizes the older steps to keep going.")
+    done = compact.compact(messages)
+    if done is None:
+        return messages
+    new, summary, first_kept = done
+    keep_from = None
+    for m in new[2:]:
+        if m.get("_id"):
+            keep_from = m["_id"]
+            break
+    studio_db.add_message(session_id, "summary", json.dumps({"text": summary, "keep_from": keep_from}))
+    return new
 
 
 def run_blocks_in_box(session, state, actions):
@@ -863,6 +1031,9 @@ def run_turn(session):
         export_project(session)
         return
 
+    model_key = session.get("model") or None
+    TURN.vision = model_vision(model_key) if model_key else VISION
+    TURN.model = model_key
     try:
         rows = studio_db.all_messages(session_id)
         has_project = any(row["role"] == "tool" for row in rows) or session.get("box") == "running"
@@ -870,9 +1041,9 @@ def run_turn(session):
         print("STUDIO:", session_id, "message kind", kind, flush=True)
         if kind in ["chat", "answer"]:
             if kind == "chat":
-                done, failed = chat_turn(session_id, rows, tokens)
+                done, failed = chat_turn(session_id, rows, tokens, model_key)
             else:
-                done, failed = answer_turn(session_id, rows, query, tokens)
+                done, failed = answer_turn(session_id, rows, query, tokens, model_key)
             if failed:
                 model_failed(session_id, failed)
             else:
@@ -887,9 +1058,13 @@ def run_turn(session):
                 studio_db.update_session(session_id, {"status": "error", "error": problem})
                 return
 
-        messages = [{"role": "system", "content": system_prompt() + "\n\n" + uploads_note(session_id)}]
+        memory = read_memory(box) if state["ready"] else ""
+        messages = [{"role": "system", "content": system_prompt(model_key, memory) + "\n\n" + uploads_note(session_id)}]
         for message in build_history(rows, session_id):
             messages.append(message)
+        known = set(t["function"]["name"] for t in TOOLS) | set(HIDDEN_TOOLS)
+        tools_chars = len(json.dumps(TOOLS))
+        permission_nudges = 0
 
         finished = False
         nudges = 0
@@ -904,7 +1079,9 @@ def run_turn(session):
                 break
 
             shrink_history(messages)
-            result = call_model(for_model(messages), tools=TOOLS, max_tokens=8000)
+            if compact.needs_compaction(messages, tools_chars):
+                messages = compact_now(session_id, messages)
+            result = call_model(for_model(messages), tools=TOOLS, model=model_key, max_tokens=8000)
             if "error" in result and result.get("limit"):
                 result = wait_for_model(session_id, messages)
             if "error" in result and result.get("bad_tool_json") and json_nudges < 5:
@@ -925,25 +1102,35 @@ def run_turn(session):
             raw_text = message.get("content") or ""
             calls = message.get("tool_calls") or []
             text, actions = blocks.find_blocks(raw_text)
+            text, patches = tooling.find_patches(text)
 
             calls_text = None
             if len(calls) > 0:
                 calls_text = json.dumps(calls)
-            studio_db.add_message(session_id, "assistant", text, calls=calls_text)
+            row_id = studio_db.add_message(session_id, "assistant", text, calls=calls_text)
 
             reports = []
             if actions:
                 reports = run_blocks_in_box(session, state, actions)
-                for path, block_kind, report, ok in reports:
-                    label = ("write_file " if block_kind == "file" else "edit_file ") + str(path)
-                    studio_db.add_message(session_id, "tool", report, tool="block_" + block_kind, tool_args=label)
+            for patch in patches:
+                problem = prepare(session, state)
+                if problem:
+                    reports.append(("patch", "patch", "The sandbox could not start: " + problem, False))
+                    continue
+                for path, report, ok in tooling.run_patch(patch, *patch_helpers(box)):
+                    reports.append((path, "patch", report, ok))
+            for path, block_kind, report, ok in reports:
+                label = {"file": "write_file ", "edit": "edit_file ", "patch": "apply_patch "}.get(block_kind, "edit_file ") + str(path)
+                studio_db.add_message(session_id, "tool", report, tool="block_" + block_kind, tool_args=label)
+            if patches:
+                actions = actions + [{"cut": False} for p in patches]
             report = blocks.report_text(reports)
 
             # the model sees a short note in place of the whole file text, so the history stays small
             history_text = text
             if report:
                 history_text = (text + "\n\n" if text else "") + "[Studio carried out your blocks]\n" + report
-            assistant = {"role": "assistant", "content": history_text}
+            assistant = {"role": "assistant", "content": history_text, "_id": row_id}
             if len(calls) > 0:
                 assistant["tool_calls"] = calls
             messages.append(assistant)
@@ -981,6 +1168,11 @@ def run_turn(session):
                     messages.append({"role": "user", "content": "[Forkwise] The last tool step failed. Do not give up and do not ask the user to fix it. Read the error, find the cause, fix it and try again. Only stop if it is truly impossible, and then explain why."})
                     last_failed = False
                     continue
+                if asks_permission(text) and permission_nudges < 2:
+                    permission_nudges = permission_nudges + 1
+                    messages.append({"role": "user", "content": "[Forkwise] Do not ask for permission, the answer is yes. "
+                                     "Continue now with the next step yourself, and keep going until the whole request is built and checked."})
+                    continue
                 left = unfinished_todos(session_id)
                 asks_user = text.strip().endswith(("?", "؟"))
                 if left and not asks_user and todo_nudges < MAX_TODO_NUDGES:
@@ -994,8 +1186,9 @@ def run_turn(session):
 
             images = []
             for call in calls:
-                name = call["function"]["name"]
+                called = call["function"]["name"]
                 args = read_arguments(call)
+                name, args, alias_note = tooling.resolve(called, args, known)
                 call_id = call.get("id", name)
                 output = ""
                 if name not in NO_BOX_TOOLS:
@@ -1006,13 +1199,17 @@ def run_turn(session):
                     output = ("Error: the tool arguments were not valid JSON. Send them again as valid JSON. "
                               "Never put file contents in a tool call; use <file> blocks in your message.")
                 shots = []
+                if output == "" and name not in known and name not in ["run_python", "apply_patch", "finish"]:
+                    output = tooling.describe_unknown(called, [n for n in known if n not in HIDDEN_TOOLS])
                 if output == "":
                     output = run_studio_tool(name, args, box, session_id, images, shots)
+                if alias_note:
+                    output = output + "\n\n" + alias_note
                 last_failed = looks_failed(output)
-                studio_db.add_message(session_id, "tool", output, call_id=call_id, tool=name, tool_args=studio_label(name, args))
+                tool_row = studio_db.add_message(session_id, "tool", output, call_id=call_id, tool=name, tool_args=studio_label(name, args))
                 for shot in shots:
                     studio_db.add_message(session_id, "screen", shot)
-                messages.append({"role": "tool", "tool_call_id": call_id, "content": output})
+                messages.append({"role": "tool", "tool_call_id": call_id, "content": output, "_id": tool_row})
                 if name in CHANGING_TOOLS:
                     changed = True
             add_images(messages, images)
@@ -1080,6 +1277,9 @@ def clean_up(busy):
 
 def studio_loop():
     print("Forkwise Studio loop started", flush=True)
+    studio_db.ensure_schema()
+    studio_db.save_models(public_models())
+    print("Studio models:", ", ".join(m["provider"] + " " + m["label"] for m in public_models()), flush=True)
     studio_db.reset_after_restart()
     running = {}
     last_clean = 0
