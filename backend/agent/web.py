@@ -4,6 +4,7 @@ import html
 import socket
 import ipaddress
 import requests
+import threading
 from urllib.parse import urlparse, urljoin, unquote
 from dotenv import load_dotenv
 
@@ -98,9 +99,9 @@ def mojeek_search(query):
     return results
 
 
-def free_search(query):
+def search_results(query):
     """Search without any API key. Several engines are tried in turn, because a single free engine
-    sometimes blocks server addresses."""
+    sometimes blocks server addresses. Returns (results, problems)."""
     engines = []
     if SEARXNG_URL:
         engines.append(("searxng", searxng_search))
@@ -115,9 +116,64 @@ def free_search(query):
             problems.append(name + ": " + str(e)[:80])
             continue
         if results:
-            return as_lines(results)
+            return results, problems
         problems.append(name + ": no results")
+    return [], problems
+
+
+def free_search(query):
+    results, problems = search_results(query)
+    if results:
+        return as_lines(results)
     return "No results. (" + "; ".join(problems) + ")"
+
+
+def research(query, pages=3, per_page=4000):
+    """Search, then read the best pages, so the model gets real page text and not only short snippets.
+    Returns (text for the model, list of (title, url) that were read)."""
+    results, problems = search_results(query)
+    if not results:
+        return "No results for: " + query + " (" + "; ".join(problems) + ")", []
+    seen = set()
+    picked = []
+    for title, link, snippet in results:
+        host = urlparse(link).hostname or ""
+        if host in seen:
+            continue
+        seen.add(host)
+        picked.append((title, link, snippet))
+        if len(picked) >= pages + 2:
+            break
+
+    texts = {}
+
+    def read(item):
+        texts[item[1]] = fetch_url(item[1])
+
+    threads = [threading.Thread(target=read, args=(item,), daemon=True) for item in picked]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(25)
+
+    parts = []
+    used = []
+    for title, link, snippet in picked:
+        text = texts.get(link) or ""
+        bad = text == "" or text.startswith(("Could not read", "The page answered", "Only http", "This address", "Too many"))
+        if bad or len(text) < 200:
+            continue
+        used.append((title, link))
+        parts.append("[" + str(len(used)) + "] " + title + "\n" + link + "\n" + text[:per_page])
+        if len(used) >= pages:
+            break
+    lines = ["Search results for: " + query, as_lines(results), ""]
+    if parts:
+        lines.append("Text of the best pages:")
+        lines.append("\n\n".join(parts))
+    else:
+        lines.append("(The pages could not be read, only the search snippets above are available.)")
+    return "\n".join(lines), used
 
 
 def web_search(query):

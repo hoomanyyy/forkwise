@@ -518,6 +518,9 @@ if [ "$WITH_WORKER" -eq 1 ]; then
 #!/bin/bash
 iptables -N FW-SANDBOX 2>/dev/null || iptables -F FW-SANDBOX
 iptables -A FW-SANDBOX -m conntrack --ctstate ESTABLISHED,RELATED -j RETURN
+# Oracle Cloud answers DNS on 169.254.169.254; allow only DNS there, never the metadata web service
+iptables -A FW-SANDBOX -d 169.254.169.254 -p udp --dport 53 -j RETURN
+iptables -A FW-SANDBOX -d 169.254.169.254 -p tcp --dport 53 -j RETURN
 for net in 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16 100.64.0.0/10 127.0.0.0/8; do
     iptables -A FW-SANDBOX -d "$net" -j DROP
 done
@@ -586,7 +589,7 @@ EOF
 
         SANDBOX_IMAGE="forkwise-sandbox"
         echo "    building the sandbox image (5 to 10 minutes the first time)..."
-        if docker build -t "$SANDBOX_IMAGE" -f "$APP/backend/agent/Dockerfile.sandbox" "$APP/backend/agent" > "$BASE/sandbox-build.log" 2>&1; then
+        if docker build --network host -t "$SANDBOX_IMAGE" -f "$APP/backend/agent/Dockerfile.sandbox" "$APP/backend/agent" > "$BASE/sandbox-build.log" 2>&1; then
             ok "sandbox image $SANDBOX_IMAGE built for $ARCH"
         else
             tail -n 15 "$BASE/sandbox-build.log"

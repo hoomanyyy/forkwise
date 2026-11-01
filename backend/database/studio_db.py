@@ -57,7 +57,7 @@ def get_messages(session_id, after_id=0):
 
 
 def all_messages(session_id):
-    query = "SELECT role, content, calls, call_id, tool FROM studio_messages WHERE session_id = %s ORDER BY id"
+    query = "SELECT role, content, calls, call_id, tool, tool_args FROM studio_messages WHERE session_id = %s ORDER BY id"
     rows = run_query(query, (session_id,), "all")
     if rows is None:
         return []

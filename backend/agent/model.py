@@ -4,6 +4,7 @@ import json
 import copy
 import requests
 from dotenv import load_dotenv
+from agent.blocks import salvage_calls
 
 load_dotenv()
 
@@ -103,6 +104,7 @@ def call_one_model(messages, tools, model, max_tokens, temperature):
 
     last_error = ""
     limit = False
+    bad_json = False
     for attempt in range(4):
         try:
             response = requests.post(BASE_URL + "/chat/completions", headers=headers, json=body, timeout=240)
@@ -124,10 +126,24 @@ def call_one_model(messages, tools, model, max_tokens, temperature):
                 tokens = 0
                 if data.get("usage"):
                     tokens = data["usage"].get("total_tokens", 0) or 0
-                return {"message": message, "tokens": tokens}
+                return {"message": message, "tokens": tokens, "finish": choices[0].get("finish_reason")}
 
             last_error = "status " + str(response.status_code) + ": " + response.text[:300]
             limit = is_limit_error(response.status_code, response.text)
+            # some providers (for example Groq) refuse an answer whose tool call is not valid JSON;
+            # a new try usually works, because the model writes the call again
+            lower = response.text.lower()
+            if response.status_code == 400 and ("tool_use_failed" in lower or "parse tool call" in lower):
+                bad_json = True
+                # the refused text is often still readable: repair it and use it, no new request needed
+                saved = saved_answer(response)
+                if saved:
+                    print("MODEL: repaired a broken tool call from", model, flush=True)
+                    return saved
+                if attempt < 2:
+                    time.sleep(1)
+                    continue
+                break
             # a used up daily allowance will not come back in a few seconds, so go to the next model
             if response.status_code == 402 or "daily" in response.text.lower():
                 break
@@ -144,7 +160,25 @@ def call_one_model(messages, tools, model, max_tokens, temperature):
             time.sleep(3)
 
     print("MODEL ERROR:", model, last_error, flush=True)
-    return {"error": last_error, "limit": limit}
+    return {"error": last_error, "limit": limit, "bad_tool_json": bad_json}
+
+
+def saved_answer(response):
+    try:
+        error = response.json().get("error") or {}
+    except ValueError:
+        return None
+    failed = error.get("failed_generation")
+    if not isinstance(failed, str):
+        return None
+    calls, cut = salvage_calls(failed)
+    if not calls:
+        # no tool call in it: it may be a normal answer the provider did not like
+        if failed.strip() and not failed.strip().startswith(("{", "[", "<function")):
+            return {"message": {"role": "assistant", "content": failed}, "tokens": 0, "finish": "stop"}
+        return None
+    return {"message": {"role": "assistant", "content": "", "tool_calls": calls}, "tokens": 0,
+            "finish": "length" if cut else "tool_calls", "repaired": True, "cut": cut}
 
 
 def ask_json(prompt, system="Answer with JSON only."):
