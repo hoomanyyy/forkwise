@@ -35,7 +35,7 @@ export function About() {
           ["Forkwise 2.0", "Today Forkwise is a chat assistant with a private computer. It builds, runs, checks and remembers, and it grows new abilities as you use it."],
         ].map((item) => <div key={item[0]} className="story"><b>{item[0]}</b><p>{item[1]}</p></div>)}
       </Section>
-      <Section className="paper" title="Where we are" intro="Forkwise AI is based in London and serves people around the world, in English and Persian.">
+      <Section className="paper" title="Talk to us" intro="Questions, ideas or something not working? Write to us and a person will read it.">
         <div className="hero-actions" style={{ marginTop: 0 }}>
           <Link to="/contact" className="btn btn-primary">Get in touch</Link>
           <Link to="/brand" className="btn btn-ghost">Brand assets</Link>

@@ -30,6 +30,7 @@ async function request(method, url, body) {
   if (!response.ok) {
     const error = new Error(readable(data && data.detail) || "Something went wrong (" + response.status + ").")
     error.status = response.status
+    error.raw = data && data.detail
     throw error
   }
   return data

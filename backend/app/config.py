@@ -58,6 +58,7 @@ SMTP_PORT = number("SMTP_PORT", 587)
 SMTP_USER = text("SMTP_USER")
 SMTP_PASS = text("SMTP_PASS")
 SMTP_FROM = text("SMTP_FROM", SMTP_USER)
+SMTP_TLS = flag("SMTP_TLS", True)
 OPEN_SIGNUP = flag("OPEN_SIGNUP", True)
 ADMIN_EMAILS = []
 for item in text("ADMIN_EMAILS").split(","):

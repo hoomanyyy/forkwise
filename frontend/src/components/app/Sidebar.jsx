@@ -91,7 +91,7 @@ function ChatRow({ chat, active, onClose }) {
 }
 
 export default function Sidebar({ collapsed, onCollapse, mobileOpen, onMobileClose }) {
-  const { chats, user, theme, setTheme, setUser } = useStore()
+  const { chats, chatsReady, user, theme, setTheme, signOut } = useStore()
   const params = useParams()
   const navigate = useNavigate()
   const [query, setQuery] = useState("")
@@ -117,7 +117,7 @@ export default function Sidebar({ collapsed, onCollapse, mobileOpen, onMobileClo
 
   async function logout() {
     await api.post("/api/auth/logout")
-    setUser(null)
+    signOut()
     navigate("/")
   }
 
@@ -146,7 +146,8 @@ export default function Sidebar({ collapsed, onCollapse, mobileOpen, onMobileClo
           {user && user.is_admin && <NavLink to="/app/admin" onClick={onMobileClose}><ShieldCheck size={16} />Admin</NavLink>}
         </div>
         <div className="sidebar-chats">
-          {groups.length === 0 && <div className="empty-small">{found ? "No chats match." : "Your chats appear here."}</div>}
+          {!chatsReady && !found && <div className="skel-list"><span /><span /><span /><span /></div>}
+          {chatsReady && groups.length === 0 && <div className="empty-small">{found ? "No chats match." : "Your chats appear here."}</div>}
           {groups.map((group) => (
             <div key={group.label} className="chat-group">
               <div className="chat-group-label">{group.label}</div>

@@ -120,8 +120,8 @@ async def start_box(wid):
         "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
         "--user", str(os.getuid()) + ":" + str(os.getgid()),
         "-e", "HOME=/home/agent", "-e", "WORKSPACE=/workspace",
-        "-v", str(root) + ":/workspace",
-        "-v", str(config.TOOLS_DIR) + ":/opt/fwtools:ro",
+        "-v", str(root) + ":/workspace:z",
+        "-v", str(config.TOOLS_DIR) + ":/opt/fwtools:ro,z",
         "-w", "/workspace",
         "--label", "forkwise=1",
     ]

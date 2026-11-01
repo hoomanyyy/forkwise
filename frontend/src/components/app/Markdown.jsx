@@ -3,6 +3,7 @@ import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import rehypeHighlight from "rehype-highlight"
 import { Check, Copy } from "lucide-react"
+import "highlight.js/styles/github-dark.css"
 
 function textOf(node) {
   if (node == null) return ""

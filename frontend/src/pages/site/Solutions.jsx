@@ -193,7 +193,7 @@ export function Teams() {
         title="Your own Forkwise, on your own server."
         lead="Give your team an AI engineer that runs inside your infrastructure, uses the models you choose and keeps every file on machines you control."
         actions={<><Link to="/contact?topic=Teams" className="btn btn-brand btn-lg">Talk to us</Link><Link to="/docs/self-hosting" className="btn btn-ghost btn-lg">Self-hosting guide</Link></>}
-        art={<Frame src="/images/shot-admin.png" alt="The Forkwise admin dashboard" url="forkwise.your-company.com/app/admin" />}
+        art={<Frame src="/images/shot-admin.webp" alt="The Forkwise admin dashboard" url="forkwise.your-company.com/app/admin" />}
       />
       <Section className="paper">
         <FeatureGrid items={[

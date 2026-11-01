@@ -7,6 +7,19 @@
     <meta name="theme-color" content="#F4F5FA" />
     <title>Forkwise — the AI engineer with its own computer</title>
     <meta name="description" content="Tell Forkwise what you need. It plans, writes the code, runs it on its own computer, shows you the live result and remembers how you like things done." />
+    <meta property="og:title" content="Forkwise — the AI engineer with its own computer" />
+    <meta property="og:description" content="A chat that does the work: it writes the code, runs it and shows you the live result." />
+    <meta property="og:image" content="https://forkwiseai.com/images/shot-chat.webp" />
+    <script>
+      (function () {
+        try {
+          var inApp = location.pathname.indexOf("/app") === 0
+          var theme = inApp ? localStorage.getItem("fw-theme") || "dark" : "light"
+          document.documentElement.setAttribute("data-theme", theme)
+          document.documentElement.style.background = theme === "dark" ? "#090b1f" : "#f4f5fa"
+        } catch (e) {}
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>
