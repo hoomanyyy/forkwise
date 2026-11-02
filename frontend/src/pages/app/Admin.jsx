@@ -3,6 +3,7 @@ import { Navigate } from "react-router-dom"
 import { Activity, CircleDollarSign, Crown, Mail, MessageSquare, Search, Shield, Trash2, Users } from "lucide-react"
 import { useStore } from "../../lib/store"
 import { api } from "../../lib/api"
+import Select from "../../components/ui/Select"
 
 const TABS = [
   { key: "overview", label: "Overview" },
@@ -104,17 +105,9 @@ function UserRow({ row, me, onChanged }) {
             <div className="manage">
               <div className="manage-group">
                 <label>Plan</label>
-                <select className="select" value={plan} onChange={(e) => setPlan(e.target.value)}>
-                  <option value="pro">Pro</option>
-                  <option value="premium">Premium</option>
-                  <option value="free">Free</option>
-                </select>
+                <Select value={plan} onChange={setPlan} options={[{ value: "pro", label: "Pro" }, { value: "premium", label: "Premium" }, { value: "free", label: "Free" }]} />
                 {plan !== "free" && (
-                  <select className="select" value={days} onChange={(e) => setDays(Number(e.target.value))}>
-                    <option value={30}>30 days</option>
-                    <option value={90}>90 days</option>
-                    <option value={365}>1 year</option>
-                  </select>
+                  <Select value={days} onChange={setDays} options={[{ value: 30, label: "30 days" }, { value: 90, label: "90 days" }, { value: 365, label: "1 year" }]} />
                 )}
                 <button className="btn btn-primary btn-sm" onClick={() => send({ plan: plan, days: days }, "Plan updated")}>Apply</button>
               </div>

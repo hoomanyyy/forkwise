@@ -3,6 +3,7 @@ import { Link, Navigate, NavLink, useNavigate, useParams } from "react-router-do
 import { BarChart3, BookOpen, Brain, Plug, ShieldCheck, Sparkles, Trash2, User, Wrench, Plus } from "lucide-react"
 import { useStore } from "../../lib/store"
 import { api, apiUrl } from "../../lib/api"
+import Select from "../../components/ui/Select"
 
 const TABS = [
   { key: "general", label: "Profile", icon: User },
@@ -57,10 +58,7 @@ function General() {
         <p className="muted small">Applied to every new chat.</p>
         <div className="field">
           <label htmlFor="s-model">Default model</label>
-          <select id="s-model" className="select" value={model} onChange={(e) => setModel(e.target.value)}>
-            <option value="">Server default</option>
-            {models.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
-          </select>
+          <Select id="s-model" value={model} onChange={setModel} options={[{ value: "", label: "Server default" }].concat(models.map((item) => ({ value: item.key, label: item.label })))} />
         </div>
         <div className="field">
           <label htmlFor="s-instructions">Custom instructions</label>
@@ -387,10 +385,7 @@ export function Instructions() {
       <div className="settings-card">
         <h3>Default model</h3>
         <p className="muted small">Used for new chats. You can still change it in any chat.</p>
-        <select className="select" value={model} onChange={(e) => setModel(e.target.value)}>
-          <option value="">Server default</option>
-          {models.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
-        </select>
+        <Select value={model} onChange={setModel} options={[{ value: "", label: "Server default" }].concat(models.map((item) => ({ value: item.key, label: item.label })))} />
       </div>
       <div className="settings-save"><button className="btn btn-primary" onClick={save} disabled={saving}>{saving ? "Saving" : "Save changes"}</button></div>
     </div>
