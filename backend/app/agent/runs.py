@@ -381,7 +381,10 @@ async def model_turn(run, step):
 
     answer = await llm.stream_chat(run.model, messages, tools=run.tool_specs, on_delta=on_delta, stop_flag=run.stop_flag)
     if answer.get("switched_to"):
-        run.emit("notice", {"text": "The chosen model was busy, so " + answer["switched_to"] + " answered this step."})
+        told = getattr(run, "told_switch", "")
+        if told != answer["switched_to"]:
+            run.told_switch = answer["switched_to"]
+            run.emit("notice", {"text": "Switched to " + answer["switched_to"] + " because the first model is busy."})
     return answer
 
 
