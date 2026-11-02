@@ -1,5 +1,9 @@
 import json
 import sqlite3
+import pymysql
+import pymysql.cursors
+import pymysql.converters
+from pymysql.constants import FIELD_TYPE
 import threading
 import time
 import secrets
@@ -18,6 +22,18 @@ CREATE TABLE IF NOT EXISTS users (
     settings TEXT NOT NULL DEFAULT '{}',
     verified INTEGER NOT NULL DEFAULT 1,
     created_at REAL NOT NULL
+);
+CREATE TABLE IF NOT EXISTS payments (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    plan TEXT NOT NULL,
+    period TEXT NOT NULL,
+    amount REAL NOT NULL,
+    status TEXT NOT NULL DEFAULT 'created',
+    invoice_id TEXT NOT NULL DEFAULT '',
+    invoice_url TEXT NOT NULL DEFAULT '',
+    created_at REAL NOT NULL,
+    paid_at REAL NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS email_codes (
     email TEXT PRIMARY KEY,
@@ -50,6 +66,7 @@ CREATE TABLE IF NOT EXISTS chats (
     title TEXT NOT NULL DEFAULT 'New chat',
     model TEXT NOT NULL DEFAULT '',
     mode TEXT NOT NULL DEFAULT 'auto',
+    kind TEXT NOT NULL DEFAULT 'chat',
     workspace_id TEXT NOT NULL,
     pinned INTEGER NOT NULL DEFAULT 0,
     allowed_tools TEXT NOT NULL DEFAULT '[]',
@@ -144,7 +161,11 @@ CREATE TABLE IF NOT EXISTS contact_messages (
     created_at REAL NOT NULL,
     handled INTEGER NOT NULL DEFAULT 0
 );
-CREATE TABLE IF NOT EXISTS usage (
+CREATE TABLE IF NOT EXISTS status_samples (
+    ts REAL PRIMARY KEY,
+    ok INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS usage_daily (
     user_id TEXT NOT NULL,
     day TEXT NOT NULL,
     tokens_in INTEGER NOT NULL DEFAULT 0,
@@ -155,10 +176,229 @@ CREATE TABLE IF NOT EXISTS usage (
 """
 
 
+MYSQL_TABLES = [
+"""CREATE TABLE IF NOT EXISTS users (
+    id VARCHAR(64) PRIMARY KEY,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    name VARCHAR(255) NOT NULL DEFAULT '',
+    password_hash VARCHAR(255) NOT NULL,
+    is_admin INT NOT NULL DEFAULT 0,
+    settings LONGTEXT NOT NULL DEFAULT ('{}'),
+    verified INT NOT NULL DEFAULT 1,
+    created_at DOUBLE NOT NULL,
+    plan VARCHAR(32) NOT NULL DEFAULT 'free',
+    plan_until DOUBLE NOT NULL DEFAULT 0
+)""",
+"""CREATE TABLE IF NOT EXISTS payments (
+    id VARCHAR(64) PRIMARY KEY,
+    user_id VARCHAR(64) NOT NULL,
+    plan VARCHAR(32) NOT NULL,
+    period VARCHAR(16) NOT NULL,
+    amount DOUBLE NOT NULL,
+    status VARCHAR(64) NOT NULL DEFAULT 'created',
+    invoice_id VARCHAR(128) NOT NULL DEFAULT '',
+    invoice_url VARCHAR(1024) NOT NULL DEFAULT '',
+    created_at DOUBLE NOT NULL,
+    paid_at DOUBLE NOT NULL DEFAULT 0,
+    INDEX payments_user (user_id, created_at)
+)""",
+"""CREATE TABLE IF NOT EXISTS email_codes (
+    email VARCHAR(255) PRIMARY KEY,
+    code_hash VARCHAR(128) NOT NULL,
+    salt VARCHAR(128) NOT NULL,
+    expires_at DOUBLE NOT NULL,
+    attempts INT NOT NULL DEFAULT 0,
+    last_sent DOUBLE NOT NULL
+)""",
+"""CREATE TABLE IF NOT EXISTS sessions (
+    token VARCHAR(128) PRIMARY KEY,
+    user_id VARCHAR(64) NOT NULL,
+    created_at DOUBLE NOT NULL,
+    expires_at DOUBLE NOT NULL
+)""",
+"""CREATE TABLE IF NOT EXISTS projects (
+    id VARCHAR(64) PRIMARY KEY,
+    user_id VARCHAR(64) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    description LONGTEXT NOT NULL DEFAULT (''),
+    instructions LONGTEXT NOT NULL DEFAULT (''),
+    workspace_id VARCHAR(64) NOT NULL,
+    created_at DOUBLE NOT NULL,
+    updated_at DOUBLE NOT NULL
+)""",
+"""CREATE TABLE IF NOT EXISTS chats (
+    id VARCHAR(64) PRIMARY KEY,
+    user_id VARCHAR(64) NOT NULL,
+    project_id VARCHAR(64),
+    title VARCHAR(500) NOT NULL DEFAULT 'New chat',
+    model VARCHAR(255) NOT NULL DEFAULT '',
+    mode VARCHAR(16) NOT NULL DEFAULT 'auto',
+    kind VARCHAR(16) NOT NULL DEFAULT 'chat',
+    workspace_id VARCHAR(64) NOT NULL,
+    pinned INT NOT NULL DEFAULT 0,
+    allowed_tools LONGTEXT NOT NULL DEFAULT ('[]'),
+    todos LONGTEXT NOT NULL DEFAULT ('[]'),
+    preview_port INT,
+    created_at DOUBLE NOT NULL,
+    updated_at DOUBLE NOT NULL,
+    INDEX chats_user (user_id, updated_at)
+)""",
+"""CREATE TABLE IF NOT EXISTS messages (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    chat_id VARCHAR(64) NOT NULL,
+    role VARCHAR(32) NOT NULL,
+    content LONGTEXT NOT NULL DEFAULT (''),
+    reasoning LONGTEXT NOT NULL DEFAULT (''),
+    tool_calls LONGTEXT NOT NULL DEFAULT ('[]'),
+    tool_call_id VARCHAR(255) NOT NULL DEFAULT '',
+    name VARCHAR(255) NOT NULL DEFAULT '',
+    meta LONGTEXT NOT NULL DEFAULT ('{}'),
+    hidden INT NOT NULL DEFAULT 0,
+    compacted INT NOT NULL DEFAULT 0,
+    created_at DOUBLE NOT NULL,
+    INDEX messages_chat (chat_id, id)
+)""",
+"""CREATE TABLE IF NOT EXISTS runs (
+    id VARCHAR(64) PRIMARY KEY,
+    chat_id VARCHAR(64) NOT NULL,
+    user_id VARCHAR(64) NOT NULL,
+    status VARCHAR(32) NOT NULL,
+    error LONGTEXT NOT NULL DEFAULT (''),
+    checkpoint_before VARCHAR(128) NOT NULL DEFAULT '',
+    checkpoint_after VARCHAR(128) NOT NULL DEFAULT '',
+    first_message_id INT,
+    tokens_in INT NOT NULL DEFAULT 0,
+    tokens_out INT NOT NULL DEFAULT 0,
+    started_at DOUBLE NOT NULL,
+    ended_at DOUBLE,
+    INDEX runs_chat (chat_id, started_at)
+)""",
+"""CREATE TABLE IF NOT EXISTS memories (
+    id VARCHAR(64) PRIMARY KEY,
+    user_id VARCHAR(64) NOT NULL,
+    project_id VARCHAR(64),
+    content LONGTEXT NOT NULL,
+    created_at DOUBLE NOT NULL
+)""",
+"""CREATE TABLE IF NOT EXISTS custom_tools (
+    id VARCHAR(64) PRIMARY KEY,
+    user_id VARCHAR(64) NOT NULL,
+    name VARCHAR(128) NOT NULL,
+    description LONGTEXT NOT NULL,
+    parameters LONGTEXT NOT NULL,
+    code LONGTEXT NOT NULL,
+    enabled INT NOT NULL DEFAULT 1,
+    uses INT NOT NULL DEFAULT 0,
+    created_at DOUBLE NOT NULL,
+    updated_at DOUBLE NOT NULL,
+    UNIQUE (user_id, name)
+)""",
+"""CREATE TABLE IF NOT EXISTS skills (
+    id VARCHAR(64) PRIMARY KEY,
+    user_id VARCHAR(64) NOT NULL,
+    name VARCHAR(128) NOT NULL,
+    description LONGTEXT NOT NULL,
+    body LONGTEXT NOT NULL,
+    enabled INT NOT NULL DEFAULT 1,
+    created_at DOUBLE NOT NULL,
+    updated_at DOUBLE NOT NULL,
+    UNIQUE (user_id, name)
+)""",
+"""CREATE TABLE IF NOT EXISTS mcp_servers (
+    id VARCHAR(64) PRIMARY KEY,
+    user_id VARCHAR(64) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    url VARCHAR(2048) NOT NULL,
+    headers LONGTEXT NOT NULL DEFAULT ('{}'),
+    enabled INT NOT NULL DEFAULT 1,
+    created_at DOUBLE NOT NULL
+)""",
+"""CREATE TABLE IF NOT EXISTS password_resets (
+    token VARCHAR(128) PRIMARY KEY,
+    user_id VARCHAR(64) NOT NULL,
+    expires_at DOUBLE NOT NULL,
+    used INT NOT NULL DEFAULT 0
+)""",
+"""CREATE TABLE IF NOT EXISTS contact_messages (
+    id VARCHAR(64) PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    topic VARCHAR(255) NOT NULL DEFAULT '',
+    message LONGTEXT NOT NULL,
+    created_at DOUBLE NOT NULL,
+    handled INT NOT NULL DEFAULT 0
+)""",
+"""CREATE TABLE IF NOT EXISTS status_samples (
+    ts DOUBLE PRIMARY KEY,
+    ok INT NOT NULL
+)""",
+"""CREATE TABLE IF NOT EXISTS usage_daily (
+    user_id VARCHAR(64) NOT NULL,
+    day VARCHAR(10) NOT NULL,
+    tokens_in BIGINT NOT NULL DEFAULT 0,
+    tokens_out BIGINT NOT NULL DEFAULT 0,
+    runs INT NOT NULL DEFAULT 0,
+    PRIMARY KEY (user_id, day)
+)""",
+]
+
+
+def use_mysql():
+    return config.MYSQL_DATABASE != ""
+
+
+def open_mysql():
+    conversions = pymysql.converters.conversions.copy()
+    conversions[FIELD_TYPE.NEWDECIMAL] = float
+    conversions[FIELD_TYPE.DECIMAL] = float
+    connection = pymysql.connect(
+        conv=conversions,
+        host=config.MYSQL_HOST,
+        port=config.MYSQL_PORT,
+        user=config.MYSQL_USER,
+        password=config.MYSQL_PASSWORD,
+        database=config.MYSQL_DATABASE,
+        charset="utf8mb4",
+        autocommit=True,
+        cursorclass=pymysql.cursors.DictCursor,
+    )
+    cursor = connection.cursor()
+    for statement in MYSQL_TABLES:
+        cursor.execute(statement)
+    cursor.execute("SHOW COLUMNS FROM chats LIKE 'kind'")
+    if cursor.fetchone() is None:
+        cursor.execute("ALTER TABLE chats ADD COLUMN kind VARCHAR(16) NOT NULL DEFAULT 'chat'")
+    cursor.close()
+    return connection
+
+
+def fix_sql(sql):
+    if not use_mysql():
+        return sql
+    return sql.replace("INSERT OR REPLACE INTO", "REPLACE INTO").replace("?", "%s")
+
+
+def run(sql, params=()):
+    sql = fix_sql(sql)
+    if use_mysql():
+        connection = connect()
+        connection.ping(reconnect=True)
+        cursor = connection.cursor()
+        if len(params) > 0:
+            cursor.execute(sql, params)
+        else:
+            cursor.execute(sql)
+        return cursor
+    return connect().execute(sql, params)
+
+
 def connect():
     global CONNECTION
     if CONNECTION is None:
         config.make_dirs()
+        if use_mysql():
+            CONNECTION = open_mysql()
+            return CONNECTION
         CONNECTION = sqlite3.connect(str(config.DB_PATH), check_same_thread=False, isolation_level=None)
         CONNECTION.row_factory = sqlite3.Row
         CONNECTION.execute("PRAGMA journal_mode=WAL")
@@ -170,6 +410,15 @@ def connect():
             columns.append(row["name"])
         if "verified" not in columns:
             CONNECTION.execute("ALTER TABLE users ADD COLUMN verified INTEGER NOT NULL DEFAULT 1")
+        if "plan" not in columns:
+            CONNECTION.execute("ALTER TABLE users ADD COLUMN plan TEXT NOT NULL DEFAULT 'free'")
+        if "plan_until" not in columns:
+            CONNECTION.execute("ALTER TABLE users ADD COLUMN plan_until REAL NOT NULL DEFAULT 0")
+        chat_columns = []
+        for row in CONNECTION.execute("PRAGMA table_info(chats)").fetchall():
+            chat_columns.append(row["name"])
+        if "kind" not in chat_columns:
+            CONNECTION.execute("ALTER TABLE chats ADD COLUMN kind TEXT NOT NULL DEFAULT 'chat'")
     return CONNECTION
 
 
@@ -192,8 +441,9 @@ def row_dict(row):
 
 def all_rows(sql, params=()):
     with LOCK:
-        cursor = connect().execute(sql, params)
+        cursor = run(sql, params)
         rows = cursor.fetchall()
+        cursor.close()
     result = []
     for row in rows:
         result.append(row_dict(row))
@@ -202,15 +452,18 @@ def all_rows(sql, params=()):
 
 def one_row(sql, params=()):
     with LOCK:
-        cursor = connect().execute(sql, params)
+        cursor = run(sql, params)
         row = cursor.fetchone()
+        cursor.close()
     return row_dict(row)
 
 
 def execute(sql, params=()):
     with LOCK:
-        cursor = connect().execute(sql, params)
-        return cursor.lastrowid
+        cursor = run(sql, params)
+        row_id = cursor.lastrowid
+        cursor.close()
+        return row_id
 
 
 def insert(table, values):
@@ -252,8 +505,16 @@ def add_usage(user_id, tokens_in, tokens_out, new_run):
     runs = 0
     if new_run:
         runs = 1
+    if use_mysql():
+        execute(
+            "INSERT INTO usage_daily (user_id, day, tokens_in, tokens_out, runs) VALUES (?, ?, ?, ?, ?) "
+            "ON DUPLICATE KEY UPDATE tokens_in = tokens_in + VALUES(tokens_in), "
+            "tokens_out = tokens_out + VALUES(tokens_out), runs = runs + VALUES(runs)",
+            (user_id, day, tokens_in, tokens_out, runs),
+        )
+        return
     execute(
-        "INSERT INTO usage (user_id, day, tokens_in, tokens_out, runs) VALUES (?, ?, ?, ?, ?) "
+        "INSERT INTO usage_daily (user_id, day, tokens_in, tokens_out, runs) VALUES (?, ?, ?, ?, ?) "
         "ON CONFLICT(user_id, day) DO UPDATE SET tokens_in = tokens_in + excluded.tokens_in, "
         "tokens_out = tokens_out + excluded.tokens_out, runs = runs + excluded.runs",
         (user_id, day, tokens_in, tokens_out, runs),
@@ -262,7 +523,7 @@ def add_usage(user_id, tokens_in, tokens_out, new_run):
 
 def usage_today(user_id):
     day = time.strftime("%Y-%m-%d", time.gmtime())
-    row = one_row("SELECT * FROM usage WHERE user_id = ? AND day = ?", (user_id, day))
+    row = one_row("SELECT * FROM usage_daily WHERE user_id = ? AND day = ?", (user_id, day))
     if row is None:
         return {"tokens_in": 0, "tokens_out": 0, "runs": 0}
     return row

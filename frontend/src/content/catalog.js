@@ -157,7 +157,7 @@ export const FAQ = [
     items: [
       ["Is my work private?", "Each workspace runs in its own isolated container that cannot see other users or the server. Read the Security page for details."],
       ["Can I run Forkwise on my own server?", "Yes. The Teams plan includes self-hosting with your own models and keys. Contact us to set it up."],
-      ["How do I pay?", "Paid plans open soon. Free accounts work today, and you can upgrade from Billing in the app when payments go live."],
+      ["How do I pay?", "Paid plans are paid in cryptocurrency (USDT, Bitcoin, Ethereum and more) through NOWPayments. Open Plan and usage in the app, choose a plan and you get a payment page. The plan switches on by itself when the payment is confirmed."],
     ],
   },
 ]

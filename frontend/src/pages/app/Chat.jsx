@@ -10,6 +10,7 @@ import { ChatSkeleton } from "../../components/ui/Skeleton"
 import { useChat } from "../../lib/useChat"
 import { useStore } from "../../lib/store"
 import { api, apiUrl } from "../../lib/api"
+import { useConfirm } from "../../components/ui/Modal"
 
 const FILE_TOOLS = ["write_file", "edit_file", "multi_edit", "bash", "create_tool", "show_file", "screenshot"]
 const INIT_PROMPT = "Look through this project and write a FORKWISE.md file in the project folder: what the project is, the stack, how to install and run it (exact commands and ports), the folder layout, important decisions and conventions. Keep it short and useful for future work."
@@ -27,6 +28,7 @@ export default function Chat() {
   const location = useLocation()
   const navigate = useNavigate()
   const { models, patchChat, theme, toast } = useStore()
+  const confirm = useConfirm()
   const [panel, setPanel] = useState(false)
   const [tab, setTab] = useState("preview")
   const [refreshKey, setRefreshKey] = useState(0)
@@ -124,7 +126,8 @@ export default function Chat() {
   }
 
   async function rewind(message) {
-    if (!window.confirm("Go back to this message? Later messages are removed and file changes made after it are undone.")) return
+    const sure = await confirm({ title: "Go back to this message?", text: "Later messages are removed and file changes made after it are undone.", confirmLabel: "Go back", danger: true })
+    if (!sure) return
     try {
       const data = await api.post("/api/chats/" + chatId + "/rewind", { message_id: message.id, files: true })
       await reload(false)

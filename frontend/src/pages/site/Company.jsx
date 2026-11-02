@@ -67,7 +67,6 @@ export function Brand() {
       <Section title="Type">
         <div className="type-specimen"><div className="faint small">Unbounded, for headlines</div><div className="display big">Say it. Forkwise ships it.</div></div>
         <div className="type-specimen"><div className="faint small">Onest, for everything else</div><p style={{ fontSize: 22, margin: "8px 0 0" }}>A chat that does the work: it writes the code, runs it and shows you.</p></div>
-        <div className="type-specimen"><div className="faint small">Vazirmatn, for Persian</div><p dir="rtl" style={{ fontSize: 22, margin: "8px 0 0" }}>بگو چی می‌خوای، فورک‌وایز می‌سازه.</p></div>
       </Section>
     </>
   )

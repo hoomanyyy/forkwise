@@ -5,6 +5,7 @@ import "./monaco"
 import { languageOf } from "./monaco"
 import { api, apiUrl, rawUrl } from "../../../lib/api"
 import { formatSize } from "../ToolCall"
+import { useConfirm } from "../../ui/Modal"
 
 function buildTree(items) {
   const root = { name: "", path: "", type: "dir", children: [] }
@@ -46,6 +47,7 @@ function TreeNode({ node, depth, open, toggle, selected, onSelect }) {
 }
 
 export default function FilesPane({ wid, refreshKey, theme, openPath }) {
+  const confirm = useConfirm()
   const [items, setItems] = useState([])
   const [open, setOpen] = useState({})
   const [selected, setSelected] = useState("")
@@ -100,7 +102,8 @@ export default function FilesPane({ wid, refreshKey, theme, openPath }) {
 
   async function remove() {
     if (!file) return
-    if (!window.confirm("Delete " + file.path + "?")) return
+    const sure = await confirm({ title: "Delete this file?", text: file.path, confirmLabel: "Delete", danger: true })
+    if (!sure) return
     await api.del("/api/ws/" + wid + "/file?path=" + encodeURIComponent(file.path))
     setFile(null)
     setSelected("")

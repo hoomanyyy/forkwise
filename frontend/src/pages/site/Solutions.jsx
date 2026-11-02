@@ -3,11 +3,13 @@ import { Link, Navigate, useParams } from "react-router-dom"
 import { Check, Minus, Server, KeyRound, Users, Gauge, LifeBuoy, ShieldCheck } from "lucide-react"
 import { CtaBand, FeatureGrid, Frame, PageHero, Section, usePageTitle } from "../../components/site/parts"
 import { Cover } from "../../components/site/Cover"
+import { useStore } from "../../lib/store"
 import { PLANS, TEMPLATES, USE_CASES, FAQ } from "../../content/catalog"
 
 export function Pricing() {
   usePageTitle("Pricing", "Start free. Upgrade when Forkwise becomes part of your work.")
   const [yearly, setYearly] = useState(false)
+  const { user } = useStore()
   return (
     <>
       <PageHero
@@ -35,7 +37,7 @@ export function Pricing() {
                   <div className="plan-price">
                     {price === null ? <b style={{ fontSize: 30 }}>Custom</b> : <><b>${price}</b><span>per month{yearly && price > 0 ? ", billed yearly" : ""}</span></>}
                   </div>
-                  <Link to={plan.to} className={"btn " + (plan.featured ? "btn-primary" : "btn-ghost")}>{plan.cta}</Link>
+                  <Link to={user && (plan.key === "pro" || plan.key === "premium") ? "/app/billing" : plan.to} className={"btn " + (plan.featured ? "btn-primary" : "btn-ghost")}>{plan.cta}</Link>
                   <ul>
                     {plan.features.map((feature) => <li key={feature}><Check size={15} />{feature}</li>)}
                   </ul>
@@ -43,7 +45,7 @@ export function Pricing() {
               )
             })}
           </div>
-          <p className="faint small center-text" style={{ marginTop: 26 }}>Prices in US dollars. Paid plans open soon; free accounts work today.</p>
+          <p className="faint small center-text" style={{ marginTop: 26 }}>Prices in US dollars, paid in cryptocurrency (USDT, Bitcoin, Ethereum and more) through NOWPayments. Free accounts work today.</p>
         </div>
       </section>
       <Section title="Compare plans">

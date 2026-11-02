@@ -81,6 +81,7 @@ export function describe(name, args, meta) {
   if (name === "ask_user") return { icon: MessageCircleQuestion, verb: "Asked you", target: args.question }
   if (name === "task") return { icon: Bot, verb: "Helper agent", target: args.description }
   if (name === "show_file") return { icon: Download, verb: "Shared", target: shortPath(args.path) }
+  if (name === "generate_image") return { icon: Camera, verb: "Created an image", target: (args.prompt || "").slice(0, 80) }
   if (name === "create_tool") return { icon: Sparkles, verb: "Learned a new ability", target: "my_" + (args.name || "") }
   if (name === "save_skill") return { icon: BookOpen, verb: "Saved a skill", target: args.name }
   if (name === "use_skill") return { icon: BookOpen, verb: "Used the skill", target: args.name }
@@ -251,7 +252,7 @@ export default function ToolCall({ call, result, live, waiting, subs, wid, respo
       </div>
     )
   }
-  if (name === "show_file" && result && meta.file) {
+  if ((name === "show_file" || name === "generate_image") && result && meta.file) {
     return <FileCard wid={wid} meta={meta} />
   }
 

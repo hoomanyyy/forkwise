@@ -76,3 +76,19 @@ cd frontend && npm install && npm run dev      http://localhost:5173
 ## پیش‌نمایش سایت‌هایی که ایجنت می‌سازد
 
 در Cloudflare یک رکورد `*` (proxied) به IP سرور بسازید و در `backend.env` بگذارید `PREVIEW_HOST=forkwiseai.com`، سپس `install.sh` را با `--preview-host forkwiseai.com` دوباره اجرا کنید. پیش‌نمایش‌ها روی `p-...forkwiseai.com` باز می‌شوند و از کوکی‌های حساب کاربر جدا هستند.
+
+## Model provider: Cloudflare Workers AI
+
+On the server run:
+
+    sudo bash /opt/forkwise/repo/backend/deploy/workers-ai.sh
+
+It asks for the Cloudflare Account ID and an API token with the Workers AI permission, writes them into `/opt/forkwise/backend.env`, restarts `forkwise-api` and prints the status. The previous env file is saved next to it as a backup.
+
+## Database: MySQL
+
+On the server run `sudo bash /opt/forkwise/repo/backend/deploy/mysql.sh`. It installs MySQL, creates the database and user, writes the `MYSQL_*` lines into `/opt/forkwise/backend.env`, copies the old SQLite data and restarts the API. If `MYSQL_DATABASE` is empty the API uses a local SQLite file instead, which is handy for development.
+
+## Google sign-in
+
+On the server run `sudo bash /opt/forkwise/repo/backend/deploy/google.sh` and paste the client ID and secret from the Google Cloud console. Redirect URI: `https://api.forkwiseai.com/api/auth/google/callback`.

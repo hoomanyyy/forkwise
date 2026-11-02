@@ -4,6 +4,7 @@ import re
 import secrets
 import bcrypt
 from fastapi import Request, HTTPException, Response
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from app import db, config, mailer
 
@@ -312,7 +313,65 @@ def save_settings(body: SettingsBody, request: Request):
     return {"user": public_user(db.one_row("SELECT * FROM users WHERE id = ?", (user["id"],)))}
 
 
+class PasswordBody(BaseModel):
+    current: str
+    password: str
+
+
+class DeleteBody(BaseModel):
+    email: str
+
+
+def change_password(body: PasswordBody, request: Request):
+    user = current_user(request)
+    if not check_password(body.current, user["password_hash"]):
+        raise HTTPException(status_code=400, detail="Your current password is not right. If you signed up with Google, use Forgot password on the sign-in page to set one.")
+    if len(body.password) < 8:
+        raise HTTPException(status_code=400, detail="The new password needs at least 8 characters.")
+    db.update("users", "id", user["id"], {"password_hash": hash_password(body.password)})
+    token = request.cookies.get(COOKIE)
+    db.execute("DELETE FROM sessions WHERE user_id = ? AND token <> ?", (user["id"], token))
+    return {"ok": True}
+
+
+def sign_out_others(request: Request):
+    user = current_user(request)
+    token = request.cookies.get(COOKIE)
+    db.execute("DELETE FROM sessions WHERE user_id = ? AND token <> ?", (user["id"], token))
+    return {"ok": True}
+
+
+def delete_account(body: DeleteBody, request: Request, response: Response):
+    from app.routes import admin
+    user = current_user(request)
+    if clean_email(body.email) != user["email"]:
+        raise HTTPException(status_code=400, detail="Type your email address exactly to confirm.")
+    admin.remove_user_data(user["id"])
+    response.delete_cookie(COOKIE, path="/", domain=config.COOKIE_DOMAIN or None)
+    return {"ok": True}
+
+
+def export_account(request: Request):
+    user = current_user(request)
+    chats = db.all_rows("SELECT * FROM chats WHERE user_id = ? ORDER BY created_at", (user["id"],))
+    result = []
+    for chat in chats:
+        rows = db.all_rows("SELECT role, content, created_at FROM messages WHERE chat_id = ? AND role IN ('user', 'assistant') AND hidden = 0 ORDER BY id", (chat["id"],))
+        result.append({"title": chat["title"], "kind": chat.get("kind") or "chat", "created_at": chat["created_at"], "messages": rows})
+    memories = db.all_rows("SELECT content, created_at FROM memories WHERE user_id = ?", (user["id"],))
+    data = {
+        "account": {"email": user["email"], "name": user["name"], "created_at": user["created_at"], "settings": db.load_json(user.get("settings"), {})},
+        "chats": result,
+        "memories": memories,
+    }
+    return JSONResponse(data, headers={"Content-Disposition": "attachment; filename=forkwise-export.json"})
+
+
 def register_routes(app):
+    app.add_api_route("/api/account/export", export_account, methods=["GET"])
+    app.add_api_route("/api/auth/password", change_password, methods=["POST"])
+    app.add_api_route("/api/auth/sign-out-others", sign_out_others, methods=["POST"])
+    app.add_api_route("/api/auth/delete", delete_account, methods=["POST"])
     app.add_api_route("/api/auth/register", register, methods=["POST"])
     app.add_api_route("/api/auth/login", login, methods=["POST"])
     app.add_api_route("/api/auth/verify", verify, methods=["POST"])

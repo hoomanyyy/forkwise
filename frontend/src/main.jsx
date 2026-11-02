@@ -4,7 +4,9 @@ import { BrowserRouter, Route, Routes } from "react-router-dom"
 import "./styles/base.css"
 import "./styles/site.css"
 import "./styles/app.css"
+import "./styles/polish.css"
 import { StoreProvider, useStore } from "./lib/store"
+import { ConfirmProvider } from "./components/ui/Modal"
 import { SiteLayout } from "./components/site/parts"
 import { AppSkeleton, PageSkeleton } from "./components/ui/Skeleton"
 
@@ -48,7 +50,8 @@ const Settings = lazy(() => import("./pages/app/Settings"))
 const Projects = named(() => import("./pages/app/Projects"), "Projects")
 const Project = named(() => import("./pages/app/Projects"), "Project")
 const Billing = named(() => import("./pages/app/More"), "Billing")
-const Admin = named(() => import("./pages/app/More"), "Admin")
+const Customize = lazy(() => import("./pages/app/Customize"))
+const Admin = named(() => import("./pages/app/Admin"), "Admin")
 const AppTemplates = named(() => import("./pages/app/More"), "AppTemplates")
 
 function Toasts() {
@@ -109,7 +112,11 @@ function App() {
         <Route path="/forgot" element={<Bare><Forgot /></Bare>} />
         <Route path="/reset/:token" element={<Bare><Reset /></Bare>} />
         <Route path="/app" element={<Suspense fallback={<AppSkeleton />}><AppShell /></Suspense>}>
-          <Route index element={<InApp><AppHome /></InApp>} />
+          <Route index element={<InApp><AppHome kind="chat" /></InApp>} />
+          <Route path="code" element={<InApp><AppHome kind="code" /></InApp>} />
+          <Route path="design" element={<InApp><AppHome kind="design" /></InApp>} />
+          <Route path="customize" element={<InApp><Customize /></InApp>} />
+          <Route path="customize/:tab" element={<InApp><Customize /></InApp>} />
           <Route path="c/:chatId" element={<InApp><Chat /></InApp>} />
           <Route path="templates" element={<InApp><AppTemplates /></InApp>} />
           <Route path="projects" element={<InApp><Projects /></InApp>} />
@@ -127,6 +134,8 @@ function App() {
 
 createRoot(document.getElementById("root")).render(
   <StoreProvider>
+  <ConfirmProvider>
     <App />
+  </ConfirmProvider>
   </StoreProvider>
 )

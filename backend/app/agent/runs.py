@@ -1,4 +1,5 @@
 import asyncio
+import re
 import json
 import time
 import traceback
@@ -285,9 +286,30 @@ def context_limit(run):
     return 128000
 
 
+def friendly_error(text):
+    status = llm.status_of(text)
+    if status == 429:
+        return "The AI model has reached its free limit for now. Pick another model next to the send button, or try again later. (" + text[:160] + ")"
+    if status in [500, 502, 503, 504]:
+        return "The AI model is busy right now. Pick another model next to the send button, or try again in a minute."
+    if status in [401, 403]:
+        return "The server could not sign in to the AI provider. The administrator needs to check the API key."
+    return text
+
+
+def set_fallback_title(run, first_text):
+    row = db.one_row("SELECT title FROM chats WHERE id = ?", (run.chat["id"],))
+    if row and row["title"] == "New chat":
+        title = first_text.strip().split("\n")[0][:60] or "New chat"
+        db.update("chats", "id", run.chat["id"], {"title": title})
+        run.emit("title", {"title": title})
+
+
 async def make_title(run, first_text, answer):
     title = first_text.strip().split("\n")[0][:60] or "New chat"
     try:
+        if not config.SMALL_MODEL:
+            raise ValueError("no separate small model")
         asked = await llm.ask([
             {"role": "system", "content": "Write a short title (2 to 6 words) for this chat, in the same language as the user. Reply with the title only, no quotes."},
             {"role": "user", "content": "User: " + first_text[:1500] + "\n\nAssistant: " + answer[:800]},
@@ -345,6 +367,20 @@ async def execute_call(run, call):
     return name, args, outcome
 
 
+def bad_tool_position(text, specs):
+    if "invalid JSON schema" not in text and "function.parameters" not in text:
+        return -1
+    named = re.search(r"tool ([A-Za-z0-9_-]+)", text)
+    if named:
+        for position in range(len(specs)):
+            if specs[position]["function"]["name"] == named.group(1):
+                return position
+    indexed = re.search(r"tools\[([0-9]+)\]", text)
+    if indexed and int(indexed.group(1)) < len(specs):
+        return int(indexed.group(1))
+    return -1
+
+
 async def model_turn(run, step):
     messages = build_context(run)
     estimate = llm.estimate_tokens(messages)
@@ -358,7 +394,23 @@ async def model_turn(run, step):
     async def on_delta(kind, data):
         await handle_delta(run, step, kind, data)
 
-    return await llm.stream_chat(run.model, messages, tools=run.tool_specs, on_delta=on_delta, stop_flag=run.stop_flag)
+    answer = None
+    for attempt in range(4):
+        try:
+            answer = await llm.stream_chat(run.model, messages, tools=run.tool_specs, on_delta=on_delta, stop_flag=run.stop_flag)
+            break
+        except llm.ModelError as problem:
+            bad = bad_tool_position(str(problem), run.tool_specs)
+            if bad < 0 or attempt == 3:
+                raise
+            removed = run.tool_specs.pop(bad)
+            run.emit("notice", {"text": "Turned off the tool " + removed["function"]["name"] + " for this task because the AI provider rejected its definition."})
+    if answer.get("switched_to"):
+        told = getattr(run, "told_switch", "")
+        if told != answer["switched_to"]:
+            run.told_switch = answer["switched_to"]
+            run.emit("notice", {"text": "Switched to " + answer["switched_to"] + " because the first model is busy."})
+    return answer
 
 
 async def run_main(run, first_text):
@@ -428,7 +480,8 @@ async def run_main(run, first_text):
     except llm.ModelError as problem:
         status = "error"
         error_text = str(problem)
-        run.emit("error", {"text": error_text})
+        run.emit("error", {"text": friendly_error(error_text)})
+        set_fallback_title(run, first_text)
     except Exception as problem:
         status = "error"
         error_text = type(problem).__name__ + ": " + str(problem)

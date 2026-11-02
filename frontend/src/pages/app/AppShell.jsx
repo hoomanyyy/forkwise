@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { Navigate, Outlet, useNavigate } from "react-router-dom"
 import { Menu, PanelLeftOpen } from "lucide-react"
 import Sidebar from "../../components/app/Sidebar"
+import Palette from "../../components/app/Palette"
 import { LogoMark } from "../../components/ui/Logo"
 import { AppSkeleton } from "../../components/ui/Skeleton"
 import { useStore } from "../../lib/store"
@@ -32,10 +33,6 @@ export default function AppShell() {
 
   useEffect(() => {
     function key(event) {
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
-        event.preventDefault()
-        navigate("/app")
-      }
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "b") {
         event.preventDefault()
         setCollapsed((value) => !value)
@@ -53,6 +50,7 @@ export default function AppShell() {
   return (
     <div className={"shell" + (collapsed ? " sidebar-closed" : "")}>
       <Sidebar collapsed={collapsed} onCollapse={() => setCollapsed(true)} mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
+      <Palette />
       <main className="main">
         <div className="mobile-bar">
           <button className="icon-btn" onClick={() => setMobileOpen(true)} aria-label="Open menu"><Menu size={18} /></button>

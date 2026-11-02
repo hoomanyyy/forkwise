@@ -3,6 +3,7 @@ import { Link } from "react-router-dom"
 import { Bot, Brain, FileDiff, FolderTree, Globe, History, ListChecks, MessageSquare, MonitorPlay, Plug, Sparkles } from "lucide-react"
 import { BranchField, CtaBand, Frame, FeatureGrid, Reveal, Section, Steps, usePageTitle } from "../../components/site/parts"
 import { Cover } from "../../components/site/Cover"
+import LiveStrip from "../../components/site/LiveStrip"
 import { FAQ, TEMPLATES } from "../../content/catalog"
 
 const WORDS = ["a booking site", "a sales dashboard", "a Telegram bot", "a price tracker", "a portfolio", "a PDF report"]
@@ -31,7 +32,7 @@ function Typer() {
 }
 
 const ASKS = [
-  { ask: "سلام! چطوری؟", icon: MessageSquare, title: "Just answers", text: "Small talk stays small talk. No project, no files." },
+  { ask: "Hi! How are you?", icon: MessageSquare, title: "Just answers", text: "Small talk stays small talk. No project, no files." },
   { ask: "What's the US dollar rate in Tehran right now?", icon: Globe, title: "Searches the web first", text: "Opens the sources and replies with today's numbers and links." },
   { ask: "Remember that my company is called RHINOREL.", icon: Brain, title: "Saves it to memory", text: "Every later chat knows it, and you can delete it any time." },
   { ask: "Build a booking site for my barbershop.", icon: MonitorPlay, title: "Builds it and shows you", text: "Writes the code, runs it, checks it in a browser, opens the live preview." },
@@ -94,6 +95,8 @@ export default function Home() {
           <Frame priority src="/images/shot-chat.webp" alt="Forkwise building a coffee roastery website with the live preview open" />
         </div>
       </section>
+
+      <section className="live-wrap"><LiveStrip /></section>
 
       <Section title="It knows what each message needs" intro="Most assistants either only talk, or open a whole project when you say hello. Forkwise reads the request and picks the right kind of work.">
         <div className="asks">

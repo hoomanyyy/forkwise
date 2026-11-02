@@ -253,10 +253,10 @@ Commands that contain any text in \`deny\` are refused.`,
 
 ## Backend
 
-On an Ubuntu server with a domain such as \`api.example.com\`:
+The Teams plan includes a private install package, which we send you. On an Ubuntu server with a domain such as \`api.example.com\`:
 
 \`\`\`bash
-git clone https://github.com/your-org/forkwise.git
+unzip forkwise-backend.zip
 cd forkwise/backend
 sudo LLM_API_KEY=your-key LLM_MODELS="model-id=Label" bash deploy/install.sh --api-domain api.example.com --site https://example.com
 \`\`\`
@@ -269,7 +269,7 @@ This installs Docker, the sandbox image, a firewall for the sandboxes, the \`for
 sudo forkwise-update
 \`\`\`
 
-It pulls the newest code, installs new packages only when needed, rebuilds the sandbox only when it changed and restarts the API.
+It installs the update package we give you, installs new packages only when needed, rebuilds the sandbox only when it changed and restarts the API.
 
 ## Frontend
 

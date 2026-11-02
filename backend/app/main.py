@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from app import config, db
-from app.routes import auth, chats, files, settings, preview, terminal, site
+from app.routes import auth, chats, files, settings, preview, terminal, site, billing, google, admin
 from app.agent import sandbox, runs
 
 
@@ -14,6 +14,7 @@ async def on_start():
     loop = asyncio.get_running_loop()
     loop.create_task(sandbox.reaper())
     loop.create_task(runs.cleaner())
+    loop.create_task(site.sampler())
     db.execute("UPDATE runs SET status = 'stopped' WHERE status = 'running'")
 
 
@@ -31,7 +32,7 @@ async def gatekeeper(request: Request, call_next):
         path = request.url.path.lstrip("/")
         return await preview.forward(request, found[0], found[1], path)
     path = request.url.path
-    if path.startswith("/api/") and request.method not in ["GET", "HEAD", "OPTIONS"]:
+    if path.startswith("/api/") and path != "/api/billing/ipn" and request.method not in ["GET", "HEAD", "OPTIONS"]:
         if request.headers.get("x-forkwise") != "1":
             return JSONResponse({"detail": "Missing request header."}, status_code=403)
         origin = request.headers.get("origin")
@@ -60,3 +61,6 @@ settings.register_routes(app)
 terminal.register_routes(app)
 preview.register_routes(app)
 site.register_routes(app)
+billing.register_routes(app)
+google.register_routes(app)
+admin.register_routes(app)

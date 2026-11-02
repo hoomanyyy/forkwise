@@ -16,6 +16,11 @@ export function StoreProvider({ children }) {
   const [toasts, setToasts] = useState([])
 
   const loadMe = useCallback(async () => {
+    if (!readHint() && window.location.pathname.indexOf("/app") !== 0) {
+      setUser(null)
+      setReady(true)
+      return
+    }
     try {
       const data = await api.get("/api/auth/me")
       setUser(data.user)
@@ -132,7 +137,7 @@ function writeHint(value) {
 
 function readTheme() {
   try {
-    return localStorage.getItem("fw-theme") || "dark"
+    return "dark"
   } catch (problem) {
     return "dark"
   }

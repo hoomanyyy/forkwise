@@ -1,5 +1,7 @@
 import asyncio
 import json
+import re
+import time
 import httpx
 from app import config
 
@@ -22,6 +24,33 @@ def with_cache(messages, model):
     return result
 
 
+def flat_text(content):
+    if isinstance(content, str):
+        return content
+    if content is None:
+        return ""
+    pieces = []
+    if isinstance(content, list):
+        for part in content:
+            if isinstance(part, dict) and part.get("type") == "text":
+                pieces.append(part.get("text") or "")
+            elif isinstance(part, str):
+                pieces.append(part)
+    return "\n".join(pieces)
+
+
+def for_plain_models(messages, model):
+    if not model["id"].startswith("@cf/"):
+        return messages
+    result = []
+    for message in messages:
+        copy = dict(message)
+        if isinstance(copy.get("content"), list) or copy.get("content") is None:
+            copy["content"] = flat_text(copy.get("content"))
+        result.append(copy)
+    return result
+
+
 def headers_for(model):
     return {
         "Authorization": "Bearer " + model["api_key"],
@@ -31,12 +60,10 @@ def headers_for(model):
     }
 
 
-async def stream_chat(model, messages, tools=None, on_delta=None, max_tokens=16000, temperature=None, stop_flag=None):
-    if model is None:
-        raise ModelError("No AI model is set up. Add LLM_API_KEY and LLM_MODELS to the .env file.")
+async def stream_single(model, messages, tools, on_delta, max_tokens, temperature, stop_flag, attempts):
     body = {
         "model": model["id"],
-        "messages": with_cache(messages, model),
+        "messages": for_plain_models(with_cache(messages, model), model),
         "stream": True,
         "max_tokens": max_tokens,
         "stream_options": {"include_usage": True},
@@ -47,13 +74,18 @@ async def stream_chat(model, messages, tools=None, on_delta=None, max_tokens=160
         body["tools"] = tools
         body["tool_choice"] = "auto"
     last_problem = ""
-    for attempt in range(5):
+    for attempt in range(attempts):
         streamed = {"any": False}
         try:
             return await stream_once(model, body, on_delta, streamed, stop_flag)
         except ModelError as problem:
             last_problem = str(problem)
-            if streamed["any"] or not retryable(last_problem):
+            if streamed["any"]:
+                raise
+            if last_problem.startswith("HTTP 400") and "stream_options" in last_problem and "stream_options" in body:
+                del body["stream_options"]
+                continue
+            if not retryable(last_problem):
                 raise
         except (httpx.TransportError, httpx.TimeoutException) as problem:
             last_problem = "Connection problem: " + str(problem)
@@ -61,6 +93,83 @@ async def stream_chat(model, messages, tools=None, on_delta=None, max_tokens=160
                 raise ModelError(last_problem)
         await asyncio.sleep(min(30, 2 ** attempt * 1.5))
     raise ModelError(last_problem or "The model did not answer.")
+
+
+COOLDOWNS = {}
+FAILOVER_STATUS = [401, 402, 403, 404, 408, 409, 425, 429, 500, 502, 503, 504, 520, 522, 524, 529]
+
+
+def status_of(text):
+    if text.startswith("HTTP "):
+        digits = text[5:8]
+        if digits.isdigit():
+            return int(digits)
+    return 0
+
+
+def wait_seconds(text):
+    found = re.search(r"retry in (?:(\d+)h)?(?:(\d+)m)?(?:([\d.]+)s)?", text)
+    if found and (found.group(1) or found.group(2) or found.group(3)):
+        hours = int(found.group(1) or 0)
+        minutes = int(found.group(2) or 0)
+        seconds = float(found.group(3) or 0)
+        return int(hours * 3600 + minutes * 60 + seconds) + 1
+    status = status_of(text)
+    if status in [401, 403, 404]:
+        return 3600
+    if status == 429:
+        return 120
+    return 45
+
+
+def cooling(model):
+    until = COOLDOWNS.get(model["key"], 0)
+    return until > time.time()
+
+
+def candidates_for(model):
+    result = [model]
+    for other in config.MODELS:
+        if other["key"] != model["key"]:
+            result.append(other)
+    ready = []
+    waiting = []
+    for item in result:
+        if cooling(item):
+            waiting.append(item)
+        else:
+            ready.append(item)
+    return ready + waiting
+
+
+async def stream_chat(model, messages, tools=None, on_delta=None, max_tokens=16000, temperature=None, stop_flag=None):
+    if model is None:
+        raise ModelError("No AI model is set up. Add LLM_API_KEY and LLM_MODELS to the .env file.")
+    if not config.FAILOVER:
+        return await stream_single(model, messages, tools, on_delta, max_tokens, temperature, stop_flag, 5)
+    options = candidates_for(model)
+    last = None
+    for position in range(len(options)):
+        item = options[position]
+        last_one = position == len(options) - 1
+        if cooling(item) and not last_one:
+            continue
+        try:
+            answer = await stream_single(item, messages, tools, on_delta, max_tokens, temperature, stop_flag, 5 if last_one else 2)
+            if item["key"] != model["key"]:
+                answer["switched_to"] = item["label"]
+            return answer
+        except ModelError as problem:
+            last = problem
+            text = str(problem)
+            if status_of(text) in FAILOVER_STATUS and not last_one:
+                COOLDOWNS[item["key"]] = time.time() + wait_seconds(text)
+                print("MODEL FAILOVER", item["key"], text[:160], flush=True)
+                continue
+            raise
+    if last is not None:
+        raise last
+    raise ModelError("The model did not answer.")
 
 
 def retryable(text):
@@ -76,6 +185,7 @@ async def stream_once(model, body, on_delta, streamed, stop_flag):
     calls = {}
     usage = {"prompt_tokens": 0, "completion_tokens": 0}
     finish = ""
+    last_index = 0
     timeout = httpx.Timeout(connect=20, read=300, write=60, pool=20)
     async with httpx.AsyncClient(timeout=timeout) as client:
         async with client.stream("POST", model["url"] + "/chat/completions", headers=headers_for(model), json=body) as response:
@@ -126,21 +236,31 @@ async def stream_once(model, body, on_delta, streamed, stop_flag):
                         await on_delta("text", piece)
                 for call in delta.get("tool_calls") or []:
                     streamed["any"] = True
-                    index = call.get("index", 0)
+                    index = call.get("index")
+                    if index is None:
+                        index = last_index
+                        if call.get("id") and last_index in calls and calls[last_index]["id"] and calls[last_index]["id"] != call["id"]:
+                            index = last_index + 1
+                    last_index = index
                     if index not in calls:
                         calls[index] = {"id": "", "type": "function", "function": {"name": "", "arguments": ""}}
                     slot = calls[index]
                     if call.get("id"):
                         slot["id"] = call["id"]
+                    if call.get("extra_content"):
+                        slot["extra_content"] = call["extra_content"]
                     function = call.get("function") or {}
                     if function.get("name"):
                         slot["function"]["name"] = slot["function"]["name"] + function["name"]
                         if on_delta:
                             await on_delta("tool_name", {"index": index, "id": slot["id"], "name": slot["function"]["name"]})
                     if function.get("arguments"):
-                        slot["function"]["arguments"] = slot["function"]["arguments"] + function["arguments"]
+                        piece_args = function["arguments"]
+                        if not isinstance(piece_args, str):
+                            piece_args = json.dumps(piece_args, ensure_ascii=False)
+                        slot["function"]["arguments"] = slot["function"]["arguments"] + piece_args
                         if on_delta:
-                            await on_delta("tool_args", {"index": index, "id": slot["id"], "name": slot["function"]["name"], "delta": function["arguments"]})
+                            await on_delta("tool_args", {"index": index, "id": slot["id"], "name": slot["function"]["name"], "delta": piece_args})
     tool_calls = []
     for index in sorted(calls.keys()):
         slot = calls[index]
