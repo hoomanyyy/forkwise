@@ -182,3 +182,9 @@ def cloudflare_credentials():
         if found and model["api_key"]:
             return found.group(1), model["api_key"]
     return "", ""
+
+TOGETHER_API_KEY = text("TOGETHER_API_KEY")
+TOGETHER_IMAGE_MODEL = text("TOGETHER_IMAGE_MODEL", "black-forest-labs/FLUX.1-schnell-Free")
+PUTER_AUTH_TOKEN = text("PUTER_AUTH_TOKEN")
+PUTER_IMAGE_MODEL = text("PUTER_IMAGE_MODEL", "gemini-3.1-flash-image")
+PUTER_BRIDGE_DIR = text("PUTER_BRIDGE_DIR", "/opt/forkwise/repo/backend/puter")

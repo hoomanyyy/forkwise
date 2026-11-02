@@ -1,0 +1,8 @@
+{
+  "name": "forkwise-puter-bridge",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "@heyputer/puter.js": "latest"
+  }
+}

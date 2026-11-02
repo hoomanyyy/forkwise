@@ -51,6 +51,38 @@ def for_plain_models(messages, model):
     return result
 
 
+DUMMY_SIGNATURE = "skip_thought_signature_validator"
+
+
+def is_gemini(model):
+    return "generativelanguage.googleapis.com" in model["url"]
+
+
+def fix_tool_calls(messages, model):
+    gemini = is_gemini(model)
+    result = []
+    for message in messages:
+        calls = message.get("tool_calls")
+        if not calls:
+            result.append(message)
+            continue
+        copy = dict(message)
+        fixed = []
+        for call in calls:
+            item = dict(call)
+            origin = item.pop("_model", "")
+            extra = item.get("extra_content")
+            has_signature = isinstance(extra, dict) and isinstance(extra.get("google"), dict) and bool(extra["google"].get("thought_signature"))
+            if not gemini:
+                item.pop("extra_content", None)
+            elif not has_signature or (origin != "" and origin != model["key"]):
+                item["extra_content"] = {"google": {"thought_signature": DUMMY_SIGNATURE}}
+            fixed.append(item)
+        copy["tool_calls"] = fixed
+        result.append(copy)
+    return result
+
+
 def headers_for(model):
     return {
         "Authorization": "Bearer " + model["api_key"],
@@ -63,7 +95,7 @@ def headers_for(model):
 async def stream_single(model, messages, tools, on_delta, max_tokens, temperature, stop_flag, attempts):
     body = {
         "model": model["id"],
-        "messages": for_plain_models(with_cache(messages, model), model),
+        "messages": for_plain_models(fix_tool_calls(with_cache(messages, model), model), model),
         "stream": True,
         "max_tokens": max_tokens,
         "stream_options": {"include_usage": True},
@@ -249,6 +281,7 @@ async def stream_once(model, body, on_delta, streamed, stop_flag):
                         slot["id"] = call["id"]
                     if call.get("extra_content"):
                         slot["extra_content"] = call["extra_content"]
+                    slot["_model"] = model["key"]
                     function = call.get("function") or {}
                     if function.get("name"):
                         slot["function"]["name"] = slot["function"]["name"] + function["name"]

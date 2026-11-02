@@ -1,10 +1,13 @@
+import asyncio
 import base64
+import shutil
 import difflib
 import fnmatch
 import json
 import os
 import re
 import time
+import urllib.parse
 from pathlib import Path
 import httpx
 from app import db, config
@@ -560,26 +563,108 @@ async def show_file(run, args):
     return result("The user now sees " + rel + " with a download button.", meta=meta)
 
 
-async def generate_image(run, args):
-    prompt_text = (args.get("prompt") or "").strip()
-    if prompt_text == "":
-        return result("Describe the image in the prompt.", ok=False)
+async def image_from_together(prompt_text):
+    if config.TOGETHER_API_KEY == "":
+        return None, "Together AI is not set up"
+    body = {"model": config.TOGETHER_IMAGE_MODEL, "prompt": prompt_text[:2000], "steps": 4, "n": 1, "width": 1024, "height": 1024, "response_format": "base64"}
+    try:
+        async with httpx.AsyncClient(timeout=180) as client:
+            reply = await client.post("https://api.together.xyz/v1/images/generations", headers={"Authorization": "Bearer " + config.TOGETHER_API_KEY}, json=body)
+            if reply.status_code >= 300:
+                return None, "Together AI refused (" + str(reply.status_code) + "): " + reply.text[:200]
+            item = reply.json()["data"][0]
+            if item.get("b64_json"):
+                return base64.b64decode(item["b64_json"]), ""
+            if item.get("url"):
+                downloaded = await client.get(item["url"])
+                return downloaded.content, ""
+    except httpx.HTTPError as problem:
+        return None, "Together AI did not answer: " + str(problem)[:150]
+    except Exception:
+        return None, "Together AI gave an answer that is not an image"
+    return None, "Together AI gave no image"
+
+
+async def image_from_cloudflare(prompt_text):
     account, token = config.cloudflare_credentials()
     if account == "":
-        return result("Image generation is not set up on this server (it needs Cloudflare Workers AI). Tell the user, and use code to draw a simple vector or chart image only if that is enough.", ok=False)
+        return None, "Cloudflare Workers AI is not set up"
     url = "https://api.cloudflare.com/client/v4/accounts/" + account + "/ai/run/@cf/black-forest-labs/flux-1-schnell"
     try:
         async with httpx.AsyncClient(timeout=180) as client:
             reply = await client.post(url, headers={"Authorization": "Bearer " + token}, json={"prompt": prompt_text[:2000], "steps": 6})
     except httpx.HTTPError as problem:
-        return result("The image service did not answer: " + str(problem)[:200], ok=False)
+        return None, "Cloudflare did not answer: " + str(problem)[:150]
     if reply.status_code >= 300:
-        return result("The image service refused the request (" + str(reply.status_code) + "): " + reply.text[:300], ok=False)
+        return None, "Cloudflare refused (" + str(reply.status_code) + "): " + reply.text[:200]
     try:
-        encoded = reply.json()["result"]["image"]
-        data = base64.b64decode(encoded)
+        return base64.b64decode(reply.json()["result"]["image"]), ""
     except Exception:
-        return result("The image service gave an answer that is not an image.", ok=False)
+        return None, "Cloudflare gave an answer that is not an image"
+
+
+async def image_from_puter(prompt_text):
+    if config.PUTER_AUTH_TOKEN == "":
+        return None, "Puter is not set up"
+    node = shutil.which("node")
+    if node is None:
+        return None, "Node.js is not installed for Puter"
+    job = json.dumps({"prompt": prompt_text[:2000], "model": config.PUTER_IMAGE_MODEL})
+    environment = dict(os.environ)
+    environment["PUTER_AUTH_TOKEN"] = config.PUTER_AUTH_TOKEN
+    try:
+        process = await asyncio.create_subprocess_exec(node, "bridge.cjs", cwd=config.PUTER_BRIDGE_DIR, env=environment, stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+        out, err = await asyncio.wait_for(process.communicate(job.encode("utf-8")), timeout=150)
+    except asyncio.TimeoutError:
+        return None, "Puter took too long"
+    except Exception as problem:
+        return None, "Puter could not start: " + str(problem)[:150]
+    try:
+        answer = json.loads(out.decode("utf-8"))
+    except Exception:
+        return None, "Puter gave an unreadable answer"
+    if answer.get("error"):
+        return None, "Puter refused: " + answer["error"][:200]
+    if answer.get("b64"):
+        return base64.b64decode(answer["b64"]), ""
+    if answer.get("url"):
+        try:
+            async with httpx.AsyncClient(timeout=60) as client:
+                downloaded = await client.get(answer["url"])
+            return downloaded.content, ""
+        except httpx.HTTPError as problem:
+            return None, "Puter image download failed: " + str(problem)[:150]
+    return None, "Puter gave no image"
+
+
+async def image_from_pollinations(prompt_text):
+    address = "https://image.pollinations.ai/prompt/" + urllib.parse.quote(prompt_text[:900]) + "?width=1024&height=1024&nologo=true&model=flux&seed=" + str(int(time.time()) % 100000)
+    try:
+        async with httpx.AsyncClient(timeout=120, follow_redirects=True) as client:
+            reply = await client.get(address)
+    except httpx.HTTPError as problem:
+        return None, "Pollinations did not answer: " + str(problem)[:150]
+    if reply.status_code >= 300 or not reply.headers.get("content-type", "").startswith("image/"):
+        return None, "Pollinations refused (" + str(reply.status_code) + ")"
+    return reply.content, ""
+
+
+async def generate_image(run, args):
+    prompt_text = (args.get("prompt") or "").strip()
+    if prompt_text == "":
+        return result("Describe the image in the prompt.", ok=False)
+    data, problem_zero = await image_from_together(prompt_text)
+    problem_one = ""
+    problem_two = ""
+    problem_three = ""
+    if data is None:
+        data, problem_one = await image_from_cloudflare(prompt_text)
+    if data is None:
+        data, problem_two = await image_from_puter(prompt_text)
+    if data is None:
+        data, problem_three = await image_from_pollinations(prompt_text)
+    if data is None:
+        return result("No image service worked. " + problem_zero + ". " + problem_one + ". " + problem_two + ". " + problem_three + ". Tell the user, and draw a simple vector or chart image with code only if that is enough.", ok=False)
     path = (args.get("path") or "").strip()
     if path == "":
         slug = re.sub(r"[^a-z0-9]+", "-", prompt_text.lower())[:40].strip("-") or "image"
