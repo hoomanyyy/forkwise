@@ -1,4 +1,5 @@
 import asyncio
+import re
 import json
 import os
 import shlex
@@ -295,10 +296,11 @@ async def box_address(wid):
     if not is_docker():
         return "127.0.0.1"
     result = await run_process(["docker", "inspect", "-f", "{{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}", box_name(wid)], timeout=20)
-    parts = result["output"].strip().split()
-    if len(parts) == 0:
-        return ""
-    return parts[0]
+    for part in result["output"].strip().split():
+        if re.match(r"^[0-9]{1,3}[.][0-9]{1,3}[.][0-9]{1,3}[.][0-9]{1,3}$", part):
+            return part
+    print("BOX ADDRESS NOT FOUND for", wid, ":", result["output"][:200], flush=True)
+    return ""
 
 
 async def stop(wid):

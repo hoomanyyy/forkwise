@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 
 
@@ -169,3 +170,15 @@ GOOGLE_CLIENT_SECRET = text("GOOGLE_CLIENT_SECRET")
 
 NOWPAYMENTS_API_KEY = text("NOWPAYMENTS_API_KEY")
 NOWPAYMENTS_IPN_SECRET = text("NOWPAYMENTS_IPN_SECRET")
+
+
+def cloudflare_credentials():
+    account = text("CF_ACCOUNT_ID")
+    token = text("CF_API_TOKEN")
+    if account and token:
+        return account, token
+    for model in MODELS:
+        found = re.search(r"accounts/([0-9a-f]{32})/ai", model["url"])
+        if found and model["api_key"]:
+            return found.group(1), model["api_key"]
+    return "", ""

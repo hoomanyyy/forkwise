@@ -1,4 +1,5 @@
 import asyncio
+import re
 import json
 import time
 import traceback
@@ -366,6 +367,20 @@ async def execute_call(run, call):
     return name, args, outcome
 
 
+def bad_tool_position(text, specs):
+    if "invalid JSON schema" not in text and "function.parameters" not in text:
+        return -1
+    named = re.search(r"tool ([A-Za-z0-9_-]+)", text)
+    if named:
+        for position in range(len(specs)):
+            if specs[position]["function"]["name"] == named.group(1):
+                return position
+    indexed = re.search(r"tools\[([0-9]+)\]", text)
+    if indexed and int(indexed.group(1)) < len(specs):
+        return int(indexed.group(1))
+    return -1
+
+
 async def model_turn(run, step):
     messages = build_context(run)
     estimate = llm.estimate_tokens(messages)
@@ -379,7 +394,17 @@ async def model_turn(run, step):
     async def on_delta(kind, data):
         await handle_delta(run, step, kind, data)
 
-    answer = await llm.stream_chat(run.model, messages, tools=run.tool_specs, on_delta=on_delta, stop_flag=run.stop_flag)
+    answer = None
+    for attempt in range(4):
+        try:
+            answer = await llm.stream_chat(run.model, messages, tools=run.tool_specs, on_delta=on_delta, stop_flag=run.stop_flag)
+            break
+        except llm.ModelError as problem:
+            bad = bad_tool_position(str(problem), run.tool_specs)
+            if bad < 0 or attempt == 3:
+                raise
+            removed = run.tool_specs.pop(bad)
+            run.emit("notice", {"text": "Turned off the tool " + removed["function"]["name"] + " for this task because the AI provider rejected its definition."})
     if answer.get("switched_to"):
         told = getattr(run, "told_switch", "")
         if told != answer["switched_to"]:

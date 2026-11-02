@@ -6,6 +6,7 @@ import os
 import re
 import time
 from pathlib import Path
+import httpx
 from app import db, config
 from app.agent import sandbox, web, specs, mcp
 
@@ -559,6 +560,40 @@ async def show_file(run, args):
     return result("The user now sees " + rel + " with a download button.", meta=meta)
 
 
+async def generate_image(run, args):
+    prompt_text = (args.get("prompt") or "").strip()
+    if prompt_text == "":
+        return result("Describe the image in the prompt.", ok=False)
+    account, token = config.cloudflare_credentials()
+    if account == "":
+        return result("Image generation is not set up on this server (it needs Cloudflare Workers AI). Tell the user, and use code to draw a simple vector or chart image only if that is enough.", ok=False)
+    url = "https://api.cloudflare.com/client/v4/accounts/" + account + "/ai/run/@cf/black-forest-labs/flux-1-schnell"
+    try:
+        async with httpx.AsyncClient(timeout=180) as client:
+            reply = await client.post(url, headers={"Authorization": "Bearer " + token}, json={"prompt": prompt_text[:2000], "steps": 6})
+    except httpx.HTTPError as problem:
+        return result("The image service did not answer: " + str(problem)[:200], ok=False)
+    if reply.status_code >= 300:
+        return result("The image service refused the request (" + str(reply.status_code) + "): " + reply.text[:300], ok=False)
+    try:
+        encoded = reply.json()["result"]["image"]
+        data = base64.b64decode(encoded)
+    except Exception:
+        return result("The image service gave an answer that is not an image.", ok=False)
+    path = (args.get("path") or "").strip()
+    if path == "":
+        slug = re.sub(r"[^a-z0-9]+", "-", prompt_text.lower())[:40].strip("-") or "image"
+        path = "images/" + slug + "-" + str(int(time.time()) % 100000) + ".jpg"
+    target = sandbox.resolve(run.wid, path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(data)
+    run.changed = True
+    rel = sandbox.relative(run.wid, target)
+    meta = {"file": rel, "size": len(data), "kind": "image", "caption": prompt_text[:120]}
+    run.emit("file", meta)
+    return result("Saved the image as " + rel + " and showed it to the user. Use this path in pages and documents.", meta=meta)
+
+
 def tool_folder(user_id):
     folder = config.TOOLS_DIR / user_id
     folder.mkdir(parents=True, exist_ok=True)
@@ -603,8 +638,7 @@ async def create_tool(run, args):
             parameters = json.loads(parameters)
         except ValueError:
             return result("parameters must be a JSON schema object.", ok=False)
-    if parameters.get("type") != "object":
-        parameters = {"type": "object", "properties": parameters.get("properties") or {}}
+    parameters = clean_parameters(parameters)
     if "json.load" not in code and "stdin" not in code:
         return result("The code must read its arguments from stdin with json.load(sys.stdin).", ok=False)
     user_id = run.user["id"]
@@ -666,6 +700,73 @@ async def exit_plan_mode(run, args):
     return result("The plan was shown to the user. Stop here and wait for their approval.", meta={"plan": plan}, end_turn=True)
 
 
+TYPE_ALIASES = {"str": "string", "text": "string", "int": "integer", "float": "number", "double": "number", "bool": "boolean", "list": "array", "dict": "object", "map": "object", "any": "string"}
+SCHEMA_TYPES = ["string", "number", "integer", "boolean", "array", "object", "null"]
+
+
+def clean_type(value):
+    if isinstance(value, list):
+        found = []
+        for item in value:
+            name = TYPE_ALIASES.get(str(item).lower(), str(item).lower())
+            if name in SCHEMA_TYPES:
+                found.append(name)
+        if len(found) == 0:
+            return "string"
+        return found[0]
+    name = TYPE_ALIASES.get(str(value).lower(), str(value).lower())
+    if name in SCHEMA_TYPES:
+        return name
+    return "string"
+
+
+def clean_property(value):
+    if isinstance(value, str):
+        return {"type": clean_type(value)}
+    if not isinstance(value, dict):
+        return {"type": "string"}
+    result = {"type": clean_type(value.get("type", "string"))}
+    if isinstance(value.get("description"), str):
+        result["description"] = value["description"][:500]
+    if isinstance(value.get("enum"), list) and len(value["enum"]) > 0:
+        result["enum"] = value["enum"][:50]
+    if isinstance(value.get("default"), (str, int, float, bool)):
+        result["default"] = value["default"]
+    if result["type"] == "array":
+        result["items"] = clean_property(value.get("items", {"type": "string"}))
+    if result["type"] == "object":
+        result["properties"] = clean_properties(value.get("properties"))
+    return result
+
+
+def clean_properties(value):
+    result = {}
+    if isinstance(value, dict):
+        for key in value:
+            result[str(key)[:64]] = clean_property(value[key])
+    return result
+
+
+def clean_parameters(parameters):
+    if isinstance(parameters, str):
+        try:
+            parameters = json.loads(parameters)
+        except ValueError:
+            parameters = {}
+    if not isinstance(parameters, dict):
+        parameters = {}
+    properties = clean_properties(parameters.get("properties"))
+    cleaned = {"type": "object", "properties": properties}
+    required = []
+    if isinstance(parameters.get("required"), list):
+        for name in parameters["required"]:
+            if isinstance(name, str) and name in properties:
+                required.append(name)
+    if len(required) > 0:
+        cleaned["required"] = required
+    return cleaned
+
+
 def custom_specs(user_id):
     rows = db.all_rows("SELECT * FROM custom_tools WHERE user_id = ? AND enabled = 1 ORDER BY name", (user_id,))
     found = []
@@ -673,7 +774,7 @@ def custom_specs(user_id):
         found.append({"type": "function", "function": {
             "name": "my_" + row["name"],
             "description": row["description"] + " (a tool you created)",
-            "parameters": db.load_json(row["parameters"], {"type": "object", "properties": {}}),
+            "parameters": clean_parameters(db.load_json(row["parameters"], {"type": "object", "properties": {}})),
         }})
     return found
 
@@ -686,7 +787,10 @@ async def mcp_specs(user_id):
         servers.append(row)
     if len(servers) == 0:
         return [], {}
-    return await mcp.tools_for(servers)
+    found, routes = await mcp.tools_for(servers)
+    for spec in found:
+        spec["function"]["parameters"] = clean_parameters(spec["function"].get("parameters"))
+    return found, routes
 
 
 def needs_approval(name, args):
@@ -735,6 +839,8 @@ async def execute(run, name, args, call_id):
             return await ask_user(run, args, call_id)
         if name == "show_file":
             return await show_file(run, args)
+        if name == "generate_image":
+            return await generate_image(run, args)
         if name == "create_tool":
             return await create_tool(run, args)
         if name == "save_skill":

@@ -114,6 +114,10 @@ BUILTIN = [
         "path": string("File path."),
         "caption": string("One line about the file."),
     }, ["path"]),
+    fn("generate_image", "Create a picture from a text description with an AI image model: photos, illustrations, logos, product shots, backgrounds, art. It saves the image in the project and shows it to the user. Use it whenever the user wants an image. Do not draw pictures with code unless a chart or vector graphic is clearly better.", {
+        "prompt": string("A detailed description in English: subject, style, colours, lighting, composition, mood."),
+        "path": string("Where to save it, for example images/airplane.jpg. Optional."),
+    }, ["prompt"]),
     fn("create_tool", "Give yourself a new permanent tool. Write a Python 3 script that reads its JSON arguments from stdin and prints the result. It runs on your computer with internet. After it is created you can call it as my_<name> in this and every later chat. Use it for capabilities you will need again.", {
         "name": string("Short snake_case name."),
         "description": string("What the tool does and when to use it."),
