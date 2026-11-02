@@ -52,7 +52,7 @@
   --shadow-lg: 0 40px 90px -40px rgba(30, 24, 120, 0.45);
   --ring: 0 0 0 3px rgba(110, 92, 255, 0.22);
 
-  --font-display: "Unbounded Variable", "Vazirmatn", system-ui, sans-serif;
+  --font-display: "Onest Variable", "Vazirmatn", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-ui: "Onest Variable", "Vazirmatn", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono Variable", ui-monospace, Menlo, monospace;
 
@@ -186,9 +186,9 @@ code, pre, kbd {
 
 .display {
   font-family: var(--font-display);
-  font-weight: 500;
-  letter-spacing: -0.035em;
-  line-height: 1.04;
+  font-weight: 650;
+  letter-spacing: -0.032em;
+  line-height: 1.08;
 }
 
 .btn {
@@ -961,4 +961,73 @@ textarea:-webkit-autofill {
 
 input[type="date"], input[type="time"], input[type="file"] {
   color-scheme: dark;
+}
+
+
+@keyframes route-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.site-main,
+.page,
+.home {
+  animation: route-in 0.38s var(--ease) both;
+}
+
+.home-hero-copy > * {
+  animation: fade-up 0.7s var(--ease) both;
+}
+
+.home-hero-copy > *:nth-child(1) { animation-delay: 0.04s; }
+.home-hero-copy > *:nth-child(2) { animation-delay: 0.12s; }
+.home-hero-copy > *:nth-child(3) { animation-delay: 0.2s; }
+.home-hero-copy > *:nth-child(4) { animation-delay: 0.28s; }
+.home-hero-copy > *:nth-child(5) { animation-delay: 0.36s; }
+
+.hero-stage {
+  animation: fade-up 0.9s var(--ease) 0.45s both;
+}
+
+.page-hero-copy > * {
+  animation: fade-up 0.6s var(--ease) both;
+}
+
+.page-hero-copy > *:nth-child(2) { animation-delay: 0.08s; }
+.page-hero-copy > *:nth-child(3) { animation-delay: 0.16s; }
+.page-hero-copy > *:nth-child(4) { animation-delay: 0.24s; }
+
+.reveal:nth-child(2) { transition-delay: 0.06s; }
+.reveal:nth-child(3) { transition-delay: 0.12s; }
+.reveal:nth-child(4) { transition-delay: 0.18s; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .reveal {
+    opacity: 1;
+    transform: none;
+  }
 }

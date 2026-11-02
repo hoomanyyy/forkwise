@@ -156,6 +156,8 @@ def make_dirs():
     for folder in [DATA_DIR, WORKSPACES_DIR, CHECKPOINTS_DIR, TOOLS_DIR]:
         folder.mkdir(parents=True, exist_ok=True)
 
+FAILOVER = flag("MODEL_FAILOVER", True)
+
 MYSQL_HOST = text("MYSQL_HOST", "127.0.0.1")
 MYSQL_PORT = number("MYSQL_PORT", 3306)
 MYSQL_USER = text("MYSQL_USER", "forkwise")

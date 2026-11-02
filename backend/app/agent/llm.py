@@ -1,5 +1,7 @@
 import asyncio
 import json
+import re
+import time
 import httpx
 from app import config
 
@@ -58,9 +60,7 @@ def headers_for(model):
     }
 
 
-async def stream_chat(model, messages, tools=None, on_delta=None, max_tokens=16000, temperature=None, stop_flag=None):
-    if model is None:
-        raise ModelError("No AI model is set up. Add LLM_API_KEY and LLM_MODELS to the .env file.")
+async def stream_single(model, messages, tools, on_delta, max_tokens, temperature, stop_flag, attempts):
     body = {
         "model": model["id"],
         "messages": for_plain_models(with_cache(messages, model), model),
@@ -74,7 +74,7 @@ async def stream_chat(model, messages, tools=None, on_delta=None, max_tokens=160
         body["tools"] = tools
         body["tool_choice"] = "auto"
     last_problem = ""
-    for attempt in range(5):
+    for attempt in range(attempts):
         streamed = {"any": False}
         try:
             return await stream_once(model, body, on_delta, streamed, stop_flag)
@@ -93,6 +93,83 @@ async def stream_chat(model, messages, tools=None, on_delta=None, max_tokens=160
                 raise ModelError(last_problem)
         await asyncio.sleep(min(30, 2 ** attempt * 1.5))
     raise ModelError(last_problem or "The model did not answer.")
+
+
+COOLDOWNS = {}
+FAILOVER_STATUS = [401, 402, 403, 404, 408, 409, 425, 429, 500, 502, 503, 504, 520, 522, 524, 529]
+
+
+def status_of(text):
+    if text.startswith("HTTP "):
+        digits = text[5:8]
+        if digits.isdigit():
+            return int(digits)
+    return 0
+
+
+def wait_seconds(text):
+    found = re.search(r"retry in (?:(\d+)h)?(?:(\d+)m)?(?:([\d.]+)s)?", text)
+    if found and (found.group(1) or found.group(2) or found.group(3)):
+        hours = int(found.group(1) or 0)
+        minutes = int(found.group(2) or 0)
+        seconds = float(found.group(3) or 0)
+        return int(hours * 3600 + minutes * 60 + seconds) + 1
+    status = status_of(text)
+    if status in [401, 403, 404]:
+        return 3600
+    if status == 429:
+        return 120
+    return 45
+
+
+def cooling(model):
+    until = COOLDOWNS.get(model["key"], 0)
+    return until > time.time()
+
+
+def candidates_for(model):
+    result = [model]
+    for other in config.MODELS:
+        if other["key"] != model["key"]:
+            result.append(other)
+    ready = []
+    waiting = []
+    for item in result:
+        if cooling(item):
+            waiting.append(item)
+        else:
+            ready.append(item)
+    return ready + waiting
+
+
+async def stream_chat(model, messages, tools=None, on_delta=None, max_tokens=16000, temperature=None, stop_flag=None):
+    if model is None:
+        raise ModelError("No AI model is set up. Add LLM_API_KEY and LLM_MODELS to the .env file.")
+    if not config.FAILOVER:
+        return await stream_single(model, messages, tools, on_delta, max_tokens, temperature, stop_flag, 5)
+    options = candidates_for(model)
+    last = None
+    for position in range(len(options)):
+        item = options[position]
+        last_one = position == len(options) - 1
+        if cooling(item) and not last_one:
+            continue
+        try:
+            answer = await stream_single(item, messages, tools, on_delta, max_tokens, temperature, stop_flag, 5 if last_one else 2)
+            if item["key"] != model["key"]:
+                answer["switched_to"] = item["label"]
+            return answer
+        except ModelError as problem:
+            last = problem
+            text = str(problem)
+            if status_of(text) in FAILOVER_STATUS and not last_one:
+                COOLDOWNS[item["key"]] = time.time() + wait_seconds(text)
+                print("MODEL FAILOVER", item["key"], text[:160], flush=True)
+                continue
+            raise
+    if last is not None:
+        raise last
+    raise ModelError("The model did not answer.")
 
 
 def retryable(text):

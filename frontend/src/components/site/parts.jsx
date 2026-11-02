@@ -115,46 +115,8 @@ export function Frame({ src, alt, url, className, children, priority }) {
   )
 }
 
-function branchPaths(count, width, height, seed) {
-  const paths = []
-  let value = seed
-  function random() {
-    value = (value * 9301 + 49297) % 233280
-    return value / 233280
-  }
-  const rootY = height * 0.5
-  for (let i = 0; i < count; i += 1) {
-    const endY = height * (0.08 + random() * 0.84)
-    const startX = random() * width * 0.2
-    const midX = width * (0.3 + random() * 0.25)
-    const endX = width * (0.72 + random() * 0.26)
-    const d = "M" + startX.toFixed(0) + " " + rootY.toFixed(0) + " C " + midX.toFixed(0) + " " + rootY.toFixed(0) + ", " + (midX + 40).toFixed(0) + " " + endY.toFixed(0) + ", " + endX.toFixed(0) + " " + endY.toFixed(0)
-    paths.push({ d, x: endX, y: endY, verify: i === 0, delay: (i * 0.22).toFixed(2) })
-  }
-  return paths
-}
-
-export function BranchField({ quiet, count }) {
-  const width = 1200
-  const height = 520
-  const paths = branchPaths(count || (quiet ? 9 : 14), width, height, quiet ? 7 : 21)
-  return (
-    <svg className={"branch-field" + (quiet ? " quiet" : "")} viewBox={"0 0 " + width + " " + height} preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-      <defs>
-        <linearGradient id="bf-grad" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0" stopColor="#8b7bff" stopOpacity="0" />
-          <stop offset="0.35" stopColor="#8b7bff" />
-          <stop offset="1" stopColor="#1fa2ec" />
-        </linearGradient>
-      </defs>
-      {paths.map((path, index) => (
-        <g key={index}>
-          <path d={path.d} className="bf-line" stroke="url(#bf-grad)" style={{ animationDelay: path.delay + "s" }} pathLength="1" />
-          <circle cx={path.x} cy={path.y} r={path.verify ? 9 : 4.5} className={"bf-node" + (path.verify ? " verify" : "")} style={{ animationDelay: (Number(path.delay) + 1.1).toFixed(2) + "s" }} />
-        </g>
-      ))}
-    </svg>
-  )
+export function BranchField() {
+  return null
 }
 
 export function Steps({ items }) {

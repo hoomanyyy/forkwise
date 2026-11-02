@@ -48,7 +48,6 @@ export default function SiteFooter() {
         <a href="https://x.com/forkwiseai" target="_blank" rel="noreferrer">X</a>
         <a href="https://instagram.com/forkwiseai" target="_blank" rel="noreferrer">Instagram</a>
         <a href="https://www.youtube.com/@Forkwise" target="_blank" rel="noreferrer">YouTube</a>
-        <a href="https://github.com/hoomanyyy/forkwise" target="_blank" rel="noreferrer">GitHub</a>
       </div>
     </footer>
   )

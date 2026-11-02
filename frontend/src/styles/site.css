@@ -247,7 +247,7 @@
 }
 
 .page-hero.center .page-hero-inner {
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
   text-align: center;
   justify-items: center;
 }
@@ -468,7 +468,7 @@
 }
 
 .home-hero h1 {
-  font-size: clamp(40px, 6.4vw, 92px);
+  font-size: clamp(38px, 5.6vw, 76px);
   margin: 0;
   max-width: 14ch;
   text-wrap: balance;
@@ -535,7 +535,7 @@
   content: "";
   position: absolute;
   inset: 12% -6% -10%;
-  background: radial-gradient(ellipse at 50% 30%, rgba(110, 92, 255, 0.32), transparent 60%), radial-gradient(ellipse at 70% 60%, rgba(31, 162, 236, 0.22), transparent 60%);
+  background: radial-gradient(ellipse at 50% 30%, rgba(110, 92, 255, 0.16), transparent 62%), radial-gradient(ellipse at 70% 60%, rgba(31, 162, 236, 0.08), transparent 60%);
   filter: blur(30px);
   z-index: -1;
 }
@@ -582,7 +582,7 @@
 
 .asks {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
   border-top: 1px solid var(--line);
 }
 
@@ -2387,7 +2387,7 @@ a.card:hover {
   }
 
   .page-hero-inner, .split, .showcase-body, .contact-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .split.reverse .split-copy {
@@ -2403,7 +2403,7 @@ a.card:hover {
   }
 
   .feature-grid.cols-3, .feature-grid.cols-2, .card-grid, .values, .trust-strip {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .steps {
@@ -2423,7 +2423,7 @@ a.card:hover {
   }
 
   .ask-row {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: 14px;
   }
 
@@ -2436,7 +2436,7 @@ a.card:hover {
   }
 
   .docs-layout, .legal-layout, .faq-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .docs-side, .faq-nav {
@@ -2449,7 +2449,7 @@ a.card:hover {
   }
 
   .story {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: 8px;
   }
 
@@ -2458,11 +2458,11 @@ a.card:hover {
   }
 
   .logo-tiles {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .auth {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .auth-art {
@@ -2470,13 +2470,13 @@ a.card:hover {
   }
 
   .form-row {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
 @media (max-width: 560px) {
   .plans, .steps, .feature-grid.cols-4 {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .site-footer-inner {
@@ -2492,7 +2492,7 @@ a.card:hover {
   }
 
   .doc-pager {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .doc-pager .next {
@@ -2999,3 +2999,17 @@ a.live-item:hover {
   background: var(--line-strong);
 }
 
+
+
+.prose pre, .split pre, .code-card pre {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.prose, .split-copy, .split-art, .docs-layout > * {
+  min-width: 0;
+}
+
+img, video, canvas {
+  max-width: 100%;
+}
