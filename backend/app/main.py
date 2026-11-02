@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from app import config, db
-from app.routes import auth, chats, files, settings, preview, terminal, site, billing, google
+from app.routes import auth, chats, files, settings, preview, terminal, site, billing, google, admin
 from app.agent import sandbox, runs
 
 
@@ -63,3 +63,4 @@ preview.register_routes(app)
 site.register_routes(app)
 billing.register_routes(app)
 google.register_routes(app)
+admin.register_routes(app)

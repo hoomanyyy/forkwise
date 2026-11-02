@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react"
-import { NavLink, useParams } from "react-router-dom"
-import { BarChart3, BookOpen, Brain, Plug, Sparkles, Trash2, User, Wrench, Plus } from "lucide-react"
+import { Link, NavLink, useNavigate, useParams } from "react-router-dom"
+import { BarChart3, BookOpen, Brain, Plug, ShieldCheck, Sparkles, Trash2, User, Wrench, Plus } from "lucide-react"
 import { useStore } from "../../lib/store"
 import { api } from "../../lib/api"
 
 const TABS = [
   { key: "general", label: "General", icon: User },
+  { key: "security", label: "Security", icon: ShieldCheck },
   { key: "memory", label: "Memory", icon: Brain },
   { key: "abilities", label: "Abilities", icon: Sparkles },
   { key: "connectors", label: "Connectors", icon: Plug },
@@ -18,8 +19,15 @@ function General() {
   const [name, setName] = useState(user.name)
   const [instructions, setInstructions] = useState(settings.instructions || "")
   const [model, setModel] = useState(settings.model || "")
+  const [plan, setPlan] = useState("free")
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    api.get("/api/billing").then((data) => setPlan(data.plan)).catch(() => setPlan("free"))
+  }, [])
 
   async function save() {
+    setSaving(true)
     try {
       const data = await api.post("/api/auth/settings", { name, settings: { instructions, model } })
       setUser(data.user)
@@ -27,25 +35,108 @@ function General() {
     } catch (problem) {
       toast(problem.message, "error")
     }
+    setSaving(false)
   }
 
   return (
-    <div className="settings-section">
-      <div className="field"><label>Your name</label><input className="input" dir="auto" value={name} onChange={(e) => setName(e.target.value)} /></div>
-      <div className="field"><label>Email</label><input className="input" value={user.email} disabled /></div>
-      <div className="field">
-        <label>Default model</label>
-        <select className="select" value={model} onChange={(e) => setModel(e.target.value)}>
-          <option value="">Server default</option>
-          {models.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
-        </select>
+    <div className="settings-stack">
+      <div className="settings-card profile-card">
+        <span className="avatar-l">{(user.name || user.email).charAt(0).toUpperCase()}</span>
+        <div className="profile-text">
+          <strong>{user.name || user.email}</strong>
+          <span className="muted small">{user.email}</span>
+        </div>
+        <Link to="/app/billing" className={"chip plan-" + plan}>{plan.charAt(0).toUpperCase() + plan.slice(1)} plan</Link>
       </div>
-      <div className="field">
-        <label>Instructions for every chat</label>
-        <textarea className="textarea" dir="auto" rows={7} value={instructions} onChange={(e) => setInstructions(e.target.value)} placeholder="Answer me in Persian. Keep Python code simple, without lambda or decorators." />
-        <span className="faint small">Forkwise reads this before every answer.</span>
+      <div className="settings-card">
+        <h3>Profile</h3>
+        <p className="muted small">How Forkwise addresses you.</p>
+        <div className="field"><label htmlFor="s-name">Display name</label><input id="s-name" className="input" dir="auto" value={name} onChange={(e) => setName(e.target.value)} /></div>
+        <div className="field"><label htmlFor="s-email">Email</label><input id="s-email" className="input" value={user.email} disabled /></div>
       </div>
-      <div className="row-actions"><button className="btn btn-primary" onClick={save}>Save settings</button></div>
+      <div className="settings-card">
+        <h3>AI preferences</h3>
+        <p className="muted small">Applied to every new chat.</p>
+        <div className="field">
+          <label htmlFor="s-model">Default model</label>
+          <select id="s-model" className="select" value={model} onChange={(e) => setModel(e.target.value)}>
+            <option value="">Server default</option>
+            {models.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
+          </select>
+        </div>
+        <div className="field">
+          <label htmlFor="s-instructions">Custom instructions</label>
+          <textarea id="s-instructions" className="textarea" dir="auto" rows={6} value={instructions} onChange={(e) => setInstructions(e.target.value)} placeholder="Tell Forkwise how you like answers, for example: keep Python code simple, explain steps briefly." />
+          <span className="faint small">Forkwise reads this before every answer.</span>
+        </div>
+      </div>
+      <div className="settings-save"><button className="btn btn-primary" onClick={save} disabled={saving}>{saving ? "Saving" : "Save changes"}</button></div>
+    </div>
+  )
+}
+
+function Security() {
+  const { user, signOut, toast } = useStore()
+  const navigate = useNavigate()
+  const [current, setCurrent] = useState("")
+  const [next, setNext] = useState("")
+  const [busy, setBusy] = useState(false)
+  const [confirm, setConfirm] = useState("")
+
+  async function changePassword(event) {
+    event.preventDefault()
+    setBusy(true)
+    try {
+      await api.post("/api/auth/password", { current: current, password: next })
+      setCurrent("")
+      setNext("")
+      toast("Password changed. Other devices were signed out.", "ok")
+    } catch (problem) {
+      toast(problem.message, "error")
+    }
+    setBusy(false)
+  }
+
+  async function others() {
+    try {
+      await api.post("/api/auth/sign-out-others")
+      toast("Signed out of all other devices", "ok")
+    } catch (problem) {
+      toast(problem.message, "error")
+    }
+  }
+
+  async function remove() {
+    try {
+      await api.post("/api/auth/delete", { email: confirm })
+      await signOut()
+      navigate("/")
+    } catch (problem) {
+      toast(problem.message, "error")
+    }
+  }
+
+  return (
+    <div className="settings-stack">
+      <form className="settings-card" onSubmit={changePassword}>
+        <h3>Password</h3>
+        <p className="muted small">Use at least 8 characters. Changing it signs you out everywhere else.</p>
+        <div className="field"><label htmlFor="p-current">Current password</label><input id="p-current" className="input" type="password" autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} required /></div>
+        <div className="field"><label htmlFor="p-new">New password</label><input id="p-new" className="input" type="password" autoComplete="new-password" minLength={8} value={next} onChange={(e) => setNext(e.target.value)} required /></div>
+        <div className="settings-save"><button className="btn btn-primary" disabled={busy}>{busy ? "Saving" : "Change password"}</button></div>
+        <p className="faint small">Signed up with Google? Use Forgot password on the sign-in page once to create a password.</p>
+      </form>
+      <div className="settings-card">
+        <h3>Devices</h3>
+        <p className="muted small">Sign out everywhere except this browser, for example after using a shared computer.</p>
+        <button className="btn btn-ghost" onClick={others}>Sign out other devices</button>
+      </div>
+      <div className="settings-card danger-zone">
+        <h3>Delete account</h3>
+        <p className="muted small">Removes your account, chats, projects, memories and abilities for good. Active paid time is not refunded.</p>
+        <div className="field"><label htmlFor="d-email">Type {user.email} to confirm</label><input id="d-email" className="input" value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="off" /></div>
+        <button className="btn btn-danger" disabled={confirm.trim().toLowerCase() !== user.email.toLowerCase()} onClick={remove}><Trash2 size={15} />Delete my account</button>
+      </div>
     </div>
   )
 }
@@ -284,6 +375,7 @@ export default function Settings() {
         </nav>
         <div className="settings-body">
           {current === "general" && <General />}
+          {current === "security" && <Security />}
           {current === "memory" && <Memory />}
           {current === "abilities" && <Abilities />}
           {current === "connectors" && <Connectors />}

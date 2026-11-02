@@ -48,7 +48,7 @@ const Settings = lazy(() => import("./pages/app/Settings"))
 const Projects = named(() => import("./pages/app/Projects"), "Projects")
 const Project = named(() => import("./pages/app/Projects"), "Project")
 const Billing = named(() => import("./pages/app/More"), "Billing")
-const Admin = named(() => import("./pages/app/More"), "Admin")
+const Admin = named(() => import("./pages/app/Admin"), "Admin")
 const AppTemplates = named(() => import("./pages/app/More"), "AppTemplates")
 
 function Toasts() {
