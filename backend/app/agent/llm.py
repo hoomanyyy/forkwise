@@ -170,6 +170,8 @@ async def stream_once(model, body, on_delta, streamed, stop_flag):
                     slot = calls[index]
                     if call.get("id"):
                         slot["id"] = call["id"]
+                    if call.get("extra_content"):
+                        slot["extra_content"] = call["extra_content"]
                     function = call.get("function") or {}
                     if function.get("name"):
                         slot["function"]["name"] = slot["function"]["name"] + function["name"]
