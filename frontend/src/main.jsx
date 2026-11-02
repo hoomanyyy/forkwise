@@ -4,7 +4,9 @@ import { BrowserRouter, Route, Routes } from "react-router-dom"
 import "./styles/base.css"
 import "./styles/site.css"
 import "./styles/app.css"
+import "./styles/polish.css"
 import { StoreProvider, useStore } from "./lib/store"
+import { ConfirmProvider } from "./components/ui/Modal"
 import { SiteLayout } from "./components/site/parts"
 import { AppSkeleton, PageSkeleton } from "./components/ui/Skeleton"
 
@@ -132,6 +134,8 @@ function App() {
 
 createRoot(document.getElementById("root")).render(
   <StoreProvider>
+  <ConfirmProvider>
     <App />
+  </ConfirmProvider>
   </StoreProvider>
 )

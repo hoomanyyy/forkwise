@@ -4,6 +4,7 @@ import { Activity, CircleDollarSign, Crown, Mail, MessageSquare, Search, Shield,
 import { useStore } from "../../lib/store"
 import { api } from "../../lib/api"
 import Select from "../../components/ui/Select"
+import { useConfirm } from "../../components/ui/Modal"
 
 const TABS = [
   { key: "overview", label: "Overview" },
@@ -60,6 +61,7 @@ function Overview() {
 
 function UserRow({ row, me, onChanged }) {
   const { toast } = useStore()
+  const confirm = useConfirm()
   const [open, setOpen] = useState(false)
   const [plan, setPlan] = useState(row.plan === "free" ? "pro" : row.plan)
   const [days, setDays] = useState(30)
@@ -76,7 +78,8 @@ function UserRow({ row, me, onChanged }) {
   }
 
   async function remove() {
-    if (!window.confirm("Delete " + row.email + " and everything they made? This cannot be undone.")) return
+    const sure = await confirm({ title: "Delete " + row.email + "?", text: "Their account and everything they made will be removed. This cannot be undone.", confirmLabel: "Delete user", danger: true })
+    if (!sure) return
     try {
       await api.del("/api/admin/users/" + row.id)
       toast("User deleted", "ok")

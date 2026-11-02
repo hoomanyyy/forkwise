@@ -4,6 +4,7 @@ import { BarChart3, BookOpen, Brain, Plug, ShieldCheck, Sparkles, Trash2, User, 
 import { useStore } from "../../lib/store"
 import { api, apiUrl } from "../../lib/api"
 import Select from "../../components/ui/Select"
+import { useConfirm } from "../../components/ui/Modal"
 
 const TABS = [
   { key: "general", label: "Profile", icon: User },
@@ -189,6 +190,7 @@ export function Memory() {
 }
 
 export function Abilities() {
+  const confirm = useConfirm()
   const [tools, setTools] = useState([])
   const [skills, setSkills] = useState([])
   const [open, setOpen] = useState(null)
@@ -210,7 +212,8 @@ export function Abilities() {
   }
 
   async function removeTool(item) {
-    if (!window.confirm("Delete the tool my_" + item.name + "?")) return
+    const sure = await confirm({ title: "Delete this tool?", text: "my_" + item.name, confirmLabel: "Delete", danger: true })
+    if (!sure) return
     await api.del("/api/tools/" + item.id)
     load()
   }
@@ -221,7 +224,8 @@ export function Abilities() {
   }
 
   async function removeSkill(item) {
-    if (!window.confirm("Delete the skill " + item.name + "?")) return
+    const sure = await confirm({ title: "Delete this skill?", text: item.name, confirmLabel: "Delete", danger: true })
+    if (!sure) return
     await api.del("/api/skills/" + item.id)
     load()
   }

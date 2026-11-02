@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react"
-import { Link, useNavigate, useParams } from "react-router-dom"
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { FolderKanban, MessageSquare, Plus, Trash2, Brain } from "lucide-react"
 import { useStore } from "../../lib/store"
 import { api } from "../../lib/api"
+import { Modal, useConfirm } from "../../components/ui/Modal"
 
 function timeAgo(seconds) {
   const diff = Date.now() / 1000 - seconds
@@ -12,26 +13,63 @@ function timeAgo(seconds) {
   return Math.floor(diff / 86400) + " days ago"
 }
 
-export function Projects() {
-  const { projects, loadProjects, toast } = useStore()
+export function NewProjectModal({ open, onClose }) {
+  const { loadProjects, toast } = useStore()
   const navigate = useNavigate()
-  const [creating, setCreating] = useState(false)
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    if (open) {
+      setName("")
+      setDescription("")
+      setBusy(false)
+    }
+  }, [open])
+
+  async function create(event) {
+    event.preventDefault()
+    if (!name.trim() || busy) return
+    setBusy(true)
+    try {
+      const data = await api.post("/api/projects", { name, description })
+      await loadProjects()
+      onClose()
+      navigate("/app/projects/" + data.project.id)
+    } catch (problem) {
+      toast(problem.message, "error")
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} title="New project" description="A project keeps one set of files, instructions and memories for many chats.">
+      <form className="modal-form" onSubmit={create}>
+        <div className="field"><label htmlFor="np-name">Name</label><input id="np-name" className="input" dir="auto" value={name} onChange={(e) => setName(e.target.value)} placeholder="Online shop" maxLength={80} /></div>
+        <div className="field"><label htmlFor="np-desc">What is it about? <span className="faint">(optional)</span></label><input id="np-desc" className="input" dir="auto" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="A store with products, a cart and checkout" /></div>
+        <div className="modal-footer inline">
+          <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary" disabled={!name.trim() || busy}>{busy ? "Creating" : "Create project"}</button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+export function Projects() {
+  const { projects, loadProjects } = useStore()
+  const navigate = useNavigate()
+  const [params, setParams] = useSearchParams()
+  const [creating, setCreating] = useState(params.get("new") === "1")
 
   useEffect(() => {
     loadProjects()
   }, [loadProjects])
 
-  async function create(event) {
-    event.preventDefault()
-    try {
-      const data = await api.post("/api/projects", { name, description })
-      await loadProjects()
-      navigate("/app/projects/" + data.project.id)
-    } catch (problem) {
-      toast(problem.message, "error")
-    }
+  function closeCreate() {
+    setCreating(false)
+    if (params.get("new")) setParams({}, { replace: true })
   }
 
   return (
@@ -43,16 +81,7 @@ export function Projects() {
         </div>
         <button className="btn btn-primary" onClick={() => setCreating(true)}><Plus size={16} />New project</button>
       </div>
-      {creating && (
-        <form className="panel-card form-card" onSubmit={create}>
-          <div className="field"><label>Name</label><input className="input" autoFocus dir="auto" value={name} onChange={(e) => setName(e.target.value)} placeholder="RHINOREL website" /></div>
-          <div className="field"><label>What is it about?</label><input className="input" dir="auto" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optional" /></div>
-          <div className="row-actions">
-            <button type="button" className="btn btn-ghost" onClick={() => setCreating(false)}>Cancel</button>
-            <button className="btn btn-primary" disabled={!name.trim()}>Create project</button>
-          </div>
-        </form>
-      )}
+      <NewProjectModal open={creating} onClose={closeCreate} />
       {projects.length === 0 && !creating && (
         <div className="empty-big">
           <FolderKanban size={30} />
@@ -78,6 +107,7 @@ export function Project() {
   const { projectId } = useParams()
   const navigate = useNavigate()
   const { loadProjects, toast } = useStore()
+  const confirm = useConfirm()
   const [data, setData] = useState(null)
   const [instructions, setInstructions] = useState("")
   const [saved, setSaved] = useState(true)
@@ -103,7 +133,8 @@ export function Project() {
   }
 
   async function remove() {
-    if (!window.confirm("Delete this project, all its chats and all its files?")) return
+    const sure = await confirm({ title: "Delete this project?", text: "All its chats and all its files will be removed for good.", confirmLabel: "Delete project", danger: true })
+    if (!sure) return
     await api.del("/api/projects/" + projectId)
     await loadProjects()
     navigate("/app/projects")

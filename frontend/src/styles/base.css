@@ -986,10 +986,22 @@ input[type="date"], input[type="time"], input[type="file"] {
   }
 }
 
-.site-main,
+@keyframes route-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.site-main {
+  animation: route-in 0.38s var(--ease) both;
+}
+
 .page,
 .home {
-  animation: route-in 0.38s var(--ease) both;
+  animation: route-fade 0.35s var(--ease) both;
 }
 
 .home-hero-copy > * {

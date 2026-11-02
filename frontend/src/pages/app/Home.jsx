@@ -7,6 +7,7 @@ import { useStore } from "../../lib/store"
 import { api } from "../../lib/api"
 import { TEMPLATES } from "../../content/catalog"
 import { Cover } from "../../components/site/Cover"
+import { NewProjectModal } from "./Projects"
 import { CODE_IDEAS, DESIGN_GALLERY, DESIGN_IDEAS, KIND_HOME } from "../../lib/kinds"
 
 const IDEAS = [
@@ -48,6 +49,7 @@ export default function Home({ kind }) {
   const [seed, setSeed] = useState(null)
   const pending = useRef(null)
   const [billing, setBilling] = useState(null)
+  const [newProject, setNewProject] = useState(false)
 
   useEffect(() => {
     api.get("/api/billing").then(setBilling).catch(() => setBilling(null))
@@ -122,6 +124,7 @@ export default function Home({ kind }) {
           })}
         </div>
       </div>
+      <NewProjectModal open={newProject} onClose={() => setNewProject(false)} />
       <div className="home-sections">
         {section === "chat" && billing && (
           <div className="home-usage">
@@ -139,11 +142,11 @@ export default function Home({ kind }) {
           <section>
             <div className="home-section-head"><h2>Your projects</h2><Link to="/app/projects" className="text-link small">All projects</Link></div>
             <div className="recent-grid">
-              <Link to="/app/projects" className="recent-card new-card">
+              <button type="button" className="recent-card new-card" onClick={() => setNewProject(true)}>
                 <span className="recent-icon"><Plus size={16} /></span>
                 <span className="recent-title">New project</span>
                 <span className="recent-meta">Shared files for many chats</span>
-              </Link>
+              </button>
               {projects.slice(0, 5).map((item) => (
                 <button key={item.id} type="button" className="recent-card" onClick={() => navigate("/app/projects/" + item.id)}>
                   <span className="recent-icon"><FolderKanban size={16} /></span>

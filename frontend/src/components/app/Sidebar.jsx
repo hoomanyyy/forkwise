@@ -5,6 +5,8 @@ import { Wordmark } from "../ui/Logo"
 import { useStore } from "../../lib/store"
 import { api } from "../../lib/api"
 import { SECTIONS } from "../../lib/kinds"
+import { openPalette } from "./Palette"
+import { useConfirm } from "../ui/Modal"
 
 function groupChats(chats) {
   const now = Date.now() / 1000
@@ -28,6 +30,7 @@ function groupChats(chats) {
 
 function ChatRow({ chat, active, onClose }) {
   const { patchChat, removeChat, toast } = useStore()
+  const confirm = useConfirm()
   const navigate = useNavigate()
   const [menu, setMenu] = useState(false)
   const [editing, setEditing] = useState(false)
@@ -58,7 +61,8 @@ function ChatRow({ chat, active, onClose }) {
 
   async function remove() {
     setMenu(false)
-    if (!window.confirm("Delete this chat and its files?")) return
+    const sure = await confirm({ title: "Delete this chat?", text: "The chat and the files it made will be removed for good.", confirmLabel: "Delete", danger: true })
+    if (!sure) return
     await api.del("/api/chats/" + chat.id)
     removeChat(chat.id)
     toast("Chat deleted")
@@ -209,13 +213,13 @@ export default function Sidebar({ collapsed, onCollapse, mobileOpen, onMobileClo
           })}
         </div>
         <button className="new-chat" onClick={() => { onMobileClose(); navigate(newTarget.to) }}>
-          <Plus size={16} /><span>{newTarget.newLabel}</span><span className="kbd">Ctrl K</span>
+          <Plus size={16} /><span>{newTarget.newLabel}</span>
         </button>
-        <div className="sidebar-search">
+        <button type="button" className="sidebar-search search-trigger" onClick={openPalette}>
           <Search size={14} />
-          <input placeholder="Search chats" value={query} onChange={(e) => setQuery(e.target.value)} dir="auto" />
-          {query && <button onClick={() => setQuery("")} aria-label="Clear search"><X size={13} /></button>}
-        </div>
+          <span>Search</span>
+          <span className="kbd">Ctrl K</span>
+        </button>
         <div className="sidebar-chats">
           {!chatsReady && !found && <div className="skel-list"><span /><span /><span /><span /></div>}
           {chatsReady && groups.length === 0 && <div className="empty-small">{found ? "No chats match." : "Your chats appear here."}</div>}
