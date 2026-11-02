@@ -32,7 +32,7 @@ function Typer() {
 }
 
 const ASKS = [
-  { ask: "سلام! چطوری؟", icon: MessageSquare, title: "Just answers", text: "Small talk stays small talk. No project, no files." },
+  { ask: "Hi! How are you?", icon: MessageSquare, title: "Just answers", text: "Small talk stays small talk. No project, no files." },
   { ask: "What's the US dollar rate in Tehran right now?", icon: Globe, title: "Searches the web first", text: "Opens the sources and replies with today's numbers and links." },
   { ask: "Remember that my company is called RHINOREL.", icon: Brain, title: "Saves it to memory", text: "Every later chat knows it, and you can delete it any time." },
   { ask: "Build a booking site for my barbershop.", icon: MonitorPlay, title: "Builds it and shows you", text: "Writes the code, runs it, checks it in a browser, opens the live preview." },

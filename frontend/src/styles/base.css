@@ -142,6 +142,10 @@ img, svg, video {
   max-width: 100%;
 }
 
+img {
+  height: auto;
+}
+
 button, input, textarea, select {
   font: inherit;
   color: inherit;
