@@ -5,6 +5,7 @@ import json
 import os
 import re
 import time
+import urllib.parse
 from pathlib import Path
 import httpx
 from app import db, config
@@ -560,26 +561,46 @@ async def show_file(run, args):
     return result("The user now sees " + rel + " with a download button.", meta=meta)
 
 
-async def generate_image(run, args):
-    prompt_text = (args.get("prompt") or "").strip()
-    if prompt_text == "":
-        return result("Describe the image in the prompt.", ok=False)
+async def image_from_cloudflare(prompt_text):
     account, token = config.cloudflare_credentials()
     if account == "":
-        return result("Image generation is not set up on this server (it needs Cloudflare Workers AI). Tell the user, and use code to draw a simple vector or chart image only if that is enough.", ok=False)
+        return None, "Cloudflare Workers AI is not set up"
     url = "https://api.cloudflare.com/client/v4/accounts/" + account + "/ai/run/@cf/black-forest-labs/flux-1-schnell"
     try:
         async with httpx.AsyncClient(timeout=180) as client:
             reply = await client.post(url, headers={"Authorization": "Bearer " + token}, json={"prompt": prompt_text[:2000], "steps": 6})
     except httpx.HTTPError as problem:
-        return result("The image service did not answer: " + str(problem)[:200], ok=False)
+        return None, "Cloudflare did not answer: " + str(problem)[:150]
     if reply.status_code >= 300:
-        return result("The image service refused the request (" + str(reply.status_code) + "): " + reply.text[:300], ok=False)
+        return None, "Cloudflare refused (" + str(reply.status_code) + "): " + reply.text[:200]
     try:
-        encoded = reply.json()["result"]["image"]
-        data = base64.b64decode(encoded)
+        return base64.b64decode(reply.json()["result"]["image"]), ""
     except Exception:
-        return result("The image service gave an answer that is not an image.", ok=False)
+        return None, "Cloudflare gave an answer that is not an image"
+
+
+async def image_from_pollinations(prompt_text):
+    address = "https://image.pollinations.ai/prompt/" + urllib.parse.quote(prompt_text[:900]) + "?width=1024&height=1024&nologo=true&model=flux&seed=" + str(int(time.time()) % 100000)
+    try:
+        async with httpx.AsyncClient(timeout=120, follow_redirects=True) as client:
+            reply = await client.get(address)
+    except httpx.HTTPError as problem:
+        return None, "Pollinations did not answer: " + str(problem)[:150]
+    if reply.status_code >= 300 or not reply.headers.get("content-type", "").startswith("image/"):
+        return None, "Pollinations refused (" + str(reply.status_code) + ")"
+    return reply.content, ""
+
+
+async def generate_image(run, args):
+    prompt_text = (args.get("prompt") or "").strip()
+    if prompt_text == "":
+        return result("Describe the image in the prompt.", ok=False)
+    data, problem_one = await image_from_cloudflare(prompt_text)
+    problem_two = ""
+    if data is None:
+        data, problem_two = await image_from_pollinations(prompt_text)
+    if data is None:
+        return result("No image service worked. " + problem_one + ". " + problem_two + ". Tell the user, and draw a simple vector or chart image with code only if that is enough.", ok=False)
     path = (args.get("path") or "").strip()
     if path == "":
         slug = re.sub(r"[^a-z0-9]+", "-", prompt_text.lower())[:40].strip("-") or "image"
