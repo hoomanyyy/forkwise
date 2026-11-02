@@ -61,7 +61,7 @@ echo
 echo "Models marked [tools] can work with files and commands. Prefer those."
 echo
 
-DEFAULT_MODELS="@cf/openai/gpt-oss-120b=GPT-OSS 120B,@cf/moonshotai/kimi-k2.6=Kimi K2.6,@cf/meta/llama-3.3-70b-instruct-fp8-fast=Llama 3.3 70B,@cf/mistralai/mistral-small-3.1-24b-instruct=Mistral Small 3.1"
+DEFAULT_MODELS="@cf/moonshotai/kimi-k2.6=Kimi K2.6,@cf/zai-org/glm-5.3=GLM 5.3,@cf/meta/llama-3.3-70b-instruct-fp8-fast=Llama 3.3 70B,@cf/openai/gpt-oss-120b=GPT-OSS 120B"
 echo "Default list:"
 echo "  $DEFAULT_MODELS"
 read -r -p "Press Enter to use it, or paste your own (id=Label,id=Label): " MODELS </dev/tty

@@ -77,6 +77,10 @@ cd frontend && npm install && npm run dev      http://localhost:5173
 
 در Cloudflare یک رکورد `*` (proxied) به IP سرور بسازید و در `backend.env` بگذارید `PREVIEW_HOST=forkwiseai.com`، سپس `install.sh` را با `--preview-host forkwiseai.com` دوباره اجرا کنید. پیش‌نمایش‌ها روی `p-...forkwiseai.com` باز می‌شوند و از کوکی‌های حساب کاربر جدا هستند.
 
+## Payments: NOWPayments
+
+On the server run `sudo bash /opt/forkwise/repo/backend/deploy/nowpayments.sh`. In NOWPayments set the IPN callback URL to `https://api.forkwiseai.com/api/billing/ipn`.
+
 ## Model provider: Cloudflare Workers AI
 
 On the server run:

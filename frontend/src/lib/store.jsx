@@ -132,7 +132,7 @@ function writeHint(value) {
 
 function readTheme() {
   try {
-    return localStorage.getItem("fw-theme") || "dark"
+    return "dark"
   } catch (problem) {
     return "dark"
   }

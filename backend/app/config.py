@@ -155,3 +155,6 @@ def public_models():
 def make_dirs():
     for folder in [DATA_DIR, WORKSPACES_DIR, CHECKPOINTS_DIR, TOOLS_DIR]:
         folder.mkdir(parents=True, exist_ok=True)
+
+NOWPAYMENTS_API_KEY = text("NOWPAYMENTS_API_KEY")
+NOWPAYMENTS_IPN_SECRET = text("NOWPAYMENTS_IPN_SECRET")

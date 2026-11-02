@@ -19,6 +19,18 @@ CREATE TABLE IF NOT EXISTS users (
     verified INTEGER NOT NULL DEFAULT 1,
     created_at REAL NOT NULL
 );
+CREATE TABLE IF NOT EXISTS payments (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    plan TEXT NOT NULL,
+    period TEXT NOT NULL,
+    amount REAL NOT NULL,
+    status TEXT NOT NULL DEFAULT 'created',
+    invoice_id TEXT NOT NULL DEFAULT '',
+    invoice_url TEXT NOT NULL DEFAULT '',
+    created_at REAL NOT NULL,
+    paid_at REAL NOT NULL DEFAULT 0
+);
 CREATE TABLE IF NOT EXISTS email_codes (
     email TEXT PRIMARY KEY,
     code_hash TEXT NOT NULL,
@@ -174,6 +186,10 @@ def connect():
             columns.append(row["name"])
         if "verified" not in columns:
             CONNECTION.execute("ALTER TABLE users ADD COLUMN verified INTEGER NOT NULL DEFAULT 1")
+        if "plan" not in columns:
+            CONNECTION.execute("ALTER TABLE users ADD COLUMN plan TEXT NOT NULL DEFAULT 'free'")
+        if "plan_until" not in columns:
+            CONNECTION.execute("ALTER TABLE users ADD COLUMN plan_until REAL NOT NULL DEFAULT 0")
     return CONNECTION
 
 

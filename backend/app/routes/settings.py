@@ -1,6 +1,6 @@
 from fastapi import Request, HTTPException
 from pydantic import BaseModel
-from app import db, config
+from app import db, config, plans
 from app.routes.auth import current_user, admin_user
 from app.agent import mcp, sandbox
 
@@ -142,7 +142,7 @@ def delete_mcp(server_id: str, request: Request):
 def usage(request: Request):
     user = current_user(request)
     rows = db.all_rows("SELECT * FROM usage WHERE user_id = ? ORDER BY day DESC LIMIT 30", (user["id"],))
-    return {"days": rows, "limit": config.DAILY_TOKEN_LIMIT}
+    return {"days": rows, "limit": plans.daily_limit(user)}
 
 
 def admin_stats(request: Request):

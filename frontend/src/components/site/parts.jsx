@@ -17,7 +17,7 @@ export function usePageTitle(title, description) {
 export function SiteLayout() {
   const location = useLocation()
   useEffect(() => {
-    document.documentElement.dataset.theme = "light"
+    document.documentElement.dataset.theme = "dark"
   }, [])
   useEffect(() => {
     if (!location.hash) window.scrollTo(0, 0)

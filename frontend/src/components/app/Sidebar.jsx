@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Link, NavLink, useNavigate, useParams } from "react-router-dom"
-import { FolderKanban, LogOut, Moon, PanelLeftClose, Pin, Plus, Search, Settings, Sparkles, Sun, Trash2, X, MoreHorizontal, Pencil, LayoutTemplate, Gauge, ShieldCheck } from "lucide-react"
+import { FolderKanban, LogOut, PanelLeftClose, Pin, Plus, Search, Settings, Sparkles, Trash2, X, MoreHorizontal, Pencil, LayoutTemplate, Gauge, ShieldCheck } from "lucide-react"
 import { Wordmark } from "../ui/Logo"
 import { useStore } from "../../lib/store"
 import { api } from "../../lib/api"
@@ -162,7 +162,6 @@ export default function Sidebar({ collapsed, onCollapse, mobileOpen, onMobileClo
             <span className="avatar">{(user && (user.name || user.email) || "?").slice(0, 1).toUpperCase()}</span>
             <span className="me-text"><strong>{user && user.name}</strong><small>{user && user.email}</small></span>
           </Link>
-          <button className="icon-btn" title="Switch theme" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>{theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}</button>
           <Link className="icon-btn" title="Settings" to="/app/settings" onClick={onMobileClose}><Settings size={16} /></Link>
           <button className="icon-btn" title="Sign out" onClick={logout}><LogOut size={16} /></button>
         </div>

@@ -3,7 +3,7 @@ import json
 from fastapi import Request, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from app import db, config
+from app import db, config, plans
 from app.routes.auth import current_user
 from app.agent import runs, checkpoints, sandbox, tools
 
@@ -215,11 +215,12 @@ async def delete_chat(chat_id: str, request: Request):
 
 
 def check_limit(user):
-    if config.DAILY_TOKEN_LIMIT <= 0 or user["is_admin"]:
+    limit = plans.daily_limit(user)
+    if limit <= 0 or user["is_admin"]:
         return
     used = db.usage_today(user["id"])
-    if used["tokens_in"] + used["tokens_out"] >= config.DAILY_TOKEN_LIMIT:
-        raise HTTPException(status_code=429, detail="You reached today's usage limit.")
+    if used["tokens_in"] + used["tokens_out"] >= limit:
+        raise HTTPException(status_code=429, detail="You reached today's usage limit. Upgrade your plan in Plan and usage for more.")
 
 
 async def send_message(chat_id: str, body: NewMessage, request: Request):

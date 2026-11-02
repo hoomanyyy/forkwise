@@ -2960,3 +2960,49 @@ a.list-row:hover {
     margin-left: -290px;
   }
 }
+
+.notice.ok {
+  background: var(--ok-tint);
+  color: var(--ok);
+  border: 1px solid rgba(74, 222, 128, 0.25);
+}
+
+.plans-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 24px;
+}
+
+.plans-head .price-toggle {
+  margin-top: 0;
+}
+
+.plans-head .section-title {
+  margin: 0;
+}
+
+.new-chat,
+.new-chat:hover,
+.ws-tab.active,
+.send.stop {
+  background: var(--brand);
+  color: #fff;
+}
+
+.new-chat:hover {
+  filter: brightness(1.1);
+  opacity: 1;
+}
+
+.showcase-tab.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #0b0e1f;
+}
+
+.page > .notice {
+  margin-bottom: 16px;
+}

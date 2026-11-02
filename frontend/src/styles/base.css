@@ -67,6 +67,19 @@
 }
 
 [data-theme="dark"], .band-dark {
+  --porcelain: #090b1f;
+  --paper: #121535;
+  --mist: #181b40;
+  --fog: #21254f;
+  --ink: #eef0ff;
+  --ink-2: #c9ccf0;
+  --graphite: #a7abd6;
+  --pebble: #6e72a3;
+  --iris-tint: rgba(139, 123, 255, 0.16);
+  --sky-tint: rgba(31, 162, 236, 0.16);
+  --verify-tint: rgba(74, 222, 128, 0.12);
+  --amber-tint: rgba(245, 184, 74, 0.12);
+  --rose-tint: rgba(255, 122, 144, 0.12);
   --bg: #090b1f;
   --bg-raised: #0e1029;
   --surface: #121535;
@@ -211,12 +224,13 @@ code, pre, kbd {
 }
 
 [data-theme="dark"] .btn-primary, .band-dark .btn-primary {
-  background: #f1f2ff;
-  color: #0b0d24;
+  background: var(--brand);
+  color: #fff;
+  box-shadow: 0 10px 28px -12px rgba(84, 67, 240, 0.75);
 }
 
 [data-theme="dark"] .btn-primary:hover, .band-dark .btn-primary:hover {
-  background: #ffffff;
+  filter: brightness(1.12);
 }
 
 .btn-brand {

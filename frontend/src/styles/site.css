@@ -1084,8 +1084,8 @@
 }
 
 .plan.featured .btn-primary {
-  background: #fff;
-  color: #11132e;
+  background: var(--brand);
+  color: #fff;
 }
 
 .plan ul {
@@ -2947,4 +2947,13 @@ a.live-item:hover {
   .live-item {
     flex-basis: 100%;
   }
+}
+
+
+.hero-badge b,
+.ask-result-icon,
+.filter-bar button.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #0b0e1f;
 }

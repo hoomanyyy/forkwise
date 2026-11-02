@@ -14,7 +14,7 @@ const FACTS = [
 
 function Shell({ children }) {
   useEffect(() => {
-    document.documentElement.dataset.theme = "light"
+    document.documentElement.dataset.theme = "dark"
   }, [])
   return (
     <div className="auth">
