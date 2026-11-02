@@ -141,14 +141,14 @@ def delete_mcp(server_id: str, request: Request):
 
 def usage(request: Request):
     user = current_user(request)
-    rows = db.all_rows("SELECT * FROM usage WHERE user_id = ? ORDER BY day DESC LIMIT 30", (user["id"],))
+    rows = db.all_rows("SELECT * FROM usage_daily WHERE user_id = ? ORDER BY day DESC LIMIT 30", (user["id"],))
     return {"days": rows, "limit": plans.daily_limit(user)}
 
 
 def admin_stats(request: Request):
     admin_user(request)
     users = db.all_rows("SELECT id, email, name, is_admin, created_at FROM users ORDER BY created_at DESC LIMIT 500")
-    totals = db.all_rows("SELECT user_id, SUM(tokens_in) AS tokens_in, SUM(tokens_out) AS tokens_out, SUM(runs) AS runs FROM usage GROUP BY user_id")
+    totals = db.all_rows("SELECT user_id, SUM(tokens_in) AS tokens_in, SUM(tokens_out) AS tokens_out, SUM(runs) AS runs FROM usage_daily GROUP BY user_id")
     chats = db.one_row("SELECT COUNT(*) AS n FROM chats")["n"]
     return {"users": users, "usage": totals, "chats": chats, "sandbox": config.SANDBOX, "sandbox_ready": sandbox.docker_ready(), "models": config.public_models()}
 

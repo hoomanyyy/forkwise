@@ -156,5 +156,11 @@ def make_dirs():
     for folder in [DATA_DIR, WORKSPACES_DIR, CHECKPOINTS_DIR, TOOLS_DIR]:
         folder.mkdir(parents=True, exist_ok=True)
 
+MYSQL_HOST = text("MYSQL_HOST", "127.0.0.1")
+MYSQL_PORT = number("MYSQL_PORT", 3306)
+MYSQL_USER = text("MYSQL_USER", "forkwise")
+MYSQL_PASSWORD = text("MYSQL_PASSWORD")
+MYSQL_DATABASE = text("MYSQL_DATABASE")
+
 NOWPAYMENTS_API_KEY = text("NOWPAYMENTS_API_KEY")
 NOWPAYMENTS_IPN_SECRET = text("NOWPAYMENTS_IPN_SECRET")
