@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react"
-import { useNavigate, useSearchParams } from "react-router-dom"
-import { Globe, LayoutTemplate, Sparkles, FileSpreadsheet } from "lucide-react"
+import { Link, useNavigate, useSearchParams } from "react-router-dom"
+import { Clock, Globe, LayoutTemplate, ListChecks, MessageSquare, Sparkles, FileSpreadsheet, Zap } from "lucide-react"
 import Composer from "../../components/app/Composer"
 import { LogoMark } from "../../components/ui/Logo"
 import { useStore } from "../../lib/store"
 import { api } from "../../lib/api"
 import { TEMPLATES } from "../../content/catalog"
+import { Cover } from "../../components/site/Cover"
 
 const IDEAS = [
   { icon: LayoutTemplate, title: "Build a landing page", text: "Build a modern landing page for a specialty coffee shop in Tehran with a menu, gallery and contact form, then show it to me." },
@@ -13,6 +14,15 @@ const IDEAS = [
   { icon: FileSpreadsheet, title: "Analyse a spreadsheet", text: "I will attach a CSV. Clean it, find the main trends and make a chart dashboard I can open." },
   { icon: Sparkles, title: "Teach yourself a skill", text: "Make yourself a permanent tool that converts any currency using a free public API, test it, and tell me how to use it." },
 ]
+
+function timeAgo(seconds) {
+  const diff = Math.max(0, Date.now() / 1000 - seconds)
+  if (diff < 60) return "Just now"
+  if (diff < 3600) return Math.floor(diff / 60) + " min ago"
+  if (diff < 86400) return Math.floor(diff / 3600) + " h ago"
+  if (diff < 86400 * 7) return Math.floor(diff / 86400) + " d ago"
+  return new Date(seconds * 1000).toLocaleDateString("en-GB", { day: "numeric", month: "short" })
+}
 
 function greeting(name) {
   const hour = new Date().getHours()
@@ -24,7 +34,7 @@ function greeting(name) {
 }
 
 export default function Home() {
-  const { user, models, addChat, toast, projects } = useStore()
+  const { user, models, addChat, toast, projects, chats, chatsReady, usage } = useStore()
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const projectId = params.get("project") || ""
@@ -34,6 +44,11 @@ export default function Home() {
   const [model, setModel] = useState(settings.model || (models[0] && models[0].key) || "")
   const [seed, setSeed] = useState(null)
   const pending = useRef(null)
+  const [billing, setBilling] = useState(null)
+
+  useEffect(() => {
+    api.get("/api/billing").then(setBilling).catch(() => setBilling(null))
+  }, [])
 
   useEffect(() => {
     const template = TEMPLATES.find((item) => item.slug === params.get("template"))
@@ -102,6 +117,50 @@ export default function Home() {
             )
           })}
         </div>
+      </div>
+      <div className="home-sections">
+        {billing && (
+          <div className="home-usage">
+            <span className={"chip plan-" + billing.plan}><Zap size={13} />{billing.plan.charAt(0).toUpperCase() + billing.plan.slice(1)} plan</span>
+            {billing.limit > 0 && usage ? (
+              <>
+                <span className="meter"><span style={{ width: Math.min(100, ((usage.tokens_in + usage.tokens_out) / billing.limit) * 100) + "%" }} /></span>
+                <span className="muted small">{Math.round(Math.min(100, ((usage.tokens_in + usage.tokens_out) / billing.limit) * 100))}% of today's usage</span>
+              </>
+            ) : <span className="muted small">No daily limit</span>}
+            <Link to="/app/billing" className="text-link small">{billing.plan === "free" ? "Upgrade" : "Manage plan"}</Link>
+          </div>
+        )}
+        {chatsReady && chats.length > 0 && (
+          <section>
+            <div className="home-section-head"><h2>Continue where you left off</h2></div>
+            <div className="recent-grid">
+              {chats.slice(0, 6).map((chat) => (
+                <button key={chat.id} type="button" className="recent-card" onClick={() => navigate("/app/c/" + chat.id)}>
+                  <span className="recent-icon">{chat.mode === "plan" ? <ListChecks size={16} /> : <MessageSquare size={16} />}</span>
+                  <span className="recent-title" dir="auto">{chat.title}</span>
+                  <span className="recent-meta"><Clock size={12} />{timeAgo(chat.updated_at)}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+        <section>
+          <div className="home-section-head"><h2>Start from a template</h2><Link to="/app/templates" className="text-link small">All templates</Link></div>
+          <div className="template-grid">
+            {TEMPLATES.slice(0, 4).map((item) => (
+              <button key={item.slug} type="button" className="template-card" onClick={() => {
+                setSeed({ value: item.prompt })
+                const box = document.querySelector(".home")
+                if (box) box.scrollTo({ top: 0, behavior: "smooth" })
+              }}>
+                <div className="template-art"><Cover seed={item.slug + "t"} label={item.title} /></div>
+                <strong>{item.title}</strong>
+                <span className="muted small">{item.text}</span>
+              </button>
+            ))}
+          </div>
+        </section>
       </div>
     </div>
   )
