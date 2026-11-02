@@ -82,6 +82,11 @@ def project_file_text(wid):
     return "There is no FORKWISE.md in this project yet. For bigger projects create one with: what it is, the stack, how to run it, decisions and what is left."
 
 
+KIND_CODE = """This is a CODE session. The user wants software built or fixed. Work like a careful engineer: plan briefly, create the files, run the code, read the errors and fix them, and show the live preview when there is something to see. Prefer simple, readable code and finish the job before you reply."""
+
+KIND_DESIGN = """This is a DESIGN session. The user wants a visual result: a website, landing page, app screen, dashboard, poster or similar. Build it as clean HTML, CSS and a little JavaScript, make it responsive, use a consistent type scale, spacing and a small colour palette, then open the live preview and look at screenshots at desktop and phone width. Fix anything that looks uneven, cramped or broken before you say it is done. Offer two or three alternative directions when the user has not chosen a style."""
+
+
 def build(chat, user, project):
     parts = [BASE]
     parts.append("Today is " + time.strftime("%A %d %B %Y, %H:%M UTC", time.gmtime()) + ".")
@@ -100,6 +105,11 @@ def build(chat, user, project):
     skills = skills_text(user["id"])
     if skills:
         parts.append(skills)
+    kind = chat.get("kind") or "chat"
+    if kind == "code":
+        parts.append(KIND_CODE)
+    elif kind == "design":
+        parts.append(KIND_DESIGN)
     if chat["mode"] == "plan":
         parts.append(PLAN)
     elif chat["mode"] == "ask":

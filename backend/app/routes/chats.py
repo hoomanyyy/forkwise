@@ -8,12 +8,14 @@ from app.routes.auth import current_user
 from app.agent import runs, checkpoints, sandbox, tools
 
 MODES = ["auto", "ask", "plan"]
+KINDS = ["chat", "code", "design"]
 
 
 class NewChat(BaseModel):
     project_id: str = ""
     model: str = ""
     mode: str = "auto"
+    kind: str = "chat"
 
 
 class ChatChange(BaseModel):
@@ -74,6 +76,7 @@ def chat_summary(chat):
         "project_id": chat["project_id"],
         "pinned": bool(chat["pinned"]),
         "mode": chat["mode"],
+        "kind": chat.get("kind") or "chat",
         "model": chat["model"],
         "updated_at": chat["updated_at"],
         "running": chat["id"] in runs.ACTIVE,
@@ -103,6 +106,9 @@ def create_chat(body: NewChat, request: Request):
     mode = body.mode
     if mode not in MODES:
         mode = "auto"
+    kind = body.kind
+    if kind not in KINDS:
+        kind = "chat"
     model = body.model
     if model == "":
         settings = db.load_json(user["settings"], {})
@@ -112,7 +118,7 @@ def create_chat(body: NewChat, request: Request):
         model = found["key"]
     chat_id = db.new_id("c_")
     created = db.now()
-    db.insert("chats", {"id": chat_id, "user_id": user["id"], "project_id": project_id, "title": "New chat", "model": model, "mode": mode, "workspace_id": workspace_id, "created_at": created, "updated_at": created})
+    db.insert("chats", {"id": chat_id, "user_id": user["id"], "project_id": project_id, "title": "New chat", "model": model, "mode": mode, "kind": kind, "workspace_id": workspace_id, "created_at": created, "updated_at": created})
     return {"chat": chat_summary(db.one_row("SELECT * FROM chats WHERE id = ?", (chat_id,)))}
 
 

@@ -66,6 +66,7 @@ CREATE TABLE IF NOT EXISTS chats (
     title TEXT NOT NULL DEFAULT 'New chat',
     model TEXT NOT NULL DEFAULT '',
     mode TEXT NOT NULL DEFAULT 'auto',
+    kind TEXT NOT NULL DEFAULT 'chat',
     workspace_id TEXT NOT NULL,
     pinned INTEGER NOT NULL DEFAULT 0,
     allowed_tools TEXT NOT NULL DEFAULT '[]',
@@ -232,6 +233,7 @@ MYSQL_TABLES = [
     title VARCHAR(500) NOT NULL DEFAULT 'New chat',
     model VARCHAR(255) NOT NULL DEFAULT '',
     mode VARCHAR(16) NOT NULL DEFAULT 'auto',
+    kind VARCHAR(16) NOT NULL DEFAULT 'chat',
     workspace_id VARCHAR(64) NOT NULL,
     pinned INT NOT NULL DEFAULT 0,
     allowed_tools LONGTEXT NOT NULL DEFAULT ('[]'),
@@ -363,6 +365,9 @@ def open_mysql():
     cursor = connection.cursor()
     for statement in MYSQL_TABLES:
         cursor.execute(statement)
+    cursor.execute("SHOW COLUMNS FROM chats LIKE 'kind'")
+    if cursor.fetchone() is None:
+        cursor.execute("ALTER TABLE chats ADD COLUMN kind VARCHAR(16) NOT NULL DEFAULT 'chat'")
     cursor.close()
     return connection
 
@@ -409,6 +414,11 @@ def connect():
             CONNECTION.execute("ALTER TABLE users ADD COLUMN plan TEXT NOT NULL DEFAULT 'free'")
         if "plan_until" not in columns:
             CONNECTION.execute("ALTER TABLE users ADD COLUMN plan_until REAL NOT NULL DEFAULT 0")
+        chat_columns = []
+        for row in CONNECTION.execute("PRAGMA table_info(chats)").fetchall():
+            chat_columns.append(row["name"])
+        if "kind" not in chat_columns:
+            CONNECTION.execute("ALTER TABLE chats ADD COLUMN kind TEXT NOT NULL DEFAULT 'chat'")
     return CONNECTION
 
 

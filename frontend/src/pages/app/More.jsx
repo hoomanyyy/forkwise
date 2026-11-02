@@ -74,22 +74,16 @@ export function Billing() {
       <div className="page-head"><div><h1>Plan and usage</h1><p className="muted">Your current plan and how much you have used.</p></div></div>
       {justPaid && current === "free" && <div className="notice">Thank you. Your payment is being confirmed on the network. Your plan switches on by itself when it arrives, usually within a few minutes.</div>}
       {justPaid && current !== "free" && <div className="notice ok">Payment received. Your {current.charAt(0).toUpperCase() + current.slice(1)} plan is active.</div>}
-      <div className="stat-cards">
-        <div className="stat-card">
+      <div className="plan-hero">
+        <div className="plan-hero-main">
           <span className="faint small">Current plan</span>
-          <b>{current.charAt(0).toUpperCase() + current.slice(1)}</b>
-          <span className="muted small">{until ? "Active until " + until : "Free forever"}</span>
+          <div className="plan-hero-name"><strong>{current.charAt(0).toUpperCase() + current.slice(1)}</strong><span className={"chip " + (current === "free" ? "" : "ok")}>{current === "free" ? "Free forever" : "Active"}</span></div>
+          <span className="muted small">{until ? "Renews or ends on " + until + ". Pay again any time to extend." : "Upgrade for more daily usage and the strongest models."}</span>
         </div>
-        <div className="stat-card">
-          <span className="faint small">Used today</span>
-          <b>{formatNumber(today)}</b>
-          <span className="muted small">{limit > 0 ? "of " + formatNumber(limit) + " tokens" : "tokens, no daily limit"}</span>
-          {limit > 0 && <span className="meter"><span style={{ width: share + "%" }} /></span>}
-        </div>
-        <div className="stat-card">
-          <span className="faint small">Last 30 days</span>
-          <b>{formatNumber(month)}</b>
-          <span className="muted small">tokens across {runs} tasks</span>
+        <div className="plan-hero-meter">
+          <div className="plan-hero-row"><span className="muted small">Used today</span><span className="small">{formatNumber(today)}{limit > 0 ? " of " + formatNumber(limit) : ""} tokens</span></div>
+          {limit > 0 ? <span className="meter"><span style={{ width: share + "%" }} /></span> : <span className="faint small">No daily limit</span>}
+          <div className="plan-hero-row"><span className="muted small">Last 30 days</span><span className="small">{formatNumber(month)} tokens, {runs} tasks</span></div>
         </div>
       </div>
       <div className="plans-head">

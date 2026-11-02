@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from "react"
 import { Link, useNavigate, useSearchParams } from "react-router-dom"
-import { Clock, Globe, LayoutTemplate, ListChecks, MessageSquare, Sparkles, FileSpreadsheet, Zap } from "lucide-react"
+import { Clock, Code2, FolderKanban, Globe, LayoutTemplate, ListChecks, MessageSquare, Palette, Plus, Sparkles, FileSpreadsheet, Zap } from "lucide-react"
 import Composer from "../../components/app/Composer"
 import { LogoMark } from "../../components/ui/Logo"
 import { useStore } from "../../lib/store"
 import { api } from "../../lib/api"
 import { TEMPLATES } from "../../content/catalog"
 import { Cover } from "../../components/site/Cover"
+import { CODE_IDEAS, DESIGN_GALLERY, DESIGN_IDEAS, KIND_HOME } from "../../lib/kinds"
 
 const IDEAS = [
   { icon: LayoutTemplate, title: "Build a landing page", text: "Build a modern landing page for a specialty coffee shop in Tehran with a menu, gallery and contact form, then show it to me." },
@@ -33,7 +34,9 @@ function greeting(name) {
   return first ? part + ", " + first : part
 }
 
-export default function Home() {
+export default function Home({ kind }) {
+  const section = kind || "chat"
+  const copy = KIND_HOME[section]
   const { user, models, addChat, toast, projects, chats, chatsReady, usage } = useStore()
   const navigate = useNavigate()
   const [params] = useSearchParams()
@@ -58,7 +61,7 @@ export default function Home() {
 
   async function ensureChat() {
     if (pending.current) return pending.current
-    pending.current = api.post("/api/chats", { project_id: projectId, model, mode }).then((data) => {
+    pending.current = api.post("/api/chats", { project_id: projectId, model, mode, kind: section }).then((data) => {
       addChat(data.chat)
       return data.chat
     })
@@ -84,10 +87,11 @@ export default function Home() {
     <div className="home">
       <div className="home-inner">
         <div className="home-mark"><LogoMark size={54} draw /></div>
-        <h1 className="home-title">{greeting(user && user.name)}</h1>
-        <p className="home-sub">{project ? "New chat in " + project.name + ". It shares the project's files and notes." : "Ask a question, or describe something to build. Forkwise has its own computer to do the work."}</p>
+        <h1 className="home-title">{copy.title || greeting(user && user.name)}</h1>
+        <p className="home-sub">{project ? "New chat in " + project.name + ". It shares the project's files and notes." : copy.sub}</p>
         <Composer
           big
+          placeholder={copy.placeholder}
           onSend={send}
           running={false}
           mode={mode}
@@ -107,7 +111,7 @@ export default function Home() {
         />
         {models.length === 0 && <div className="notice error">No AI model is set up on the server yet. Add LLM_API_KEY and LLM_MODELS to the server .env file.</div>}
         <div className="ideas">
-          {IDEAS.map((idea) => {
+          {(section === "code" ? CODE_IDEAS.map((item) => ({ ...item, icon: Code2 })) : section === "design" ? DESIGN_IDEAS.map((item) => ({ ...item, icon: Palette })) : IDEAS).map((idea) => {
             const Icon = idea.icon
             return (
               <button key={idea.title} type="button" className="idea" onClick={() => setSeed({ value: idea.text })}>
@@ -119,7 +123,7 @@ export default function Home() {
         </div>
       </div>
       <div className="home-sections">
-        {billing && (
+        {section === "chat" && billing && (
           <div className="home-usage">
             <span className={"chip plan-" + billing.plan}><Zap size={13} />{billing.plan.charAt(0).toUpperCase() + billing.plan.slice(1)} plan</span>
             {billing.limit > 0 && usage ? (
@@ -131,13 +135,32 @@ export default function Home() {
             <Link to="/app/billing" className="text-link small">{billing.plan === "free" ? "Upgrade" : "Manage plan"}</Link>
           </div>
         )}
-        {chatsReady && chats.length > 0 && (
+        {section === "code" && (
+          <section>
+            <div className="home-section-head"><h2>Your projects</h2><Link to="/app/projects" className="text-link small">All projects</Link></div>
+            <div className="recent-grid">
+              <Link to="/app/projects" className="recent-card new-card">
+                <span className="recent-icon"><Plus size={16} /></span>
+                <span className="recent-title">New project</span>
+                <span className="recent-meta">Shared files for many chats</span>
+              </Link>
+              {projects.slice(0, 5).map((item) => (
+                <button key={item.id} type="button" className="recent-card" onClick={() => navigate("/app/projects/" + item.id)}>
+                  <span className="recent-icon"><FolderKanban size={16} /></span>
+                  <span className="recent-title" dir="auto">{item.name}</span>
+                  <span className="recent-meta"><Clock size={12} />{timeAgo(item.updated_at)}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+        {chatsReady && chats.filter((item) => (item.kind || "chat") === section).length > 0 && (
           <section>
             <div className="home-section-head"><h2>Continue where you left off</h2></div>
             <div className="recent-grid">
-              {chats.slice(0, 6).map((chat) => (
+              {chats.filter((item) => (item.kind || "chat") === section).slice(0, 6).map((chat) => (
                 <button key={chat.id} type="button" className="recent-card" onClick={() => navigate("/app/c/" + chat.id)}>
-                  <span className="recent-icon">{chat.mode === "plan" ? <ListChecks size={16} /> : <MessageSquare size={16} />}</span>
+                  <span className="recent-icon">{chat.mode === "plan" ? <ListChecks size={16} /> : section === "code" ? <Code2 size={16} /> : section === "design" ? <Palette size={16} /> : <MessageSquare size={16} />}</span>
                   <span className="recent-title" dir="auto">{chat.title}</span>
                   <span className="recent-meta"><Clock size={12} />{timeAgo(chat.updated_at)}</span>
                 </button>
@@ -146,9 +169,9 @@ export default function Home() {
           </section>
         )}
         <section>
-          <div className="home-section-head"><h2>Start from a template</h2><Link to="/app/templates" className="text-link small">All templates</Link></div>
+          <div className="home-section-head"><h2>{section === "design" ? "Start from a design" : "Start from a template"}</h2>{section !== "design" && <Link to="/app/templates" className="text-link small">All templates</Link>}</div>
           <div className="template-grid">
-            {TEMPLATES.slice(0, 4).map((item) => (
+            {(section === "design" ? DESIGN_GALLERY.slice(0, 8) : section === "code" ? TEMPLATES.filter((item) => item.category !== "Media").slice(0, 4) : TEMPLATES.slice(0, 4)).map((item) => (
               <button key={item.slug} type="button" className="template-card" onClick={() => {
                 setSeed({ value: item.prompt })
                 const box = document.querySelector(".home")

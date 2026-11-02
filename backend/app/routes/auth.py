@@ -4,6 +4,7 @@ import re
 import secrets
 import bcrypt
 from fastapi import Request, HTTPException, Response
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from app import db, config, mailer
 
@@ -350,7 +351,24 @@ def delete_account(body: DeleteBody, request: Request, response: Response):
     return {"ok": True}
 
 
+def export_account(request: Request):
+    user = current_user(request)
+    chats = db.all_rows("SELECT * FROM chats WHERE user_id = ? ORDER BY created_at", (user["id"],))
+    result = []
+    for chat in chats:
+        rows = db.all_rows("SELECT role, content, created_at FROM messages WHERE chat_id = ? AND role IN ('user', 'assistant') AND hidden = 0 ORDER BY id", (chat["id"],))
+        result.append({"title": chat["title"], "kind": chat.get("kind") or "chat", "created_at": chat["created_at"], "messages": rows})
+    memories = db.all_rows("SELECT content, created_at FROM memories WHERE user_id = ?", (user["id"],))
+    data = {
+        "account": {"email": user["email"], "name": user["name"], "created_at": user["created_at"], "settings": db.load_json(user.get("settings"), {})},
+        "chats": result,
+        "memories": memories,
+    }
+    return JSONResponse(data, headers={"Content-Disposition": "attachment; filename=forkwise-export.json"})
+
+
 def register_routes(app):
+    app.add_api_route("/api/account/export", export_account, methods=["GET"])
     app.add_api_route("/api/auth/password", change_password, methods=["POST"])
     app.add_api_route("/api/auth/sign-out-others", sign_out_others, methods=["POST"])
     app.add_api_route("/api/auth/delete", delete_account, methods=["POST"])

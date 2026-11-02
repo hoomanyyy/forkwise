@@ -1,16 +1,14 @@
 import { useEffect, useState } from "react"
-import { Link, NavLink, useNavigate, useParams } from "react-router-dom"
+import { Link, Navigate, NavLink, useNavigate, useParams } from "react-router-dom"
 import { BarChart3, BookOpen, Brain, Plug, ShieldCheck, Sparkles, Trash2, User, Wrench, Plus } from "lucide-react"
 import { useStore } from "../../lib/store"
-import { api } from "../../lib/api"
+import { api, apiUrl } from "../../lib/api"
 
 const TABS = [
-  { key: "general", label: "General", icon: User },
+  { key: "general", label: "Profile", icon: User },
   { key: "security", label: "Security", icon: ShieldCheck },
-  { key: "memory", label: "Memory", icon: Brain },
-  { key: "abilities", label: "Abilities", icon: Sparkles },
-  { key: "connectors", label: "Connectors", icon: Plug },
   { key: "usage", label: "Usage", icon: BarChart3 },
+  { key: "data", label: "Data", icon: BookOpen },
 ]
 
 function General() {
@@ -141,7 +139,7 @@ function Security() {
   )
 }
 
-function Memory() {
+export function Memory() {
   const { toast } = useStore()
   const [items, setItems] = useState([])
   const [text, setText] = useState("")
@@ -192,7 +190,7 @@ function Memory() {
   )
 }
 
-function Abilities() {
+export function Abilities() {
   const [tools, setTools] = useState([])
   const [skills, setSkills] = useState([])
   const [open, setOpen] = useState(null)
@@ -272,7 +270,7 @@ function Abilities() {
   )
 }
 
-function Connectors() {
+export function Connectors() {
   const { toast } = useStore()
   const [servers, setServers] = useState([])
   const [name, setName] = useState("")
@@ -360,9 +358,78 @@ function Usage() {
   )
 }
 
+export function Instructions() {
+  const { user, setUser, models, toast } = useStore()
+  const settings = user.settings || {}
+  const [instructions, setInstructions] = useState(settings.instructions || "")
+  const [model, setModel] = useState(settings.model || "")
+  const [saving, setSaving] = useState(false)
+
+  async function save() {
+    setSaving(true)
+    try {
+      const data = await api.post("/api/auth/settings", { name: user.name, settings: { instructions, model } })
+      setUser(data.user)
+      toast("Saved", "ok")
+    } catch (problem) {
+      toast(problem.message, "error")
+    }
+    setSaving(false)
+  }
+
+  return (
+    <div className="settings-stack wide">
+      <div className="settings-card">
+        <h3>Custom instructions</h3>
+        <p className="muted small">Forkwise reads this before every answer, in every chat.</p>
+        <textarea className="textarea" dir="auto" rows={8} value={instructions} onChange={(e) => setInstructions(e.target.value)} placeholder="For example: reply in Persian, keep Python code simple, explain steps briefly." />
+      </div>
+      <div className="settings-card">
+        <h3>Default model</h3>
+        <p className="muted small">Used for new chats. You can still change it in any chat.</p>
+        <select className="select" value={model} onChange={(e) => setModel(e.target.value)}>
+          <option value="">Server default</option>
+          {models.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
+        </select>
+      </div>
+      <div className="settings-save"><button className="btn btn-primary" onClick={save} disabled={saving}>{saving ? "Saving" : "Save changes"}</button></div>
+    </div>
+  )
+}
+
+function DataTab() {
+  const { toast } = useStore()
+
+  async function download() {
+    try {
+      const response = await fetch(apiUrl("/api/account/export"), { credentials: "include" })
+      if (!response.ok) throw new Error("Could not prepare your export.")
+      const blob = await response.blob()
+      const link = document.createElement("a")
+      link.href = URL.createObjectURL(blob)
+      link.download = "forkwise-export.json"
+      link.click()
+      URL.revokeObjectURL(link.href)
+    } catch (problem) {
+      toast(problem.message, "error")
+    }
+  }
+
+  return (
+    <div className="settings-stack">
+      <div className="settings-card">
+        <h3>Export your data</h3>
+        <p className="muted small">A JSON file with your profile, chats and memories. Files that Forkwise built live in each chat's Files panel, where you can download them as a zip.</p>
+        <div><button className="btn btn-ghost" onClick={download}>Download my data</button></div>
+      </div>
+    </div>
+  )
+}
+
 export default function Settings() {
   const { tab } = useParams()
   const current = tab || "general"
+  if (current === "memory" || current === "abilities" || current === "connectors") return <Navigate to={"/app/customize/" + current} replace />
   return (
     <div className="page settings">
       <div className="page-head"><div><h1>Settings</h1></div></div>
@@ -376,9 +443,7 @@ export default function Settings() {
         <div className="settings-body">
           {current === "general" && <General />}
           {current === "security" && <Security />}
-          {current === "memory" && <Memory />}
-          {current === "abilities" && <Abilities />}
-          {current === "connectors" && <Connectors />}
+          {current === "data" && <DataTab />}
           {current === "usage" && <Usage />}
         </div>
       </div>
