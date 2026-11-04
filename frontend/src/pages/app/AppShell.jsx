@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { Navigate, Outlet, useNavigate } from "react-router-dom"
+import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom"
 import { Menu, PanelLeftOpen } from "lucide-react"
 import Sidebar from "../../components/app/Sidebar"
 import Palette from "../../components/app/Palette"
@@ -10,6 +10,8 @@ import { useStore } from "../../lib/store"
 export default function AppShell() {
   const { user, ready, theme } = useStore()
   const navigate = useNavigate()
+  const location = useLocation()
+  const here = location.pathname + location.search
   const [collapsed, setCollapsed] = useState(() => {
     try {
       return localStorage.getItem("fw-sidebar") === "closed"
@@ -45,8 +47,8 @@ export default function AppShell() {
   if (!ready) {
     return <AppSkeleton />
   }
-  if (!user) return <Navigate to={"/login?next=" + encodeURIComponent(window.location.pathname + window.location.search)} replace />
-  if (!(user.settings && user.settings.onboarded)) return <Navigate to={"/welcome?next=" + encodeURIComponent(window.location.pathname + window.location.search)} replace />
+  if (!user) return <Navigate to={"/login?next=" + encodeURIComponent(here)} replace />
+  if (!(user.settings && user.settings.onboarded)) return <Navigate to={"/welcome?next=" + encodeURIComponent(here)} replace />
 
   return (
     <div className={"shell" + (collapsed ? " sidebar-closed" : "")}>

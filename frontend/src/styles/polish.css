@@ -747,3 +747,11 @@ summary:hover {
 .device-row .dot.ok { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5); animation: fw-live 1.8s infinite; }
 @keyframes fw-live { 70% { box-shadow: 0 0 0 7px rgba(34, 197, 94, 0); } 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); } }
 @media (max-width: 520px) { .pair-row { flex-direction: column; } }
+
+.auth-form > .form-error {
+  animation: fw-fade-up 0.3s ease backwards, fw-shake 0.38s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-form > .form-error { animation: none; }
+}

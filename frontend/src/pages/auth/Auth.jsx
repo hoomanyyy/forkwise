@@ -448,7 +448,8 @@ export function Welcome() {
   })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
-  const next = params.get("next") || "/app"
+  const wanted = params.get("next") || ""
+  const next = wanted.startsWith("/app") ? wanted : "/app"
 
   if (!ready) return <div className="auth-loading" />
   if (!user) return <Navigate to="/login?next=/welcome" replace />
@@ -470,8 +471,8 @@ export function Welcome() {
       navigate(next, { replace: true })
     } catch (problem) {
       setError(problem.message)
-      setBusy(false)
     }
+    setBusy(false)
   }
 
   const org = profile.account_type === "organization"
