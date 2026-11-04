@@ -105,6 +105,43 @@ async def stream_single(model, messages, tools, on_delta, max_tokens, temperatur
 
 
 COOLDOWNS = {}
+LEARNED_CONTEXT = {}
+MIN_ANSWER_ROOM = 1500
+
+
+def real_context(model):
+    size = model.get("context") or 128000
+    learned = LEARNED_CONTEXT.get(model["key"])
+    if learned and learned < size:
+        return learned
+    return size
+
+
+def learn_limit(model, text):
+    found = re.search(r"(?:window|context)[^0-9]{0,60}limit[^0-9]{0,6}(\d{4,7})", text, re.IGNORECASE)
+    if not found:
+        found = re.search(r"maximum context length is (\d{4,7})", text, re.IGNORECASE)
+    if not found:
+        found = re.search(r"limit \((\d{4,7})\)", text, re.IGNORECASE)
+    if found:
+        LEARNED_CONTEXT[model["key"]] = int(found.group(1))
+        return int(found.group(1))
+    return 0
+
+
+def is_overflow(text):
+    lowered = text.lower()
+    if status_of(text) == 413:
+        return True
+    if "context" in lowered and ("length" in lowered or "too long" in lowered or "exceed" in lowered or "maximum" in lowered or "limit" in lowered):
+        return True
+    return "too many tokens" in lowered or "input and maximum output" in lowered
+
+
+def tools_size(tools):
+    if not tools:
+        return 0
+    return len(json.dumps(tools)) // 3
 FAILOVER_STATUS = [401, 402, 403, 404, 408, 409, 425, 429, 500, 502, 503, 504, 520, 522, 524, 529]
 
 
@@ -154,8 +191,10 @@ def candidates_for(model):
 async def stream_chat(model, messages, tools=None, on_delta=None, max_tokens=16000, temperature=None, stop_flag=None, effort=""):
     if model is None:
         raise ModelError("No AI model is set up. Add LLM_API_KEY and LLM_MODELS to the .env file.")
+    need = estimate_tokens(messages) + tools_size(tools)
     if not config.FAILOVER:
-        return await stream_single(model, messages, tools, on_delta, max_tokens, temperature, stop_flag, 5, effort)
+        room = real_context(model) - need - 500
+        return await stream_single(model, messages, tools, on_delta, fit_output(max_tokens, room), temperature, stop_flag, 5, effort)
     options = candidates_for(model)
     last = None
     for position in range(len(options)):
@@ -163,14 +202,22 @@ async def stream_chat(model, messages, tools=None, on_delta=None, max_tokens=160
         last_one = position == len(options) - 1
         if cooling(item) and not last_one:
             continue
+        room = real_context(item) - need - 500
+        if room < MIN_ANSWER_ROOM and not last_one:
+            continue
         try:
-            answer = await stream_single(item, messages, tools, on_delta, max_tokens, temperature, stop_flag, 5 if last_one else 2, effort)
+            answer = await stream_single(item, messages, tools, on_delta, fit_output(max_tokens, room), temperature, stop_flag, 5 if last_one else 2, effort)
             if item["key"] != model["key"]:
                 answer["switched_to"] = item["label"]
             return answer
         except ModelError as problem:
             last = problem
             text = str(problem)
+            if is_overflow(text):
+                learn_limit(item, text)
+                if not last_one:
+                    continue
+                raise
             if status_of(text) in FAILOVER_STATUS and not last_one:
                 COOLDOWNS[item["key"]] = time.time() + wait_seconds(text)
                 print("MODEL FAILOVER", item["key"], text[:160], flush=True)
@@ -179,6 +226,14 @@ async def stream_chat(model, messages, tools=None, on_delta=None, max_tokens=160
     if last is not None:
         raise last
     raise ModelError("The model did not answer.")
+
+
+def fit_output(max_tokens, room):
+    if room >= max_tokens:
+        return max_tokens
+    if room < 512:
+        return 512
+    return room
 
 
 def retryable(text):

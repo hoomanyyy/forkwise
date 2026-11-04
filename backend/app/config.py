@@ -109,6 +109,12 @@ def add_models(models, provider, url, key, spec, vision):
             continue
         model_id = item
         label = ""
+        size = number("LLM_CONTEXT", 128000)
+        if "|" in item:
+            item, size_text = item.rsplit("|", 1)
+            model_id = item
+            if size_text.strip().isdigit():
+                size = int(size_text.strip())
         if "=" in item:
             model_id, label = item.split("=", 1)
         model_id = model_id.strip()
@@ -121,7 +127,7 @@ def add_models(models, provider, url, key, spec, vision):
             "url": url,
             "api_key": key,
             "vision": vision,
-            "context": number("LLM_CONTEXT", 128000),
+            "context": size,
         })
 
 

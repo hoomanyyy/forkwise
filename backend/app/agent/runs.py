@@ -372,7 +372,7 @@ def warn_if_stuck(run, name, args, outcome):
 
 def context_limit(run):
     if run.model:
-        return run.model.get("context") or 128000
+        return llm.real_context(run.model)
     return 128000
 
 
@@ -510,9 +510,9 @@ async def model_turn(run, step):
             answer = await llm.stream_chat(run.model, messages, tools=run.tool_specs, on_delta=on_delta, stop_flag=run.stop_flag, effort=run.effort)
             break
         except llm.ModelError as problem:
-            text = str(problem).lower()
-            if ("context" in text and ("length" in text or "too long" in text or "exceed" in text or "maximum" in text)) or "too many tokens" in text:
-                if attempt < 2 and await compact(run, True):
+            if llm.is_overflow(str(problem)):
+                if attempt < 2:
+                    await compact(run, True)
                     messages = build_context(run)
                     run.emit("context", {"tokens": llm.estimate_tokens(messages), "limit": context_limit(run)})
                     continue
