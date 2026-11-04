@@ -41,32 +41,42 @@ Open **Settings, Secrets** and save a value under a name like \`STRIPE_KEY\`. Fo
   },
   "desktop-app": {
     title: "The desktop app",
-    summary: "Let Forkwise use your own computer: terminal, apps, screen, mouse and keyboard.",
-    body: `The Forkwise Desktop app links your Windows, macOS or Linux computer to your account.
+    summary: "All of Forkwise in its own window, working on the folders of your own computer.",
+    body: `The Forkwise Desktop app is the full Forkwise on Windows, macOS and Linux. It opens the same chat in its own window and adds what a website cannot do: work on folders of your own computer and run commands in your own terminal.
 
-## Link a computer
+## Install and sign in
 
-Open **Settings, Your computer**, name the computer and press **Link a computer**. Copy the command shown and run it in PowerShell (Windows) or a terminal. The one-time token is shown only once. A small window opens and stays connected.
+Download the app from the [Download page](/download), install it and sign in. The app links your computer to your account by itself. You do not paste a token. The builds are not code-signed yet, so Windows SmartScreen or macOS Gatekeeper may ask you to confirm the first run.
 
-## What the agent can do
+## Work in a folder
 
-Run commands in a full terminal, open apps (VS Code, Notepad, folders, links), open Windows settings pages, read, write and list files, change the wallpaper, switch windows, use the clipboard, take screenshots, and use the mouse and keyboard. It takes a screenshot after each step to check the result.
+On the new chat page choose **Work in a folder on this computer** (or File, Open folder). Pick a project folder in the system dialog. From then on the agent works directly on your real files, like Claude Code or Cursor:
 
-## Browser tabs
+- It lists, searches (glob and grep), reads, edits and creates files inside that folder. It cannot go outside it, and it cannot write into the \`.git\` folder.
+- It runs commands in your own shell: PowerShell on Windows, your login shell on macOS and Linux. Dev servers can run in the background and be stopped later.
+- It reads a \`FORKWISE.md\`, \`AGENTS.md\` or \`CLAUDE.md\` file in the folder, if there is one, for how to build and test your project.
+- To test a web app it starts, it opens \`http://localhost:PORT\` in the built-in browser.
 
-For web pages the agent opens a separate browser window (Chrome, Edge or Brave, with its own profile). It can open new tabs, switch and close tabs, read the page text or source, list the clickable elements, then click and type by element number. This is much more reliable than clicking pixels. Sign in to your sites in that window once and it remembers you. Your everyday browser profile is never touched.
+A chat in a folder starts in **Ask** mode: every file change and command waits for your approval in the chat. Choose **Always allow** for a kind of action, or switch the chat to Auto, when you trust the task. There is no undo for changes on your computer, so keep your project in git.
 
-## App controls
+## Built-in browser
 
-On Windows the agent can list the buttons, fields and menu items of the window in front and click them by position, so it does not have to guess from a screenshot.
+The app has its own browser with tabs. The agent can open pages, switch and close tabs, read the page text or source, list the clickable elements, then click and type by element number. Sign in to sites there once and it remembers you. It is separate from your everyday browser. The agent can also drive a separate Chrome profile when you ask for it.
 
-## Download
+## Screen, mouse and keyboard
 
-Ready-made builds for Windows, macOS and Linux are on the [Download page](/download). They are not code-signed yet, so your system may ask you to confirm the first run.
+The agent can take screenshots, list and switch windows, use the clipboard, click, drag, scroll, type and press shortcuts. On Windows it can also list the buttons and fields of the window in front. On macOS allow **Screen Recording** and **Accessibility** for Forkwise in System Settings, Privacy and Security. On Linux these need an X11 session.
 
 ## Staying in control
 
-By default every action asks for your approval. Shell commands and mouse or keyboard input are approved separately, so you can allow one without the other. Screenshots never ask. Close the app window or press Ctrl+C in it to stop everything immediately.`,
+- The app only accepts file and command requests for folders you picked in its own dialog.
+- Computer actions outside a folder (mouse, keyboard, apps) ask for approval, unless you allowed that kind in the app.
+- Press Ctrl+Alt+Shift+X (Cmd+Alt+Shift+X on macOS) anywhere to pause the agent and stop running commands. The tray icon and **Computer activity** window show everything it does and have a Pause button.
+- The computer must be on and the app open while the agent works on it.
+
+## Older connector
+
+The small Python connector from Settings, Your computer still works for people who do not want to install the app.`,
   },
   "getting-started": {
     title: "Getting started",

@@ -14,39 +14,43 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - os: windows-latest
-            asset: forkwise-desktop-windows.exe
-            built: dist/forkwise-desktop.exe
-          - os: macos-latest
-            asset: forkwise-desktop-macos
-            built: dist/forkwise-desktop
-          - os: ubuntu-22.04
-            asset: forkwise-desktop-linux
-            built: dist/forkwise-desktop
+        os: [windows-latest, macos-latest, ubuntu-22.04]
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: desktop-app
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-node@v4
         with:
-          python-version: "3.12"
-      - name: Linux packages for the window and screen tools
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop-app/package-lock.json
+      - name: Linux packages for the screen and keyboard tools
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y python3-tk python3-dev scrot
-      - name: Install build tools
-        run: pip install pyinstaller websockets mss pillow pyautogui pyperclip
-      - name: Build
-        working-directory: backend/desktop
-        run: pyinstaller --onefile --windowed --name forkwise-desktop --hidden-import browser_cdp --collect-submodules websockets forkwise_desktop.py
-      - name: Name the file
+        run: sudo apt-get update && sudo apt-get install -y libxtst-dev libpng-dev libx11-dev libxkbfile-dev libxinerama-dev
+      - name: Install
+        run: npm ci
+      - name: Test
+        if: runner.os == 'Linux'
+        run: npm run test:unit
+      - name: Build the installer
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: npx electron-builder --publish never
+      - name: List the result
         shell: bash
-        run: cp "backend/desktop/${{ matrix.built }}" "${{ matrix.asset }}"
+        run: ls -la dist
       - uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.asset }}
-          path: ${{ matrix.asset }}
+          name: forkwise-desktop-${{ runner.os }}
+          path: |
+            desktop-app/dist/forkwise-desktop-*
+            desktop-app/dist/latest*.yml
       - name: Attach to the release
         if: startsWith(github.ref, 'refs/tags/desktop-v')
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ matrix.asset }}
+          files: |
+            desktop-app/dist/forkwise-desktop-*
+            desktop-app/dist/latest*.yml

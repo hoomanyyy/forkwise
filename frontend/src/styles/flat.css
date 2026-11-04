@@ -2249,3 +2249,90 @@ a.pop-item:hover {
   background: var(--text);
   transition: width 0.4s ease;
 }
+
+/* Work in a folder (desktop app only) */
+.folder-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+
+.folder-btn,
+.folder-recent {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.folder-recent {
+  color: var(--text-2);
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.folder-btn:hover,
+.folder-recent:hover {
+  background: var(--surface-2);
+}
+
+.folder-btn:disabled,
+.folder-recent:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.folder-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  height: 34px;
+  padding: 0 6px 0 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface-2);
+  font-size: 13px;
+}
+
+.folder-chip .folder-path {
+  color: var(--text-3);
+  font-size: 12px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.folder-x {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.folder-x:hover {
+  background: var(--surface-3);
+}
+
+.settings-card h3.settings-sub {
+  margin-top: 20px;
+  font-size: 14px;
+}

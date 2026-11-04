@@ -498,6 +498,9 @@ async def browser(run, args):
 
 async def computer(run, args):
     from app.routes import desktop
+    if run.local and not args.get("device"):
+        args["device"] = run.local_device
+        args["exact"] = True
     answer = await desktop.call(run.user["id"], args)
     meta = {"action": args.get("action"), "device": answer.get("device", "")}
     image = None
@@ -861,6 +864,11 @@ def needs_approval(name, args):
 
 async def execute(run, name, args, call_id):
     try:
+        if run.local:
+            from app.agent import local
+            outcome = await local.execute(run, name, args, call_id)
+            if outcome is not None:
+                return outcome
         if name == "read_file":
             return await read_file(run, args)
         if name == "write_file":

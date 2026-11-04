@@ -67,6 +67,8 @@ CREATE TABLE IF NOT EXISTS chats (
     model TEXT NOT NULL DEFAULT '',
     mode TEXT NOT NULL DEFAULT 'auto',
     kind TEXT NOT NULL DEFAULT 'chat',
+    local_path TEXT NOT NULL DEFAULT '',
+    local_device TEXT NOT NULL DEFAULT '',
     workspace_id TEXT NOT NULL,
     pinned INTEGER NOT NULL DEFAULT 0,
     allowed_tools TEXT NOT NULL DEFAULT '[]',
@@ -288,6 +290,8 @@ MYSQL_TABLES = [
     model VARCHAR(255) NOT NULL DEFAULT '',
     mode VARCHAR(16) NOT NULL DEFAULT 'auto',
     kind VARCHAR(16) NOT NULL DEFAULT 'chat',
+    local_path VARCHAR(1000) NOT NULL DEFAULT '',
+    local_device VARCHAR(64) NOT NULL DEFAULT '',
     workspace_id VARCHAR(64) NOT NULL,
     pinned INT NOT NULL DEFAULT 0,
     allowed_tools LONGTEXT NOT NULL DEFAULT ('[]'),
@@ -453,6 +457,8 @@ MYSQL_TABLES = [
 
 MYSQL_COLUMNS = [
     ("chats", "kind", "VARCHAR(16) NOT NULL DEFAULT 'chat'"),
+    ("chats", "local_path", "VARCHAR(1000) NOT NULL DEFAULT ''"),
+    ("chats", "local_device", "VARCHAR(64) NOT NULL DEFAULT ''"),
     ("users", "verified", "INT NOT NULL DEFAULT 1"),
     ("users", "plan", "VARCHAR(32) NOT NULL DEFAULT 'free'"),
     ("users", "plan_until", "DOUBLE NOT NULL DEFAULT 0"),
@@ -536,6 +542,10 @@ def connect():
             chat_columns.append(row["name"])
         if "kind" not in chat_columns:
             CONNECTION.execute("ALTER TABLE chats ADD COLUMN kind TEXT NOT NULL DEFAULT 'chat'")
+        if "local_path" not in chat_columns:
+            CONNECTION.execute("ALTER TABLE chats ADD COLUMN local_path TEXT NOT NULL DEFAULT ''")
+        if "local_device" not in chat_columns:
+            CONNECTION.execute("ALTER TABLE chats ADD COLUMN local_device TEXT NOT NULL DEFAULT ''")
     return CONNECTION
 
 

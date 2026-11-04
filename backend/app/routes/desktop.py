@@ -98,9 +98,14 @@ def browser_script():
     return PlainTextResponse(path.read_text(encoding="utf-8"), media_type="text/x-python", headers={"Content-Disposition": "attachment; filename=browser_cdp.py"})
 
 
-def pick(user_id, wanted):
+def pick(user_id, wanted, exact=False):
     links = [link for link in ONLINE.values() if link.device["user_id"] == user_id]
     if len(links) == 0:
+        return None
+    if wanted and exact:
+        for link in links:
+            if link.device["id"] == wanted:
+                return link
         return None
     if wanted:
         for link in links:
@@ -110,15 +115,20 @@ def pick(user_id, wanted):
 
 
 async def call(user_id, args):
-    link = pick(user_id, args.get("device"))
+    exact = bool(args.get("exact"))
+    link = pick(user_id, args.get("device"), exact)
+    if link is None and exact:
+        return {"ok": False, "text": "The computer this chat works on is offline. Ask the user to open the Forkwise desktop app on that computer and try again."}
     if link is None:
         return {"ok": False, "text": "No computer is connected. Ask the user to open Settings > Computer in Forkwise and run the Forkwise Desktop app."}
-    message = {key: value for key, value in args.items() if key != "device"}
+    message = {key: value for key, value in args.items() if key not in ["device", "exact"]}
     message["id"] = next(COUNTER)
     future = asyncio.get_running_loop().create_future()
     link.pending[message["id"]] = future
     timeout = 60
-    if args.get("action") == "wallpaper":
+    if args.get("action") in ["wallpaper", "download"]:
+        timeout = 120
+    if str(args.get("action") or "").startswith("fs_"):
         timeout = 90
     if args.get("action") == "shell":
         try:
@@ -141,9 +151,9 @@ async def call(user_id, args):
 
 
 def must_confirm(user, args):
-    if args.get("action") in ["screenshot", "info", "windows", "wait", "ui_elements"]:
+    if args.get("action") in ["screenshot", "info", "windows", "wait", "ui_elements", "processes", "fs_read", "fs_list", "fs_glob", "fs_grep", "job_output"]:
         return False
-    if args.get("action") == "chrome" and args.get("op") in ["tabs", "read", "html", "elements", "screenshot"]:
+    if args.get("action") == "chrome" and args.get("op") in ["tabs", "read", "html", "elements", "screenshot", "wait"]:
         return False
     settings = db.load_json(user.get("settings"), {})
     return not settings.get("desktop_auto")

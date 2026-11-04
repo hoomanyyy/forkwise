@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react"
 import { Link, useNavigate, useSearchParams } from "react-router-dom"
-import { Code2, FolderKanban, Globe, LayoutTemplate, ListChecks, MessageSquare, Palette, Plus, Sparkles, FileSpreadsheet } from "lucide-react"
+import { Code2, FolderKanban, FolderOpen, X, Globe, LayoutTemplate, ListChecks, MessageSquare, Palette, Plus, Sparkles, FileSpreadsheet } from "lucide-react"
 import Composer from "../../components/app/Composer"
 import { useStore } from "../../lib/store"
 import { api } from "../../lib/api"
+import { desktopApp, ensureLinked } from "../../lib/desktop"
 import { TEMPLATES } from "../../content/catalog"
 import { NewProjectModal } from "./Projects"
 import { CODE_IDEAS, DESIGN_GALLERY, DESIGN_IDEAS, KIND_HOME } from "../../lib/kinds"
@@ -47,6 +48,44 @@ export default function Home({ kind }) {
   const [seed, setSeed] = useState(null)
   const pending = useRef(null)
   const [newProject, setNewProject] = useState(false)
+  const desktop = desktopApp()
+  const [folder, setFolder] = useState(null)
+  const [recent, setRecent] = useState([])
+  const [picking, setPicking] = useState(false)
+
+  useEffect(() => {
+    if (desktop) desktop.recentFolders().then((list) => setRecent(list || [])).catch(() => {})
+  }, [desktop])
+
+  async function chooseFolder(item) {
+    setPicking(true)
+    try {
+      const device = await ensureLinked()
+      let chosen = item
+      if (!chosen) chosen = await desktop.pickFolder()
+      if (chosen) {
+        pending.current = null
+        setFolder({ path: chosen.path, name: chosen.name, device: device.id })
+        setMode("ask")
+      }
+    } catch (problem) {
+      toast(problem.message, "error")
+    }
+    setPicking(false)
+  }
+
+  function clearFolder() {
+    pending.current = null
+    setFolder(null)
+    setMode("auto")
+  }
+
+  useEffect(() => {
+    if (params.get("folder") && desktop) {
+      navigate("/app", { replace: true })
+      chooseFolder(null)
+    }
+  }, [params])
 
   useEffect(() => {
     const template = TEMPLATES.find((item) => item.slug === params.get("template"))
@@ -56,7 +95,12 @@ export default function Home({ kind }) {
 
   async function ensureChat() {
     if (pending.current) return pending.current
-    pending.current = api.post("/api/chats", { project_id: projectId, model, mode, kind: section }).then((data) => {
+    const body = { project_id: projectId, model, mode, kind: section }
+    if (folder) {
+      body.local_path = folder.path
+      body.local_device = folder.device
+    }
+    pending.current = api.post("/api/chats", body).then((data) => {
       addChat(data.chat)
       return data.chat
     })
@@ -86,6 +130,27 @@ export default function Home({ kind }) {
       <div className="home-inner">
         <h1 className="home-title">{copy.title || greeting(user && user.name)}</h1>
         {project && <p className="home-sub">New chat in {project.name}. It shares the project's files and notes.</p>}
+        {desktop && section !== "design" && (
+          <div className="folder-row">
+            {folder ? (
+              <span className="folder-chip" title={folder.path}>
+                <FolderOpen size={14} />
+                <b dir="auto">{folder.name}</b>
+                <span className="folder-path" dir="ltr">{folder.path}</span>
+                <button type="button" className="folder-x" aria-label="Stop working in this folder" onClick={clearFolder}><X size={13} /></button>
+              </span>
+            ) : (
+              <>
+                <button type="button" className="folder-btn" disabled={picking} onClick={() => chooseFolder(null)}>
+                  <FolderOpen size={14} /> Work in a folder on this computer
+                </button>
+                {recent.slice(0, 3).map((item) => (
+                  <button key={item.path} type="button" className="folder-recent" title={item.path} disabled={picking} onClick={() => chooseFolder(item)}>{item.name}</button>
+                ))}
+              </>
+            )}
+          </div>
+        )}
         <Composer
           big
           placeholder={copy.placeholder}

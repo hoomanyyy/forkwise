@@ -205,13 +205,13 @@ def plan_specs():
 
 def computer_spec(devices):
     names = ", ".join(device["name"] + " (" + (device.get("platform") or "unknown OS") + ")" for device in devices)
-    return fn("computer", "Control the user's own computer through the Forkwise Desktop app they connected: " + names + ". This is their real machine, not your sandbox. Use it only when the user asks for something on their computer. You can run commands in a full terminal (PowerShell on Windows, the login shell elsewhere), open apps (code, notepad, chrome...), files, folders, links in their browser and system settings (on Windows ms-settings: links such as ms-settings:display), read, write and list files, change the wallpaper, switch windows, use the clipboard, take screenshots, and use the mouse and keyboard. For web pages on the user's computer use the chrome action, which opens a separate browser window with its own tabs that you can read and click by element number, much more reliable than clicking pixels (the user signs in there once and it remembers). For desktop apps use ui_elements to list the buttons and fields of the window in front (Windows), then click their positions. Take a screenshot first to see the screen; click positions are in screenshot pixels. After every click, key press or typing step take a screenshot to check the result before the next step. Destructive actions need extra care: say what you will do first.", {
-        "action": {"type": "string", "enum": ["info", "screenshot", "windows", "focus", "shell", "open", "click", "move", "drag", "type", "key", "scroll", "wait", "clipboard_get", "clipboard_set", "list_dir", "read_file", "write_file", "wallpaper", "chrome", "ui_elements"]},
+    return fn("computer", "Control the user's own computer through the Forkwise Desktop app they connected: " + names + ". This is their real machine, not your sandbox. Use it only when the user asks for something on their computer. You can run commands in a full terminal (PowerShell on Windows, the login shell elsewhere), open apps (code, notepad, chrome...), files, folders, links in their browser and system settings (on Windows ms-settings: links such as ms-settings:display), read, write and list files, change the wallpaper, switch windows, use the clipboard, take screenshots, and use the mouse and keyboard. For web pages on the user's computer use the chrome action, which works in the Forkwise browser window the app opens, with real tabs that you can open, read and click by element number, much more reliable than clicking pixels (the user signs in there once and it remembers). Set browser to chrome only when you need the user's installed Chrome instead of the built-in one (for example a site that blocks embedded browsers or needs a Google sign-in). You can also download a file from an https link, list running processes, stop a process by id and show the user a notification. For desktop apps use ui_elements to list the buttons and fields of the window in front (Windows), then click their positions. Take a screenshot first to see the screen; click positions are in screenshot pixels. After every click, key press or typing step take a screenshot to check the result before the next step. Destructive actions need extra care: say what you will do first.", {
+        "action": {"type": "string", "enum": ["info", "screenshot", "windows", "focus", "shell", "open", "click", "move", "drag", "type", "key", "scroll", "wait", "clipboard_get", "clipboard_set", "list_dir", "read_file", "write_file", "wallpaper", "chrome", "ui_elements", "download", "processes", "kill", "notify"]},
         "device": string("Device name or id, if more than one is connected."),
         "command": string("For shell: the command to run."),
         "cwd": string("For shell: working folder."),
         "timeout": integer("For shell: seconds, default 120, max 600."),
-        "target": string("For open: an app name (code, notepad, calc, chrome), a path, a URL or a settings link like ms-settings:bluetooth. For focus: part of the window title."),
+        "target": string("For open: an app name (code, notepad, calc, chrome), a path, a URL or a settings link like ms-settings:bluetooth. For focus: part of the window title. For processes: a name to filter by. For kill: the process id."),
         "args": {"type": "array", "items": {"type": "string"}, "description": "For open: extra arguments for the app, like a folder for code."},
         "x": integer("For click, move, drag and scroll: x in screenshot pixels."),
         "y": integer("For click, move, drag and scroll: y in screenshot pixels."),
@@ -219,16 +219,18 @@ def computer_spec(devices):
         "y2": integer("For drag: end y in screenshot pixels."),
         "button": {"type": "string", "enum": ["left", "right", "middle"]},
         "double": boolean("Double click."),
-        "text": string("For type and clipboard_set."),
+        "text": string("For type, clipboard_set and notify. For chrome type: the text. For chrome wait: the text to wait for."),
         "keys": string("For key: a key or combination like enter, ctrl+s, alt+tab, win+r."),
         "amount": integer("For scroll: clicks, positive up and negative down. For wait: seconds, at most 30."),
-        "path": string("For list_dir, read_file, write_file and wallpaper: a path on the user's computer. ~ means their home folder."),
+        "path": string("For list_dir, read_file, write_file, wallpaper and download: a path on the user's computer. ~ means their home folder."),
         "content": string("For write_file: the text to write."),
         "source": string("For wallpaper: an image path on the computer or an https link to an image."),
-        "op": {"type": "string", "enum": ["start", "tabs", "new_tab", "switch_tab", "close_tab", "goto", "read", "html", "elements", "click", "type", "press", "scroll", "back", "forward", "reload", "eval", "screenshot"], "description": "For chrome: what to do in the Forkwise browser window on the user's computer. new_tab opens a tab with url. elements lists clickable things with numbers (ref); click and type use ref. read returns the page text, html the page source, tabs lists open tabs, switch_tab and close_tab take tab (number or id)."},
-        "url": string("For chrome new_tab, goto and start."),
+        "op": {"type": "string", "enum": ["start", "tabs", "new_tab", "switch_tab", "close_tab", "goto", "read", "html", "elements", "click", "type", "press", "scroll", "back", "forward", "reload", "eval", "screenshot", "wait"], "description": "For chrome: what to do in the Forkwise browser window on the user's computer. wait pauses until the page shows the text you give (amount is the seconds to wait). new_tab opens a tab with url. elements lists clickable things with numbers (ref); click and type use ref. read returns the page text, html the page source, tabs lists open tabs, switch_tab and close_tab take tab (number or id)."},
         "ref": integer("For chrome click and type: the element number from elements."),
         "tab": string("For chrome: the tab number or id from tabs. Default is the tab you used last."),
         "expression": string("For chrome eval: JavaScript to run in the page. Returns the result."),
         "submit": boolean("For chrome type: press Enter after typing."),
+        "browser": {"type": "string", "enum": ["builtin", "chrome"], "description": "For chrome: builtin is the Forkwise browser window (default), chrome is the user's installed Chrome, Edge or Brave."},
+        "url": string("For chrome new_tab, goto and start. For download: the https link of the file."),
+        "title": string("For notify: the notification title."),
     }, ["action"])

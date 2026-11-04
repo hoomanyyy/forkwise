@@ -3,6 +3,7 @@ import { Link, Navigate, NavLink, useNavigate, useParams } from "react-router-do
 import { BarChart3, BookOpen, Brain, Plug, ShieldCheck, Sparkles, Trash2, User, Wrench, Plus, Laptop, Copy, Download, Clock, KeyRound, Link2, Keyboard, Palette } from "lucide-react"
 import { useStore } from "../../lib/store"
 import { api, apiUrl } from "../../lib/api"
+import { desktopApp } from "../../lib/desktop"
 import Select from "../../components/ui/Select"
 import { useConfirm } from "../../components/ui/Modal"
 import Connections from "./settings/Connections"
@@ -575,17 +576,25 @@ function ComputerTab() {
     <div className="settings-stack">
       <div className="settings-card">
         <h3>Use your own computer</h3>
-        <p className="muted small">Link a Windows, macOS or Linux computer with the small Forkwise Desktop app. The agent can then run terminal commands, open apps such as VS Code, open system settings, files and links, see the screen and use the mouse and keyboard. You can stop it any time with Ctrl+C in the app window.</p>
+        {desktopApp() ? (
+          <p className="muted small">You are using the Forkwise desktop app. This computer links itself when you sign in, so there is nothing to set up. Choose Work in a folder on the new chat page to let the agent work on your files and run commands here. Press Ctrl+Alt+Shift+X (Cmd on macOS) any time to stop it.</p>
+        ) : (
+          <p className="muted small">Install the Forkwise desktop app for Windows, macOS or Linux. It opens Forkwise in its own window, links your computer when you sign in, and lets the agent work in folders on your computer, run commands in your own terminal, use a built-in browser, and see the screen and use the mouse and keyboard. <Link to="/download">Download the app</Link>.</p>
+        )}
+        <h3 className="settings-sub">Link without the app</h3>
+        <p className="muted small">Already have the app but it is not linked, or you prefer not to install it? Create a one-time token. You can open the app with it, or run the small Python connector (no folder mode, no built-in browser).</p>
         <div className="pair-row">
           <input className="input" placeholder="Name, for example Work laptop" value={name} onChange={(e) => setName(e.target.value)} maxLength={60} />
           <button className="btn btn-brand" disabled={busy} onClick={pair}><Plus size={15} />Link a computer</button>
         </div>
         {pairing && (
           <div className="pair-steps">
+            <p className="small"><a className="btn btn-primary btn-sm" href={"forkwise://pair?token=" + encodeURIComponent(pairing.token) + "&server=" + encodeURIComponent(pairing.server)}>Open in the Forkwise app</a> <span className="faint">If nothing happens, the app is not installed.</span></p>
             <div className="seg-choice" role="radiogroup">
               <button type="button" className={os === "windows" ? "on" : ""} onClick={() => setOs("windows")}>Windows (PowerShell)</button>
               <button type="button" className={os === "unix" ? "on" : ""} onClick={() => setOs("unix")}>macOS / Linux</button>
             </div>
+            <p className="faint small">Python connector instead:</p>
             <ol className="small">
               <li>Install <a href="https://www.python.org/downloads/" target="_blank" rel="noreferrer">Python 3.9+</a> if you do not have it.</li>
               <li>Run this in {os === "windows" ? "PowerShell" : "a terminal"}. The token is shown only once:</li>

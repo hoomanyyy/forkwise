@@ -6,6 +6,7 @@ import Palette from "../../components/app/Palette"
 import { LogoMark } from "../../components/ui/Logo"
 import { AppSkeleton } from "../../components/ui/Skeleton"
 import { useStore } from "../../lib/store"
+import { desktopApp, ensureLinked } from "../../lib/desktop"
 
 export default function AppShell() {
   const { user, ready, theme } = useStore()
@@ -41,6 +42,14 @@ export default function AppShell() {
     window.addEventListener("keydown", key)
     return () => window.removeEventListener("keydown", key)
   }, [navigate])
+
+  const userId = user && user.id
+  useEffect(() => {
+    const app = desktopApp()
+    if (!app || !userId) return undefined
+    ensureLinked().catch(() => {})
+    return app.onOpenFolder(() => navigate("/app?folder=1"))
+  }, [userId, navigate])
 
   if (!ready) {
     return <AppSkeleton />

@@ -1,0 +1,98 @@
+{
+  "name": "forkwise-desktop",
+  "productName": "Forkwise",
+  "version": "3.1.0",
+  "description": "Lets your Forkwise agent use this computer",
+  "main": "main.js",
+  "author": {
+    "name": "Forkwise",
+    "email": "support@forkwiseai.com"
+  },
+  "license": "UNLICENSED",
+  "scripts": {
+    "start": "electron .",
+    "test": "node test/workspace.test.js && node test/ops.test.js",
+    "dist": "electron-builder",
+    "test:unit": "node test/workspace.test.js"
+  },
+  "dependencies": {
+    "@nut-tree-fork/nut-js": "^4.2.6",
+    "electron-updater": "^6.3.9",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.forkwiseai.desktop",
+    "productName": "Forkwise",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "preload-app.js",
+      "preload-browser.js",
+      "src/**/*",
+      "renderer/**/*",
+      "build/icon.png",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "node_modules/@nut-tree-fork/**/*"
+    ],
+    "protocols": [
+      {
+        "name": "Forkwise",
+        "schemes": [
+          "forkwise"
+        ]
+      }
+    ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "hoomanyyy",
+        "repo": "forkwise"
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "artifactName": "forkwise-desktop-windows.${ext}"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "runAfterFinish": true
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.developer-tools",
+      "artifactName": "forkwise-desktop-macos-${arch}.${ext}",
+      "extendInfo": {
+        "NSAppleEventsUsageDescription": "Forkwise uses this to open and control apps you ask for.",
+        "NSMicrophoneUsageDescription": "Not used.",
+        "NSCameraUsageDescription": "Not used."
+      }
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Development",
+      "artifactName": "forkwise-desktop-linux.${ext}",
+      "maintainer": "Forkwise <support@forkwiseai.com>",
+      "synopsis": "Lets your Forkwise agent use this computer"
+    }
+  },
+  "homepage": "https://forkwiseai.com"
+}

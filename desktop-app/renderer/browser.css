@@ -1,0 +1,16 @@
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 86px; overflow: hidden; background: #11110f; color: #ecece8; font: 13px system-ui, "Segoe UI", sans-serif; user-select: none; }
+#tabs { display: flex; align-items: flex-end; gap: 2px; height: 40px; padding: 8px 8px 0; background: #0c0c0b; }
+.tab { display: flex; align-items: center; gap: 8px; width: 200px; min-width: 90px; height: 32px; padding: 0 8px 0 12px; border-radius: 8px 8px 0 0; background: #181816; color: #a3a299; cursor: default; overflow: hidden; }
+.tab.on { background: #11110f; color: #ecece8; }
+.tab .name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tab .x { width: 18px; height: 18px; border: 0; border-radius: 5px; background: transparent; color: inherit; cursor: pointer; line-height: 1; }
+.tab .x:hover { background: #2a2a27; }
+#plus { width: 30px; height: 30px; margin-left: 4px; border: 0; border-radius: 8px; background: transparent; color: #a3a299; font-size: 18px; cursor: pointer; }
+#plus:hover { background: #1e1e1b; color: #ecece8; }
+#bar { display: flex; align-items: center; gap: 6px; height: 46px; padding: 0 10px; border-bottom: 1px solid #242421; }
+#bar button { width: 30px; height: 30px; border: 0; border-radius: 8px; background: transparent; color: #a3a299; font-size: 16px; cursor: pointer; }
+#bar button:hover { background: #1e1e1b; color: #ecece8; }
+#url { flex: 1; height: 32px; padding: 0 14px; border: 1px solid #2a2a27; border-radius: 16px; background: #181816; color: #ecece8; outline: none; font: inherit; }
+#url:focus { border-color: #5a5a54; }
+.dot { width: 6px; height: 6px; border-radius: 50%; background: #4ade80; flex: none; }

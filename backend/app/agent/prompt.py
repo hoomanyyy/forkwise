@@ -64,6 +64,21 @@ def computer_text(wid):
     return "\n".join(lines)
 
 
+def local_text(chat, notes):
+    folder = chat.get("local_path") or ""
+    lines = ["IMPORTANT, this chat is different from the general description above: you are working directly on the user's own computer, not in your Linux sandbox. Ignore what is said above about your own Linux computer, preview, screenshot, the browser tool and generate_image. They do not exist in this chat.",
+        "- Project folder: " + folder + ". Your file tools (read_file, write_file, edit_file, multi_edit, list_dir, glob, grep) and bash all act on this real folder. Paths are relative to it and you cannot leave it.",
+        "- bash runs in the user's real shell (PowerShell on Windows, their login shell on macOS and Linux) with the tools they have installed. Use commands that fit their system, check which tools exist before you rely on them, and do not assume Linux.",
+        "- Your changes are real and there is no undo here. Never delete files, run git reset --hard, force push, drop databases, or install global packages unless the user asked for it. Prefer git for safety: look at git status before large changes and keep changes small and reviewable.",
+        "- Long running servers: start them with bash run_in_background, read their output with job_output and stop them with kill_job. To look at a web app that runs on their machine, use the computer tool with action chrome (the built-in browser of the Forkwise app) and open http://localhost:PORT. The sandbox tools preview, screenshot and browser are not available in this chat.",
+        "- Read the project before changing it: list_dir, glob, grep, then read_file. Find the test and build commands (package.json scripts, Makefile, pyproject, README) and run them after your changes."]
+    if notes:
+        lines.append(notes)
+    else:
+        lines.append("The folder has no FORKWISE.md, AGENTS.md or CLAUDE.md. For bigger projects offer to create FORKWISE.md with how to run, test and build it.")
+    return "\n".join(lines)
+
+
 def memory_text(user_id, project_id):
     rows = db.all_rows("SELECT * FROM memories WHERE user_id = ? AND (project_id IS NULL OR project_id = ?) ORDER BY created_at", (user_id, project_id or ""))
     if len(rows) == 0:
@@ -123,7 +138,7 @@ def profile_text(profile):
     return "About the user (from their sign-up answers, use it to tailor examples and defaults):\n- " + "\n- ".join(lines)
 
 
-def build(chat, user, project):
+def build(chat, user, project, local_notes=""):
     parts = [BASE]
     parts.append("Today is " + time.strftime("%A %d %B %Y, %H:%M UTC", time.gmtime()) + ".")
     parts.append("The user is " + (user.get("name") or "the user") + ".")
@@ -138,8 +153,11 @@ def build(chat, user, project):
         if project.get("instructions"):
             text = text + "\nProject instructions:\n" + project["instructions"][:6000]
         parts.append(text)
-    parts.append(computer_text(chat["workspace_id"]))
-    parts.append(project_file_text(chat["workspace_id"]))
+    if chat.get("local_path"):
+        parts.append(local_text(chat, local_notes))
+    else:
+        parts.append(computer_text(chat["workspace_id"]))
+        parts.append(project_file_text(chat["workspace_id"]))
     parts.append(memory_text(user["id"], chat.get("project_id")))
     skills = skills_text(user["id"])
     if skills:

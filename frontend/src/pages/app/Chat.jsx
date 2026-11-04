@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom"
-import { Download, FolderKanban, ListChecks, PanelRight, ArrowDown } from "lucide-react"
+import { Download, FolderKanban, FolderOpen, ListChecks, PanelRight, ArrowDown } from "lucide-react"
 import Composer from "../../components/app/Composer"
 import MessageList from "../../components/app/MessageList"
 import RunBar from "../../components/app/RunBar"
@@ -21,6 +21,11 @@ function readWidth() {
   } catch (problem) {
     return 560
   }
+}
+
+function folderName(path) {
+  const parts = String(path).split(/[\\/]/).filter(Boolean)
+  return parts[parts.length - 1] || path
 }
 
 export default function Chat() {
@@ -215,6 +220,9 @@ export default function Chat() {
           {state.project && (
             <Link to={"/app/projects/" + state.project.id} className="chip"><FolderKanban size={13} />{state.project.name}</Link>
           )}
+          {chat.local_path && (
+            <span className="chip" title={chat.local_path + " (on your computer)"}><FolderOpen size={13} />{folderName(chat.local_path)}</span>
+          )}
           <h1 className="chat-name" dir="auto">{chat.title}</h1>
           <span className="tool-spacer" />
           {showTodos && (
@@ -224,7 +232,7 @@ export default function Chat() {
               <span>{done}/{todos.length}</span>
             </button>
           )}
-          <a className="icon-btn" title="Download all files" href={apiUrl("/api/ws/" + chat.workspace_id + "/zip")}><Download size={16} /></a>
+          {!chat.local_path && <a className="icon-btn" title="Download all files" href={apiUrl("/api/ws/" + chat.workspace_id + "/zip")}><Download size={16} /></a>}
           <button className={"icon-btn" + (panel ? " active" : "")} title="Show the workspace: activity, preview, browser, files, changes and terminal" onClick={() => setPanel(!panel)}><PanelRight size={17} /></button>
         </header>
         <div className="chat-scroll" ref={scroller} onScroll={onScroll}>
@@ -270,6 +278,7 @@ export default function Chat() {
           <div className="panel-wrap" style={{ width }}>
             <Workspace
               wid={chat.workspace_id}
+              local={Boolean(chat.local_path)}
               tab={tab}
               setTab={setTab}
               onClose={() => setPanel(false)}

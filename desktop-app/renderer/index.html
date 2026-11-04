@@ -1,0 +1,54 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data:" />
+<title>Forkwise</title>
+<link rel="stylesheet" href="app.css" />
+</head>
+<body>
+<header>
+  <svg class="logo" width="28" height="28" viewBox="0 0 512 512"><rect x="16" y="16" width="480" height="480" rx="116" fill="#ecece8"/><g fill="none" stroke="#11110f" stroke-width="26" stroke-linecap="round"><path d="M150 256 C 230 256, 250 150, 352 150" opacity=".55"/><path d="M150 256 L 352 256"/><path d="M150 256 C 230 256, 250 362, 352 362" opacity=".55"/></g><circle cx="150" cy="256" r="38" fill="#11110f"/><circle cx="362" cy="150" r="30" fill="#11110f" opacity=".75"/><circle cx="362" cy="362" r="30" fill="#11110f" opacity=".75"/><circle cx="362" cy="256" r="44" fill="#4ade80" stroke="#11110f" stroke-width="14"/><path d="M342 257 l14 14 l26 -28" fill="none" stroke="#0b0e1f" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  <div class="title">
+    <strong>Forkwise Desktop</strong>
+    <span id="status"><i id="dot"></i><b id="statusText">Starting</b></span>
+  </div>
+  <span id="version"></span>
+</header>
+
+<main id="pair" hidden>
+  <h1>Connect this computer</h1>
+  <p>In Forkwise open <b>Settings, Computer</b> and press <b>Link a computer</b>. If you used the button <b>Open in app</b> you are already done. Otherwise paste the token here.</p>
+  <input id="token" placeholder="fwd_..." spellcheck="false" autocomplete="off" />
+  <details>
+    <summary>Server</summary>
+    <input id="server" spellcheck="false" />
+  </details>
+  <div class="row">
+    <button id="connect" class="primary">Connect</button>
+    <button id="openSite">Open Forkwise Settings</button>
+  </div>
+  <p id="pairNote" class="note"></p>
+</main>
+
+<main id="live" hidden>
+  <div class="bar">
+    <button id="pause">Pause</button>
+    <button id="browser">Open browser</button>
+    <button id="panic" class="danger">Emergency stop</button>
+  </div>
+  <div class="toggles">
+    <label><input type="checkbox" id="confirm" /> Ask me here before every action</label>
+    <label><input type="checkbox" id="autostart" /> Start with this computer</label>
+  </div>
+  <p id="note" class="note"></p>
+  <h2>Activity</h2>
+  <div id="feed"><p class="empty">Nothing yet. Ask your Forkwise agent to do something on this computer.</p></div>
+  <footer>
+    <span id="hotkey"></span>
+    <button id="forget" class="link">Disconnect this computer</button>
+  </footer>
+</main>
+<script src="app.js"></script>
+</body>
+</html>

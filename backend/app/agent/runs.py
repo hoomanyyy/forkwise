@@ -4,7 +4,7 @@ import json
 import time
 import traceback
 from app import db, config
-from app.agent import llm, tools, specs, prompt, checkpoints, sandbox, integrations
+from app.agent import llm, tools, specs, prompt, checkpoints, sandbox, integrations, local
 
 RUNS = {}
 ACTIVE = {}
@@ -26,6 +26,9 @@ class Run:
         self.project = project
         self.model = model
         self.wid = chat["workspace_id"]
+        self.local = chat.get("local_path") or ""
+        self.local_device = chat.get("local_device") or ""
+        self.local_notes = ""
         self.mode = chat["mode"]
         self.vision = bool(model and model.get("vision"))
         self.events = []
@@ -132,7 +135,7 @@ def build_context(run):
             if meta.get("image"):
                 image_rows.append(row["id"])
     keep_images = image_rows[-KEEP_IMAGES:]
-    messages = [{"role": "system", "content": prompt.build(run.chat, run.user, run.project)}]
+    messages = [{"role": "system", "content": prompt.build(run.chat, run.user, run.project, run.local_notes)}]
     pending = []
     images = []
     for row in rows:
@@ -238,8 +241,12 @@ async def refresh_tools(run):
             found.append(spec)
         from app.routes import desktop
         devices = desktop.online_devices(run.user["id"])
+        if run.local:
+            devices = [device for device in devices if device["id"] == run.local_device]
         if devices and not run.unattended:
             found.append(specs.computer_spec(devices))
+    if run.local:
+        found = local.hide_sandbox_tools(found)
     run.tool_specs = found
 
 
@@ -527,6 +534,8 @@ async def run_main(run, first_text):
     error_text = ""
     final_text = ""
     try:
+        if run.local:
+            run.local_notes = await local.project_notes(run)
         before = await checkpoints.snapshot(run.wid, "before: " + first_text[:80])
         db.update("runs", "id", run.id, {"checkpoint_before": before})
         run.emit("checkpoint", {"commit": before})
@@ -600,10 +609,12 @@ async def run_main(run, first_text):
     try:
         after = await checkpoints.snapshot(run.wid, "after: " + first_text[:80])
         db.update("runs", "id", run.id, {"checkpoint_after": after})
-        if run.changed:
+        if run.changed and not run.local:
             files = await checkpoints.changed_files(run.wid, db.one_row("SELECT checkpoint_before FROM runs WHERE id = ?", (run.id,))["checkpoint_before"])
             run.emit("changes", {"files": files})
-        hooks = tools.read_settings(run.wid).get("hooks") or {}
+        hooks = {}
+        if not run.local:
+            hooks = tools.read_settings(run.wid).get("hooks") or {}
         if hooks.get("after_turn") and run.changed and status == "done":
             hook = await sandbox.run(run.wid, hooks["after_turn"], timeout=120, limit=4000)
             run.emit("notice", {"text": "after_turn hook exit " + str(hook["code"]) + ": " + hook["output"][-600:]})
@@ -631,7 +642,11 @@ async def run_subagent(run, args, call_id):
         for spec in tools.custom_specs(run.user["id"]):
             found.append(spec)
         system = prompt.SUB_GENERAL
-    system = system + "\n\n" + prompt.computer_text(run.wid) + "\n\nToday is " + time.strftime("%d %B %Y", time.gmtime()) + "."
+    if run.local:
+        system = system + "\n\n" + prompt.local_text(run.chat, run.local_notes)
+    else:
+        system = system + "\n\n" + prompt.computer_text(run.wid)
+    system = system + "\n\nToday is " + time.strftime("%d %B %Y", time.gmtime()) + "."
     messages = [{"role": "system", "content": system}, {"role": "user", "content": args.get("prompt") or args.get("description") or ""}]
     run.emit("sub", {"parent": call_id, "kind": "start", "text": args.get("description") or "Helper"})
     step = 0

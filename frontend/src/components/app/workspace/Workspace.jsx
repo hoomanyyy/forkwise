@@ -21,14 +21,17 @@ const TABS = [
   { key: "plan", label: "Plan", icon: ListChecks },
 ]
 
-export default function Workspace({ wid, tab, setTab, onClose, preview, refreshKey, checkpoint, changes, theme, openPath, messages, todos, running, onOpenFile }) {
+const LOCAL_TABS = ["activity", "computer", "plan"]
+
+export default function Workspace({ wid, local, tab, setTab, onClose, preview, refreshKey, checkpoint, changes, theme, openPath, messages, todos, running, onOpenFile }) {
+  const active = local && !LOCAL_TABS.includes(tab) ? "activity" : tab
   return (
     <aside className="workspace">
       <div className="workspace-tabs" role="tablist">
-        {TABS.map((item) => {
+        {TABS.filter((item) => !local || LOCAL_TABS.includes(item.key)).map((item) => {
           const Icon = item.icon
           return (
-            <button key={item.key} type="button" role="tab" aria-selected={tab === item.key} title={item.label} className={"ws-tab" + (tab === item.key ? " active" : "")} onClick={() => setTab(item.key)}>
+            <button key={item.key} type="button" role="tab" aria-selected={active === item.key} title={item.label} className={"ws-tab" + (active === item.key ? " active" : "")} onClick={() => setTab(item.key)}>
               <Icon size={14} />
               <span>{item.label}</span>
               {item.key === "changes" && changes && changes.length > 0 && <span className="ws-badge">{changes.length}</span>}
@@ -42,14 +45,14 @@ export default function Workspace({ wid, tab, setTab, onClose, preview, refreshK
       </div>
       <div className="workspace-body">
         <Suspense fallback={<div className="empty-small center"><Loader2 size={16} className="spin" /></div>}>
-          {tab === "activity" && <ActivityPane messages={messages || []} running={running} onOpenFile={onOpenFile} />}
-          {tab === "preview" && <PreviewPane preview={preview} refreshKey={refreshKey} />}
-          {tab === "browser" && <BrowserPane wid={wid} messages={messages || []} />}
-          {tab === "computer" && <ComputerPane wid={wid} messages={messages || []} />}
-          {tab === "files" && <FilesPane wid={wid} refreshKey={refreshKey} theme={theme} openPath={openPath} />}
-          {tab === "changes" && <ChangesPane wid={wid} since={checkpoint} refreshKey={refreshKey} theme={theme} onOpenFile={onOpenFile} />}
-          {tab === "terminal" && <TerminalPane wid={wid} theme={theme} />}
-          {tab === "plan" && <PlanPane wid={wid} todos={todos || []} refreshKey={refreshKey} />}
+          {active === "activity" && <ActivityPane messages={messages || []} running={running} onOpenFile={onOpenFile} />}
+          {active === "preview" && <PreviewPane preview={preview} refreshKey={refreshKey} />}
+          {active === "browser" && <BrowserPane wid={wid} messages={messages || []} />}
+          {active === "computer" && <ComputerPane wid={wid} messages={messages || []} />}
+          {active === "files" && <FilesPane wid={wid} refreshKey={refreshKey} theme={theme} openPath={openPath} />}
+          {active === "changes" && <ChangesPane wid={wid} since={checkpoint} refreshKey={refreshKey} theme={theme} onOpenFile={onOpenFile} />}
+          {active === "terminal" && <TerminalPane wid={wid} theme={theme} />}
+          {active === "plan" && <PlanPane wid={wid} todos={todos || []} refreshKey={refreshKey} />}
         </Suspense>
       </div>
     </aside>

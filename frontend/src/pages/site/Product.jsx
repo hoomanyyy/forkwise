@@ -63,20 +63,20 @@ export function Product() {
 const RELEASES = "https://github.com/hoomanyyy/forkwise/releases"
 
 const DOWNLOADS = [
-  { os: "Windows", file: "forkwise-desktop-windows.exe", note: "Windows 10 or newer" },
-  { os: "macOS", file: "forkwise-desktop-macos", note: "macOS 12 or newer. Allow screen recording and accessibility when asked." },
-  { os: "Linux", file: "forkwise-desktop-linux", note: "A desktop session with X11" },
+  { os: "Windows", file: "forkwise-desktop-windows.exe", note: "Windows 10 or newer. Installer." },
+  { os: "macOS", file: "forkwise-desktop-macos-arm64.dmg", note: "macOS 12 or newer, Apple silicon. Allow screen recording and accessibility when asked." },
+  { os: "Linux", file: "forkwise-desktop-linux.AppImage", note: "AppImage. Screen and mouse control need an X11 session." },
 ]
 
 export function Download() {
-  usePageTitle("Download", "The Forkwise desktop app lets the agent use your own computer: terminal, apps, browser tabs, screen, mouse and keyboard.")
+  usePageTitle("Download", "The Forkwise desktop app: all of Forkwise in its own window, working on the folders of your own computer, with a real browser, terminal, screen and keyboard.")
   return (
     <>
       <PageHero
         kicker="Desktop app"
-        title="Let it use your computer."
-        lead="A small app links your Windows, macOS or Linux machine to your Forkwise account. Then the agent can run a full terminal, open VS Code or Windows settings, work in browser tabs, change the wallpaper and use the mouse and keyboard while you step away."
-        actions={<Link to="/app/settings/computer" className="btn btn-primary btn-lg">Link a computer</Link>}
+        title="Forkwise, on your own computer."
+        lead="Open a project folder and the agent reads, edits and tests your real files and runs commands in your own terminal, like Claude Code or Cursor. It also has a built-in browser with tabs and can use the screen, mouse and keyboard. All in one app for Windows, macOS and Linux."
+        actions={<a href={RELEASES + "/latest"} className="btn btn-primary btn-lg">All downloads</a>}
       />
       <Section title="Download">
         <div className="download-grid">
@@ -88,32 +88,32 @@ export function Download() {
             </a>
           ))}
         </div>
-        <p className="muted small download-note">Open the app and paste your device token from Settings, Your computer. The builds are not code-signed yet, so Windows SmartScreen and macOS Gatekeeper may ask you to confirm. Other builds and older versions are on the <a href={RELEASES}>releases page</a>. Prefer to read the code first? Settings, Your computer also gives a one-line command that runs the same app from source with Python 3.</p>
+        <p className="muted small download-note">Install, open the app and sign in. It links this computer to your account by itself, no token to paste. The builds are not code-signed yet, so Windows SmartScreen and macOS Gatekeeper may ask you to confirm the first run. Older versions and other builds are on the <a href={RELEASES}>releases page</a>.</p>
       </Section>
       <Section title="How it works">
         <FeatureGrid columns={3} items={[
-          { title: "1. Pair", text: "In Settings, choose Your computer and press Link a computer. You get a one-time token." },
-          { title: "2. Run", text: "Open the app and paste the token. A small window shows everything the agent does and has a Pause button." },
-          { title: "3. Ask", text: "In any chat, ask for something on your computer. Each action asks for your approval unless you allowed it." },
+          { title: "1. Sign in", text: "The app opens Forkwise in its own window. The first time you sign in, it links this computer to your account automatically." },
+          { title: "2. Open a folder", text: "On the new chat page choose Work in a folder on this computer. The agent can only touch files inside that folder." },
+          { title: "3. Ask", text: "Describe the change. It searches, reads, edits and runs your tests and dev server on your machine and shows each step. Edits and commands ask you first by default." },
         ]} />
       </Section>
       <Section className="paper" title="What it can do">
         <FeatureGrid columns={4} items={[
-          { title: "Terminal", text: "PowerShell on Windows, your login shell elsewhere." },
-          { title: "Browser tabs", text: "Opens its own browser window, creates and switches tabs, reads pages and clicks by element number." },
-          { title: "Apps and settings", text: "Open VS Code, Notepad, folders, links and ms-settings pages." },
-          { title: "App controls", text: "On Windows it reads the buttons and fields of the window in front, then clicks them." },
+          { title: "Your code, in place", text: "Read, search, edit and create files in your project folder. CRLF files stay CRLF." },
+          { title: "Your terminal", text: "Runs commands in PowerShell on Windows or your login shell elsewhere, including dev servers in the background." },
+          { title: "Built-in browser", text: "Tabs, reading pages, clicking by element number and screenshots. Open your app on localhost to test it." },
+          { title: "Your Chrome", text: "Optionally drive a separate Chrome profile when a site needs it." },
           { title: "Screen", text: "Screenshots, window list, switching windows, clipboard." },
           { title: "Mouse and keyboard", text: "Click, drag, scroll, type and press shortcuts." },
-          { title: "Files", text: "List, read and write files." },
-          { title: "Wallpaper", text: "Set it from an image on your disk or a link." },
+          { title: "Apps and settings", text: "Open VS Code, folders, links and system settings pages." },
+          { title: "App controls", text: "On Windows it reads the buttons and fields of the window in front, then clicks them." },
         ]} />
       </Section>
       <Section title="You stay in control">
         <FeatureGrid columns={3} items={[
-          { title: "Approvals", text: "Actions that change something ask you first. Reading a page or the screen does not." },
-          { title: "Pause and stop", text: "Pause from the app window, or move the mouse into a screen corner to stop at once." },
-          { title: "Separate browser", text: "The agent uses its own browser profile, not your everyday one, so your sign-ins stay private." },
+          { title: "Approvals", text: "Chats on your folders start in Ask mode: file changes and commands wait for your approval. Switch to Auto when you trust a task." },
+          { title: "Only the folders you pick", text: "The app accepts file and command requests only for folders you chose in its own folder dialog, and never outside them." },
+          { title: "Emergency stop", text: "Press Ctrl+Alt+Shift+X (Cmd on macOS) anywhere to pause the agent and stop running commands at once." },
         ]} />
       </Section>
       <CtaBand />

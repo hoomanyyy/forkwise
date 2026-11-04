@@ -16,6 +16,8 @@ class NewChat(BaseModel):
     model: str = ""
     mode: str = "auto"
     kind: str = "chat"
+    local_path: str = ""
+    local_device: str = ""
 
 
 class ChatChange(BaseModel):
@@ -82,6 +84,8 @@ def chat_summary(chat):
         "pinned": bool(chat["pinned"]),
         "mode": chat["mode"],
         "kind": chat.get("kind") or "chat",
+        "local_path": chat.get("local_path") or "",
+        "local_device": chat.get("local_device") or "",
         "model": chat["model"],
         "updated_at": chat["updated_at"],
         "running": chat["id"] in runs.ACTIVE,
@@ -121,9 +125,21 @@ def create_chat(body: NewChat, request: Request):
     found = config.find_model(model)
     if found:
         model = found["key"]
+    local_path = body.local_path.strip()[:1000]
+    local_device = body.local_device.strip()[:64]
+    if local_path:
+        owned = db.one_row("SELECT id, name FROM devices WHERE id = ? AND user_id = ?", (local_device, user["id"]))
+        if owned is None:
+            raise HTTPException(status_code=400, detail="Link this computer first, then choose the folder again.")
+        project_id = None
+        workspace_id = db.new_id("w")
+        if body.mode in ["", "auto"]:
+            mode = "ask"
+    else:
+        local_device = ""
     chat_id = db.new_id("c_")
     created = db.now()
-    db.insert("chats", {"id": chat_id, "user_id": user["id"], "project_id": project_id, "title": "New chat", "model": model, "mode": mode, "kind": kind, "workspace_id": workspace_id, "created_at": created, "updated_at": created})
+    db.insert("chats", {"id": chat_id, "user_id": user["id"], "project_id": project_id, "title": "New chat", "model": model, "mode": mode, "kind": kind, "local_path": local_path, "local_device": local_device, "workspace_id": workspace_id, "created_at": created, "updated_at": created})
     return {"chat": chat_summary(db.one_row("SELECT * FROM chats WHERE id = ?", (chat_id,)))}
 
 

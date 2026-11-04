@@ -24,7 +24,12 @@ forkwise/
       styles/              base.css, site.css, app.css
     public/images/         تصاویر محصول
     vercel.json, public/_redirects
+  desktop-app/             Electron: اپ دسکتاپ (ویندوز، مک، لینوکس)
+    main.js                پنجره‌ی اصلی (فرانت Forkwise)، منو، تری، کلید توقف اضطراری
+    src/                   اتصال WebSocket، فایل/glob/grep داخل پوشه، شل و جاب‌ها، مرورگر داخلی، ماوس و کیبورد
+    test/                  تست‌های واحد و تست مرورگر
   .github/workflows/deploy-backend.yml
+  .github/workflows/desktop-release.yml   ساخت نصب‌کننده‌ها با تگ desktop-v*
 ```
 
 ## صفحات
@@ -94,3 +99,13 @@ On the server run `sudo bash /opt/forkwise/repo/backend/deploy/mysql.sh`. It ins
 On the server run `sudo bash /opt/forkwise/repo/backend/deploy/google.sh` and paste the client ID and secret from the Google Cloud console. Redirect URI: `https://api.forkwiseai.com/api/auth/google/callback`.
 
 To let people link Gmail and Google services (Settings, Connected accounts), add this second redirect URI to the same Google client: `https://api.forkwiseai.com/api/connections/google/callback`. To link GitHub with a button, create a GitHub OAuth app with the callback `https://api.forkwiseai.com/api/connections/github/callback` and set `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` in the server `.env`. Without them people can still link GitHub with a personal access token. Set `SECRET_KEY` to a long random value so stored tokens and secrets are encrypted with your own key.
+
+
+## اپ دسکتاپ
+
+اپ Electron همان Forkwise را در پنجره‌ی خودش باز می‌کند و دو کار اضافه دارد: دستگاه را بعد از ورود خودکار به حساب وصل می‌کند و با «Work in a folder» ایجنت روی یک پوشه‌ی واقعی کامپیوتر کار می‌کند (خواندن، جستجو، ویرایش، bash، سرور dev) مثل Claude Code و Cursor.
+
+- چت پوشه‌ای در دیتابیس `local_path` و `local_device` دارد. ابزارهای ایجنت در `backend/app/agent/local.py` به جای سندباکس Docker از طریق WebSocket به همان دستگاه می‌روند. حالت پیش‌فرض این چت‌ها «ask» است.
+- اپ فقط برای پوشه‌هایی که کاربر خودش در دیالوگ اپ انتخاب کرده کار می‌کند و بیرون از آن پوشه یا داخل `.git` نمی‌نویسد.
+- ساخت محلی: `cd desktop-app && npm install && npm start` (برای آدرس دیگر فرانت: `FORKWISE_WEB=http://localhost:5173`). تست: `npm test`.
+- انتشار: تگ `desktop-v3.1.0` را push کنید؛ workflow سه نصب‌کننده را به Release اضافه می‌کند. نصب‌کننده‌ها هنوز امضا نشده‌اند و macOS فقط Apple silicon ساخته می‌شود.
