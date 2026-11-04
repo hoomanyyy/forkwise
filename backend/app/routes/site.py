@@ -4,7 +4,7 @@ import time
 from fastapi import Request, HTTPException
 from pydantic import BaseModel
 from app import db, config, mailer
-from app.routes.auth import admin_user
+from app.routes.auth import admin_user, client_ip
 from app.agent import sandbox
 
 STARTED = time.time()
@@ -21,7 +21,7 @@ class ContactBody(BaseModel):
 
 
 def contact(body: ContactBody, request: Request):
-    ip = request.headers.get("x-forwarded-for", "") or (request.client.host if request.client else "")
+    ip = client_ip(request)
     if time.time() - LAST_CONTACT.get(ip, 0) < 30:
         raise HTTPException(status_code=429, detail="Please wait a moment before sending another message.")
     email = body.email.strip()

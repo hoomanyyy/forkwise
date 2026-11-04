@@ -212,6 +212,10 @@ async def refresh_tools(run):
         for spec in extra:
             found.append(spec)
         run.mcp_routes = routes
+        from app.routes import desktop
+        devices = desktop.online_devices(run.user["id"])
+        if devices:
+            found.append(specs.computer_spec(devices))
     run.tool_specs = found
 
 
@@ -353,7 +357,11 @@ async def execute_call(run, call):
     run.emit("tool_start", {"id": call["id"], "name": name, "args": args})
     if run.mode == "plan" and name == "task":
         args["agent"] = "explore"
-    if run.mode == "ask" and tools.needs_approval(name, args) and name not in run.allowed:
+    ask_first = run.mode == "ask" and tools.needs_approval(name, args)
+    if name == "computer" and "computer" not in run.allowed:
+        from app.routes import desktop
+        ask_first = ask_first or desktop.must_confirm(run.user, args)
+    if ask_first and name not in run.allowed:
         answer = await run.wait_for_user(call["id"], "approval", {"name": name, "args": args})
         if answer == "always":
             run.allowed.append(name)

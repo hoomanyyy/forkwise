@@ -146,6 +146,17 @@ CREATE TABLE IF NOT EXISTS mcp_servers (
     enabled INTEGER NOT NULL DEFAULT 1,
     created_at REAL NOT NULL
 );
+CREATE TABLE IF NOT EXISTS devices (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    token_hash TEXT NOT NULL,
+    platform TEXT NOT NULL DEFAULT '',
+    info TEXT NOT NULL DEFAULT '{}',
+    created_at REAL NOT NULL,
+    last_seen REAL NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS devices_token ON devices(token_hash);
 CREATE TABLE IF NOT EXISTS password_resets (
     token TEXT PRIMARY KEY,
     user_id TEXT NOT NULL,
@@ -313,6 +324,17 @@ MYSQL_TABLES = [
     enabled INT NOT NULL DEFAULT 1,
     created_at DOUBLE NOT NULL
 )""",
+"""CREATE TABLE IF NOT EXISTS devices (
+    id VARCHAR(64) PRIMARY KEY,
+    user_id VARCHAR(64) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    token_hash VARCHAR(128) NOT NULL,
+    platform VARCHAR(64) NOT NULL DEFAULT '',
+    info LONGTEXT NOT NULL DEFAULT ('{}'),
+    created_at DOUBLE NOT NULL,
+    last_seen DOUBLE NOT NULL DEFAULT 0,
+    INDEX devices_token (token_hash)
+)""",
 """CREATE TABLE IF NOT EXISTS password_resets (
     token VARCHAR(128) PRIMARY KEY,
     user_id VARCHAR(64) NOT NULL,
@@ -343,6 +365,14 @@ MYSQL_TABLES = [
 ]
 
 
+MYSQL_COLUMNS = [
+    ("chats", "kind", "VARCHAR(16) NOT NULL DEFAULT 'chat'"),
+    ("users", "verified", "INT NOT NULL DEFAULT 1"),
+    ("users", "plan", "VARCHAR(32) NOT NULL DEFAULT 'free'"),
+    ("users", "plan_until", "DOUBLE NOT NULL DEFAULT 0"),
+]
+
+
 def use_mysql():
     return config.MYSQL_DATABASE != ""
 
@@ -365,9 +395,10 @@ def open_mysql():
     cursor = connection.cursor()
     for statement in MYSQL_TABLES:
         cursor.execute(statement)
-    cursor.execute("SHOW COLUMNS FROM chats LIKE 'kind'")
-    if cursor.fetchone() is None:
-        cursor.execute("ALTER TABLE chats ADD COLUMN kind VARCHAR(16) NOT NULL DEFAULT 'chat'")
+    for table, column, definition in MYSQL_COLUMNS:
+        cursor.execute("SHOW COLUMNS FROM " + table + " LIKE '" + column + "'")
+        if cursor.fetchone() is None:
+            cursor.execute("ALTER TABLE " + table + " ADD COLUMN " + column + " " + definition)
     cursor.close()
     return connection
 
