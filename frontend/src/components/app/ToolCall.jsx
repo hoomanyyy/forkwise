@@ -2,10 +2,12 @@ import { useEffect, useRef, useState } from "react"
 import {
   BookOpen, Bot, Brain, Camera, Check, ChevronRight, Download, FilePen, FilePlus, FileText, FolderTree, Globe,
   ListChecks, Loader2, MessageCircleQuestion, MonitorPlay, Plug, Search, ShieldQuestion, Sparkles, Square,
-  TerminalSquare, Wrench, X, ExternalLink, FileSearch
+  TerminalSquare, Wrench, X, ExternalLink, FileSearch, Laptop, MousePointerClick
 } from "lucide-react"
 import Markdown from "./Markdown"
 import { rawUrl } from "../../lib/api"
+
+const SHOT_TOOLS = ["screenshot", "browser", "computer"]
 
 function parseArgs(raw) {
   if (!raw) return {}
@@ -74,6 +76,23 @@ export function describe(name, args, meta) {
   if (name === "kill_job") return { icon: Square, verb: "Stopped", target: args.job_id }
   if (name === "preview") return { icon: MonitorPlay, verb: "Opened the live preview", target: "port " + args.port }
   if (name === "screenshot") return { icon: Camera, verb: "Looked at", target: args.url }
+  if (name === "browser") {
+    const a = args.action || "screenshot"
+    if (a === "open") return { icon: Globe, verb: args.new_tab ? "Opened a new tab" : "Opened", target: args.url }
+    if (a === "click") return { icon: MousePointerClick, verb: "Clicked", target: args.text || (args.ref ? "#" + args.ref : args.selector) || "" }
+    if (a === "type") return { icon: MousePointerClick, verb: "Typed", target: args.input || "" }
+    return { icon: Globe, verb: "Browser", target: a }
+  }
+  if (name === "computer") {
+    const a = args.action || "info"
+    if (a === "shell") return { icon: Laptop, verb: "Ran on your computer", target: args.command, code: true }
+    if (a === "open") return { icon: Laptop, verb: "Opened on your computer", target: args.target }
+    if (a === "screenshot") return { icon: Laptop, verb: "Looked at your screen", target: "" }
+    if (a === "type") return { icon: Laptop, verb: "Typed on your computer", target: (args.text || "").slice(0, 60) }
+    if (a === "key") return { icon: Laptop, verb: "Pressed", target: args.keys }
+    if (a === "click") return { icon: Laptop, verb: "Clicked on your screen", target: args.x + ", " + args.y }
+    return { icon: Laptop, verb: "Your computer", target: a }
+  }
   if (name === "web_search") return { icon: Globe, verb: "Searched the web for", target: args.query }
   if (name === "web_fetch") return { icon: Globe, verb: "Read", target: host(args.url || "") }
   if (name === "todo_write") return { icon: ListChecks, verb: "Updated the plan", target: "" }
@@ -262,7 +281,7 @@ export default function ToolCall({ call, result, live, waiting, subs, wid, respo
     body = <LivePre text={"$ " + (args.command || "") + "\n" + output} follow={running} />
   } else if ((name === "write_file" || name === "edit_file" || name === "multi_edit") && meta.diff) {
     body = <DiffView diff={meta.diff} />
-  } else if (name === "screenshot" && meta.image) {
+  } else if (SHOT_TOOLS.includes(name) && meta.image) {
     body = (
       <div className="shot">
         <a href={rawUrl(wid, meta.image)} target="_blank" rel="noreferrer"><img src={rawUrl(wid, meta.image)} alt="Screenshot" /></a>
@@ -292,7 +311,7 @@ export default function ToolCall({ call, result, live, waiting, subs, wid, respo
     body = <LivePre text={result.content || ""} />
   }
 
-  const showImage = name === "screenshot" && meta.image && !expanded
+  const showImage = SHOT_TOOLS.includes(name) && meta.image && !expanded
   const statusIcon = running ? <Loader2 size={14} className="spin" /> : failed ? <X size={14} /> : result ? <Check size={14} /> : <Loader2 size={14} className="spin" />
 
   return (

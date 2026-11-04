@@ -93,7 +93,7 @@ function UserRow({ row, me, onChanged }) {
     <>
       <tr>
         <td>
-          <div className="who"><span className="avatar-s">{(row.name || row.email).charAt(0).toUpperCase()}</span><div><strong>{row.name || "-"}</strong>{row.is_admin && <span className="chip accent">admin</span>}<div className="muted small">{row.email}</div></div></div>
+          <div className="who"><span className="avatar-s">{(row.name || row.email).charAt(0).toUpperCase()}</span><div><strong>{row.name || "-"}</strong>{row.is_admin && <span className="chip accent">admin</span>}<div className="muted small">{row.email}</div>{row.profile && row.profile.account_type && <div className="faint small">{row.profile.account_type === "organization" ? (row.profile.org_name || "Organization") + " · " + row.profile.team_size + " people" : "Personal"}{row.profile.industry ? " · " + row.profile.industry : ""}{row.profile.role ? " · " + row.profile.role : ""}</div>}</div></div>
         </td>
         <td><span className={"chip plan-" + row.plan}>{row.plan.charAt(0).toUpperCase() + row.plan.slice(1)}</span>{row.plan !== "free" && <div className="faint small">until {date(row.plan_until)}</div>}</td>
         <td>{number(row.runs)}</td>

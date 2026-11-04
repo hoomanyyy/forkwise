@@ -1,4 +1,6 @@
 READ_ONLY = ["read_file", "list_dir", "glob", "grep", "web_search", "web_fetch", "todo_write", "job_output", "ask_user", "use_skill", "memory", "screenshot", "exit_plan_mode"]
+BROWSER_READ_ONLY = ["screenshot", "read", "tabs", "wait"]
+COMPUTER_READ_ONLY = ["screenshot", "info"]
 
 
 def fn(name, description, properties, required=None):
@@ -82,6 +84,26 @@ BUILTIN = [
         "full_page": boolean("Capture the whole page, not only the first screen."),
         "wait_ms": integer("Extra wait after load in milliseconds, default 800."),
     }, ["url"]),
+    fn("browser", "Drive a real Chromium browser that stays open between calls, with tabs. Every call returns the open tabs, a numbered list of clickable elements on screen (refs) and a screenshot. Use it to log in, fill forms, click through sites, test your own apps end to end and read pages that need interaction. Prefer ref numbers from the latest result when clicking or typing.", {
+        "action": {"type": "string", "enum": ["open", "click", "type", "press", "select", "hover", "scroll", "back", "forward", "reload", "screenshot", "read", "tabs", "switch_tab", "close_tab", "eval", "wait", "close"], "description": "open: go to url (new_tab for a new tab). type: type input into ref/selector (or the focused element). press: a key like Enter, Tab, Control+A. read: also return the page text. eval: run JavaScript."},
+        "url": string("For open. Your own apps are on http://localhost:PORT."),
+        "new_tab": boolean("For open: open the url in a new tab."),
+        "ref": integer("Element number from the latest result, for click, type, select and hover."),
+        "selector": string("CSS selector, if there is no ref."),
+        "text": string("Click the element with this visible text, if there is no ref."),
+        "x": integer("Click at this x position of the screenshot."),
+        "y": integer("Click at this y position of the screenshot."),
+        "double": boolean("Double click."),
+        "input": string("Text to type, for type."),
+        "value": string("Option value or label, for select."),
+        "submit": boolean("Press Enter after typing."),
+        "key": string("Key for press."),
+        "direction": {"type": "string", "enum": ["down", "up"]},
+        "amount": integer("Pixels to scroll (default 600) or milliseconds to wait."),
+        "tab": integer("Tab index for switch_tab and close_tab."),
+        "script": string("JavaScript expression for eval."),
+        "full_page": boolean("Screenshot the whole page."),
+    }, ["action"]),
     fn("web_search", "Search the internet. Use it for anything current: prices, exchange rates, news, weather, versions, documentation.", {
         "query": string("The search query. Use the language that gives the best results."),
     }, ["query"]),
@@ -179,3 +201,23 @@ def plan_specs():
             result.append(spec)
     result.append(PLAN_TOOL)
     return result
+
+
+def computer_spec(devices):
+    names = ", ".join(device["name"] + " (" + (device.get("platform") or "unknown OS") + ")" for device in devices)
+    return fn("computer", "Control the user's own computer through the Forkwise Desktop app they connected: " + names + ". This is their real machine, not your sandbox. Use it only when the user asks for something on their computer. You can run commands in a full terminal (PowerShell on Windows, the login shell elsewhere), open apps (code, notepad, chrome...), files, folders, links in their browser and system settings (on Windows ms-settings: links such as ms-settings:display), take screenshots, and use the mouse and keyboard. Take a screenshot first to see the screen; click positions are in screenshot pixels. Destructive actions need extra care: say what you will do first.", {
+        "action": {"type": "string", "enum": ["info", "shell", "open", "screenshot", "click", "move", "type", "key", "scroll", "windows", "clipboard_get", "clipboard_set"]},
+        "device": string("Device name or id, if more than one is connected."),
+        "command": string("For shell: the command to run."),
+        "cwd": string("For shell: working folder."),
+        "timeout": integer("For shell: seconds, default 120, max 600."),
+        "target": string("For open: an app name (code, notepad, calc, chrome), a path, a URL or a settings link like ms-settings:bluetooth."),
+        "args": {"type": "array", "items": {"type": "string"}, "description": "For open: extra arguments for the app, like a folder for code."},
+        "x": integer("For click, move and scroll: x in screenshot pixels."),
+        "y": integer("For click, move and scroll: y in screenshot pixels."),
+        "button": {"type": "string", "enum": ["left", "right", "middle"]},
+        "double": boolean("Double click."),
+        "text": string("For type and clipboard_set."),
+        "keys": string("For key: a key or combination like enter, ctrl+s, alt+tab, win+r."),
+        "amount": integer("For scroll: clicks, positive up and negative down."),
+    }, ["action"])

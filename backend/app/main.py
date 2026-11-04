@@ -1,11 +1,12 @@
 import asyncio
+from urllib.parse import urlparse
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from app import config, db
-from app.routes import auth, chats, files, settings, preview, terminal, site, billing, google, admin
+from app.routes import auth, chats, files, settings, preview, terminal, site, billing, google, admin, desktop
 from app.agent import sandbox, runs
 
 
@@ -26,12 +27,23 @@ async def life(application):
 app = FastAPI(title="Forkwise API", docs_url=None, redoc_url=None, openapi_url=None, lifespan=asynccontextmanager(life))
 
 
+def served_preview(request):
+    if config.PREVIEW_HOST or not config.SECURE_COOKIES:
+        return False
+    if request.headers.get("sec-fetch-site") != "same-origin":
+        return False
+    site_host = urlparse(config.SITE_URL).netloc.lower()
+    return (request.headers.get("host") or "").lower() != site_host
+
+
 async def gatekeeper(request: Request, call_next):
     found = preview.match_host(request.headers.get("host"))
     if found:
         path = request.url.path.lstrip("/")
         return await preview.forward(request, found[0], found[1], path)
     path = request.url.path
+    if path.startswith("/api/") and served_preview(request):
+        return JSONResponse({"detail": "Previews cannot use the Forkwise API."}, status_code=403)
     if path.startswith("/api/") and path != "/api/billing/ipn" and request.method not in ["GET", "HEAD", "OPTIONS"]:
         if request.headers.get("x-forkwise") != "1":
             return JSONResponse({"detail": "Missing request header."}, status_code=403)
@@ -59,6 +71,7 @@ chats.register_routes(app)
 files.register_routes(app)
 settings.register_routes(app)
 terminal.register_routes(app)
+desktop.register_routes(app)
 preview.register_routes(app)
 site.register_routes(app)
 billing.register_routes(app)

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { Link, Navigate, NavLink, useNavigate, useParams } from "react-router-dom"
-import { BarChart3, BookOpen, Brain, Plug, ShieldCheck, Sparkles, Trash2, User, Wrench, Plus } from "lucide-react"
+import { BarChart3, BookOpen, Brain, Plug, ShieldCheck, Sparkles, Trash2, User, Wrench, Plus, Laptop, Copy, Download } from "lucide-react"
 import { useStore } from "../../lib/store"
 import { api, apiUrl } from "../../lib/api"
 import Select from "../../components/ui/Select"
@@ -9,6 +9,7 @@ import { useConfirm } from "../../components/ui/Modal"
 const TABS = [
   { key: "general", label: "Profile", icon: User },
   { key: "security", label: "Security", icon: ShieldCheck },
+  { key: "computer", label: "Computer", icon: Laptop },
   { key: "usage", label: "Usage", icon: BarChart3 },
   { key: "data", label: "Data", icon: BookOpen },
 ]
@@ -53,6 +54,11 @@ function General() {
         <p className="muted small">How Forkwise addresses you.</p>
         <div className="field"><label htmlFor="s-name">Display name</label><input id="s-name" className="input" dir="auto" value={name} onChange={(e) => setName(e.target.value)} /></div>
         <div className="field"><label htmlFor="s-email">Email</label><input id="s-email" className="input" value={user.email} disabled /></div>
+      </div>
+      <div className="settings-card">
+        <h3>About you</h3>
+        <p className="muted small">{settings.profile ? (settings.profile.account_type === "organization" ? (settings.profile.org_name || "Organization") + " · " + settings.profile.team_size + " people" : "Personal use") + (settings.profile.industry ? " · " + settings.profile.industry : "") + (settings.profile.role ? " · " + settings.profile.role : "") : "Tell Forkwise how you work so it can tailor its answers."}</p>
+        <div><Link to="/welcome?next=/app/settings" className="btn btn-ghost">{settings.profile ? "Edit answers" : "Answer a few questions"}</Link></div>
       </div>
       <div className="settings-card">
         <h3>AI preferences</h3>
@@ -425,6 +431,119 @@ function DataTab() {
   )
 }
 
+function CopyBox({ text }) {
+  const { toast } = useStore()
+  return (
+    <div className="copy-box" dir="ltr">
+      <code>{text}</code>
+      <button type="button" className="icon-btn tiny" aria-label="Copy" onClick={() => navigator.clipboard.writeText(text).then(() => toast("Copied", "ok"))}><Copy size={14} /></button>
+    </div>
+  )
+}
+
+function ComputerTab() {
+  const { user, setUser, toast } = useStore()
+  const confirm = useConfirm()
+  const [data, setData] = useState(null)
+  const [name, setName] = useState("")
+  const [pairing, setPairing] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const [os, setOs] = useState(() => (navigator.userAgent.includes("Windows") ? "windows" : "unix"))
+
+  function load() {
+    api.get("/api/desktop").then(setData).catch((problem) => toast(problem.message, "error"))
+  }
+
+  useEffect(() => {
+    load()
+    const timer = setInterval(load, 5000)
+    return () => clearInterval(timer)
+  }, [])
+
+  async function pair() {
+    setBusy(true)
+    try {
+      const result = await api.post("/api/desktop/pair", { name })
+      setPairing(result)
+      setName("")
+      load()
+    } catch (problem) {
+      toast(problem.message, "error")
+    }
+    setBusy(false)
+  }
+
+  async function remove(device) {
+    if (!(await confirm({ title: "Unlink " + device.name + "?", text: "Forkwise will lose access to this computer right away.", confirmLabel: "Unlink", danger: true }))) return
+    await api.del("/api/desktop/" + device.id).catch((problem) => toast(problem.message, "error"))
+    load()
+  }
+
+  async function setAuto(value) {
+    try {
+      const result = await api.post("/api/auth/settings", { settings: { desktop_auto: value } })
+      setUser(result.user)
+      load()
+    } catch (problem) {
+      toast(problem.message, "error")
+    }
+  }
+
+  const command = pairing && (os === "windows"
+    ? "irm " + pairing.agent_url + " -OutFile forkwise_desktop.py; python forkwise_desktop.py --server " + pairing.server + " --token " + pairing.token
+    : "curl -fsSL " + pairing.agent_url + " -o forkwise_desktop.py && python3 forkwise_desktop.py --server " + pairing.server + " --token " + pairing.token)
+  const auto = Boolean(user.settings && user.settings.desktop_auto)
+
+  return (
+    <div className="settings-stack">
+      <div className="settings-card">
+        <h3>Use your own computer</h3>
+        <p className="muted small">Link a Windows, macOS or Linux computer with the small Forkwise Desktop app. The agent can then run terminal commands, open apps such as VS Code, open system settings, files and links, see the screen and use the mouse and keyboard. You can stop it any time with Ctrl+C in the app window.</p>
+        <div className="pair-row">
+          <input className="input" placeholder="Name, for example Work laptop" value={name} onChange={(e) => setName(e.target.value)} maxLength={60} />
+          <button className="btn btn-brand" disabled={busy} onClick={pair}><Plus size={15} />Link a computer</button>
+        </div>
+        {pairing && (
+          <div className="pair-steps">
+            <div className="seg-choice" role="radiogroup">
+              <button type="button" className={os === "windows" ? "on" : ""} onClick={() => setOs("windows")}>Windows (PowerShell)</button>
+              <button type="button" className={os === "unix" ? "on" : ""} onClick={() => setOs("unix")}>macOS / Linux</button>
+            </div>
+            <ol className="small">
+              <li>Install <a href="https://www.python.org/downloads/" target="_blank" rel="noreferrer">Python 3.9+</a> if you do not have it.</li>
+              <li>Run this in {os === "windows" ? "PowerShell" : "a terminal"}. The token is shown only once:</li>
+            </ol>
+            <CopyBox text={command} />
+            <p className="faint small">Or <a href={pairing.agent_url} download><Download size={12} /> download the app</a> and run it with <code>--token {pairing.token.slice(0, 10)}…</code></p>
+          </div>
+        )}
+      </div>
+      <div className="settings-card">
+        <h3>Linked computers</h3>
+        {!data && <span className="skel block h24" />}
+        {data && data.devices.length === 0 && <p className="muted small">No computers linked yet.</p>}
+        {data && data.devices.map((device) => (
+          <div className="device-row" key={device.id}>
+            <span className={"dot" + (device.online ? " ok" : "")} />
+            <div className="device-text">
+              <strong>{device.name}</strong>
+              <span className="faint small">{device.online ? "Online" : device.last_seen ? "Last seen " + new Date(device.last_seen * 1000).toLocaleString() : "Waiting for the app to connect"}{device.platform ? " · " + device.platform : ""}{device.hostname ? " · " + device.hostname : ""}</span>
+            </div>
+            <button className="icon-btn" aria-label={"Unlink " + device.name} onClick={() => remove(device)}><Trash2 size={15} /></button>
+          </div>
+        ))}
+      </div>
+      <div className="settings-card">
+        <h3>Permissions</h3>
+        <label className="check">
+          <input type="checkbox" checked={!auto} onChange={(e) => setAuto(!e.target.checked)} />
+          <span>Ask me before every action on my computer (recommended). Screenshots never ask.</span>
+        </label>
+      </div>
+    </div>
+  )
+}
+
 export default function Settings() {
   const { tab } = useParams()
   const current = tab || "general"
@@ -444,6 +563,7 @@ export default function Settings() {
           {current === "security" && <Security />}
           {current === "data" && <DataTab />}
           {current === "usage" && <Usage />}
+          {current === "computer" && <ComputerTab />}
         </div>
       </div>
     </div>

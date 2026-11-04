@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom"
-import { Brain, Eye, EyeOff, History, MonitorPlay } from "lucide-react"
+import { ArrowLeft, ArrowRight, Brain, Building2, Check, Eye, EyeOff, History, MonitorPlay, User } from "lucide-react"
+import Select from "../../components/ui/Select"
 import { Wordmark } from "../../components/ui/Logo"
 import { BranchField, usePageTitle } from "../../components/site/parts"
 import { useStore } from "../../lib/store"
@@ -408,6 +409,142 @@ export function Reset() {
         <PasswordField id="password" label="New password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" minLength={8} />
         {error && <div className="form-error" role="alert">{error}</div>}
         <button className="btn btn-primary btn-lg wide" disabled={busy}><SubmitLabel busy={busy} idle="Save password" working="Saving" /></button>
+      </form>
+    </Shell>
+  )
+}
+
+const TEAM_SIZES = ["2-10", "11-50", "51-200", "201-1000", "1000+"]
+const INDUSTRIES = ["Software & IT", "Marketing & Media", "Education", "Finance", "E-commerce & Retail", "Healthcare", "Design & Creative", "Research & Science", "Consulting & Agency", "Government & Non-profit", "Student", "Other"]
+const ROLES = ["Founder / Executive", "Software engineer", "Product manager", "Designer", "Data / Analyst", "Marketing", "Operations", "Researcher", "Student", "Other"]
+const GOALS = ["Build websites & apps", "Automate tasks", "Data analysis", "Research", "Write & edit content", "Design & images", "Learn to code", "Control my computer"]
+const EXPERIENCE = [
+  { value: "beginner", label: "New to code" },
+  { value: "intermediate", label: "Some experience" },
+  { value: "expert", label: "Professional" },
+]
+const REFERRALS = ["Google search", "Friend or colleague", "X / Twitter", "YouTube", "LinkedIn", "Reddit", "Newsletter or blog", "Other"]
+
+function options(list) {
+  return list.map((item) => ({ value: item, label: item }))
+}
+
+export function Welcome() {
+  usePageTitle("Tell us about you", "")
+  const { user, ready, setUser } = useStore()
+  const navigate = useNavigate()
+  const [params] = useSearchParams()
+  const saved = (user && user.settings && user.settings.profile) || {}
+  const [step, setStep] = useState(0)
+  const [profile, setProfile] = useState({
+    account_type: saved.account_type || "",
+    org_name: saved.org_name || "",
+    team_size: saved.team_size && saved.team_size !== "1" ? saved.team_size : "2-10",
+    industry: saved.industry || "",
+    role: saved.role || "",
+    goals: saved.goals || [],
+    experience: saved.experience || "",
+    referral: saved.referral || "",
+  })
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState("")
+  const next = params.get("next") || "/app"
+
+  if (!ready) return <div className="auth-loading" />
+  if (!user) return <Navigate to="/login?next=/welcome" replace />
+
+  function set(key, value) {
+    setProfile((current) => ({ ...current, [key]: value }))
+  }
+
+  function toggleGoal(goal) {
+    set("goals", profile.goals.includes(goal) ? profile.goals.filter((item) => item !== goal) : [...profile.goals, goal])
+  }
+
+  async function finish(skipped) {
+    setBusy(true)
+    setError("")
+    try {
+      const data = await api.post("/api/auth/profile", { ...profile, account_type: profile.account_type || "personal", skipped: Boolean(skipped) })
+      setUser(data.user)
+      navigate(next, { replace: true })
+    } catch (problem) {
+      setError(problem.message)
+      setBusy(false)
+    }
+  }
+
+  const org = profile.account_type === "organization"
+  const canContinue = step === 0 ? Boolean(profile.account_type) : step === 1 ? Boolean(profile.industry) && (!org || profile.org_name.trim()) : true
+
+  return (
+    <Shell>
+      <form className="auth-form welcome" onSubmit={(event) => { event.preventDefault(); if (!canContinue) return; if (step < 2) setStep(step + 1); else finish(false) }}>
+        <div className="welcome-steps" aria-label={"Step " + (step + 1) + " of 3"}>
+          {[0, 1, 2].map((index) => <span key={index} className={index <= step ? "on" : ""} />)}
+        </div>
+        <div className="welcome-pane" key={step}>
+          {step === 0 && (
+            <>
+              <h1>Welcome{user.name ? ", " + user.name.split(" ")[0] : ""}</h1>
+              <p>How are you planning to use Forkwise?</p>
+              <div className="choice-grid" role="radiogroup">
+                <button type="button" role="radio" aria-checked={profile.account_type === "personal"} className={"choice-card" + (profile.account_type === "personal" ? " on" : "")} onClick={() => set("account_type", "personal")}>
+                  <span className="choice-icon"><User size={20} /></span>
+                  <strong>For myself</strong>
+                  <small>Personal projects, learning and everyday tasks.</small>
+                  <Check className="choice-check" size={16} />
+                </button>
+                <button type="button" role="radio" aria-checked={org} className={"choice-card" + (org ? " on" : "")} onClick={() => set("account_type", "organization")}>
+                  <span className="choice-icon"><Building2 size={20} /></span>
+                  <strong>For my team</strong>
+                  <small>Work for a company, startup, agency or school.</small>
+                  <Check className="choice-check" size={16} />
+                </button>
+              </div>
+            </>
+          )}
+          {step === 1 && (
+            <>
+              <h1>{org ? "About your team" : "About you"}</h1>
+              <p>This helps Forkwise pick better examples and defaults.</p>
+              {org && (
+                <>
+                  <div className="field"><label htmlFor="org">Organization name</label><input id="org" className="input" dir="auto" value={profile.org_name} onChange={(e) => set("org_name", e.target.value)} maxLength={120} autoFocus required /></div>
+                  <div className="field">
+                    <span className="field-label">Team size</span>
+                    <div className="seg-choice" role="radiogroup">
+                      {TEAM_SIZES.map((size) => <button type="button" role="radio" aria-checked={profile.team_size === size} key={size} className={profile.team_size === size ? "on" : ""} onClick={() => set("team_size", size)}>{size}</button>)}
+                    </div>
+                  </div>
+                </>
+              )}
+              <div className="field"><label htmlFor="industry">{org ? "Industry" : "Field"}</label><Select id="industry" value={profile.industry} onChange={(value) => set("industry", value)} options={options(INDUSTRIES)} placeholder="Choose one" /></div>
+              <div className="field"><label htmlFor="role">Your role</label><Select id="role" value={profile.role} onChange={(value) => set("role", value)} options={options(ROLES)} placeholder="Choose one" /></div>
+            </>
+          )}
+          {step === 2 && (
+            <>
+              <h1>What will you build?</h1>
+              <p>Pick as many as you like.</p>
+              <div className="goal-chips">
+                {GOALS.map((goal) => <button type="button" key={goal} aria-pressed={profile.goals.includes(goal)} className={"goal-chip" + (profile.goals.includes(goal) ? " on" : "")} onClick={() => toggleGoal(goal)}>{profile.goals.includes(goal) && <Check size={14} />}{goal}</button>)}
+              </div>
+              <div className="field">
+                <span className="field-label">Coding experience</span>
+                <div className="seg-choice" role="radiogroup">
+                  {EXPERIENCE.map((item) => <button type="button" role="radio" aria-checked={profile.experience === item.value} key={item.value} className={profile.experience === item.value ? "on" : ""} onClick={() => set("experience", item.value)}>{item.label}</button>)}
+                </div>
+              </div>
+              <div className="field"><label htmlFor="referral">How did you hear about us?</label><Select id="referral" value={profile.referral} onChange={(value) => set("referral", value)} options={options(REFERRALS)} placeholder="Optional" /></div>
+            </>
+          )}
+        </div>
+        {error && <div className="form-error" role="alert">{error}</div>}
+        <div className="welcome-actions">
+          {step > 0 ? <button type="button" className="btn btn-ghost" onClick={() => setStep(step - 1)}><ArrowLeft size={16} />Back</button> : <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => finish(true)}>Skip for now</button>}
+          <button className="btn btn-brand btn-lg" disabled={busy || !canContinue}>{step < 2 ? <>Continue<ArrowRight size={16} /></> : <SubmitLabel busy={busy} idle="Start using Forkwise" working="Saving" />}</button>
+        </div>
       </form>
     </Shell>
   )

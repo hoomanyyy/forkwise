@@ -13,6 +13,7 @@ from app.agent import sandbox, web, specs, mcp
 TEXT_LIMIT = 40000
 IMAGE_TYPES = [".png", ".jpg", ".jpeg", ".gif", ".webp"]
 SHOT_SCRIPT_LOCAL = str(config.ROOT / "sandbox" / "shot.py")
+BROWSER_SCRIPT_LOCAL = str(config.ROOT / "sandbox" / "browser.py")
 
 
 def result(text, ok=True, meta=None, image=None, end_turn=False):
@@ -464,6 +465,53 @@ async def screenshot(run, args):
     return result(short(note, 8000) or "Screenshot taken.", meta={"image": rel, "url": url}, image=image)
 
 
+async def browser(run, args):
+    action = args.get("action") or "screenshot"
+    request = dict(args)
+    rel = ""
+    if action not in ["tabs", "close"]:
+        folder = sandbox.host_root(run.wid) / ".forkwise" / "shots"
+        folder.mkdir(parents=True, exist_ok=True)
+        rel = ".forkwise/shots/browser_" + str(int(time.time() * 1000)) + ".png"
+        request["out"] = rel
+    script = "/opt/forkwise/browser.py"
+    if not sandbox.is_docker():
+        script = BROWSER_SCRIPT_LOCAL
+    output = await sandbox.run(run.wid, "python3 " + script + " " + shell_quote(json.dumps(request)), timeout=150, limit=40000)
+    lines = output["output"].strip().splitlines()
+    try:
+        answer = json.loads(lines[-1])
+    except (ValueError, IndexError):
+        return result("The browser failed:\n" + output["output"][-3000:], ok=False)
+    text = short(answer.get("text") or "", 16000)
+    meta = {"action": action, "url": args.get("url") or ""}
+    image = None
+    path = sandbox.host_root(run.wid) / rel if rel else None
+    if path is not None and path.exists():
+        meta["image"] = rel
+        if run.vision:
+            image = image_data(path)
+        else:
+            text = text + "\n(Your model cannot see images; use the clickable list and page text.)"
+    return result(text or "Done.", ok=bool(answer.get("ok")), meta=meta, image=image)
+
+
+async def computer(run, args):
+    from app.routes import desktop
+    answer = await desktop.call(run.user["id"], args)
+    meta = {"action": args.get("action"), "device": answer.get("device", "")}
+    image = None
+    if answer.get("image"):
+        folder = sandbox.host_root(run.wid) / ".forkwise" / "shots"
+        folder.mkdir(parents=True, exist_ok=True)
+        rel = ".forkwise/shots/pc_" + str(int(time.time() * 1000)) + ".png"
+        (sandbox.host_root(run.wid) / rel).write_bytes(base64.b64decode(answer["image"]))
+        meta["image"] = rel
+        if run.vision:
+            image = image_data(sandbox.host_root(run.wid) / rel)
+    return result(short(answer.get("text") or "Done.", 20000), ok=bool(answer.get("ok")), meta=meta, image=image)
+
+
 def shell_quote(text):
     import shlex
     return shlex.quote(text)
@@ -796,6 +844,10 @@ async def mcp_specs(user_id):
 def needs_approval(name, args):
     if name in specs.READ_ONLY:
         return False
+    if name == "browser" and args.get("action") in specs.BROWSER_READ_ONLY:
+        return False
+    if name == "computer" and args.get("action") in specs.COMPUTER_READ_ONLY:
+        return False
     if name == "task" and (args.get("agent") or "explore") == "explore":
         return False
     return True
@@ -827,6 +879,10 @@ async def execute(run, name, args, call_id):
             return await preview(run, args)
         if name == "screenshot":
             return await screenshot(run, args)
+        if name == "browser":
+            return await browser(run, args)
+        if name == "computer":
+            return await computer(run, args)
         if name == "web_search":
             return await web_search(run, args)
         if name == "web_fetch":

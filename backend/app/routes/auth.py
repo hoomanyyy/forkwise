@@ -1,5 +1,6 @@
 import hashlib
 import hmac
+import html
 import re
 import secrets
 import bcrypt
@@ -93,7 +94,18 @@ def hash_code(code, salt):
     return hashlib.sha256((salt + ":" + code).encode("utf-8")).hexdigest()
 
 
+def client_ip(request):
+    real = request.headers.get("x-real-ip", "").strip()
+    if real:
+        return real
+    forwarded = request.headers.get("x-forwarded-for", "")
+    if forwarded:
+        return forwarded.split(",")[-1].strip()
+    return request.client.host if request.client else ""
+
+
 def code_email(name, code):
+    safe_name = html.escape(name)
     text = "Hi " + name + ",\n\nYour Forkwise verification code is " + code + ".\nIt works for " + str(CODE_MINUTES) + " minutes.\n\nIf you did not create a Forkwise account, ignore this email."
     digits = ""
     for digit in code:
@@ -102,7 +114,7 @@ def code_email(name, code):
         '<div style="background:#f4f5fa;padding:32px 12px;font-family:Arial,Helvetica,sans-serif">'
         '<div style="max-width:460px;margin:0 auto;background:#ffffff;border-radius:18px;padding:34px 30px;border:1px solid #e3e5f0">'
         '<div style="font-size:20px;font-weight:700;color:#11132e;margin-bottom:22px">Forkwise</div>'
-        '<div style="font-size:16px;color:#11132e;margin-bottom:6px">Hi ' + name + ",</div>"
+        '<div style="font-size:16px;color:#11132e;margin-bottom:6px">Hi ' + safe_name + ",</div>"
         '<div style="font-size:15px;color:#555979;margin-bottom:24px">Enter this code to finish creating your account.</div>'
         '<div style="text-align:center;margin-bottom:24px">' + digits + "</div>"
         '<div style="font-size:13px;color:#8a8eae">The code works for ' + str(CODE_MINUTES) + " minutes. If you did not create a Forkwise account, you can ignore this email.</div>"
@@ -206,8 +218,7 @@ def too_many_fails(key):
 
 def login(body: LoginBody, request: Request, response: Response):
     email = clean_email(body.email)
-    ip = request.headers.get("x-forwarded-for", "") or (request.client.host if request.client else "")
-    key = email + "|" + ip
+    key = email + "|" + client_ip(request)
     if too_many_fails(key):
         raise HTTPException(status_code=429, detail="Too many attempts. Try again in a few minutes.")
     user = db.one_row("SELECT * FROM users WHERE email = ?", (email,))
@@ -250,12 +261,13 @@ RESET_SENT = {}
 
 
 def reset_email(name, link):
+    safe_name = html.escape(name)
     text = "Hi " + name + ",\n\nOpen this link to choose a new Forkwise password. It works for one hour.\n\n" + link + "\n\nIf you did not ask for this, ignore this email."
     html = (
         '<div style="background:#f4f5fa;padding:32px 12px;font-family:Arial,Helvetica,sans-serif">'
         '<div style="max-width:460px;margin:0 auto;background:#ffffff;border-radius:18px;padding:34px 30px;border:1px solid #e3e5f0">'
         '<div style="font-size:20px;font-weight:700;color:#11132e;margin-bottom:22px">Forkwise</div>'
-        '<div style="font-size:16px;color:#11132e;margin-bottom:6px">Hi ' + name + ",</div>"
+        '<div style="font-size:16px;color:#11132e;margin-bottom:6px">Hi ' + safe_name + ",</div>"
         '<div style="font-size:15px;color:#555979;margin-bottom:24px">Press the button to choose a new password. The link works for one hour.</div>'
         '<div style="margin-bottom:24px"><a href="' + link + '" style="display:inline-block;background:#11132e;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:13px 22px;border-radius:10px">Choose a new password</a></div>'
         '<div style="font-size:13px;color:#8a8eae">If you did not ask for this, you can ignore this email. Your password stays the same.</div>'
@@ -305,11 +317,65 @@ def save_settings(body: SettingsBody, request: Request):
     user = current_user(request)
     settings = db.load_json(user["settings"], {})
     for key in body.settings:
+        if key in ["profile", "onboarded"]:
+            continue
         settings[key] = body.settings[key]
     values = {"settings": db.dump_json(settings)}
     if body.name.strip():
         values["name"] = body.name.strip()
     db.update("users", "id", user["id"], values)
+    return {"user": public_user(db.one_row("SELECT * FROM users WHERE id = ?", (user["id"],)))}
+
+
+PROFILE_CHOICES = {
+    "account_type": ["personal", "organization"],
+    "team_size": ["1", "2-10", "11-50", "51-200", "201-1000", "1000+"],
+}
+PROFILE_TEXT = ["org_name", "industry", "role", "referral", "website", "country"]
+
+
+class ProfileBody(BaseModel):
+    account_type: str = "personal"
+    org_name: str = ""
+    team_size: str = "1"
+    industry: str = ""
+    role: str = ""
+    goals: list = []
+    experience: str = ""
+    referral: str = ""
+    website: str = ""
+    country: str = ""
+    skipped: bool = False
+
+
+def clean_profile(body):
+    profile = {}
+    for key in PROFILE_CHOICES:
+        value = getattr(body, key)
+        profile[key] = value if value in PROFILE_CHOICES[key] else PROFILE_CHOICES[key][0]
+    for key in PROFILE_TEXT:
+        profile[key] = str(getattr(body, key) or "").strip()[:120]
+    if body.experience in ["beginner", "intermediate", "expert"]:
+        profile["experience"] = body.experience
+    goals = []
+    for item in body.goals[:12]:
+        text = str(item).strip()[:60]
+        if text and text not in goals:
+            goals.append(text)
+    profile["goals"] = goals
+    if profile["account_type"] == "personal":
+        profile["org_name"] = ""
+        profile["team_size"] = "1"
+    return profile
+
+
+def save_profile(body: ProfileBody, request: Request):
+    user = current_user(request)
+    settings = db.load_json(user["settings"], {})
+    if not body.skipped:
+        settings["profile"] = clean_profile(body)
+    settings["onboarded"] = True
+    db.update("users", "id", user["id"], {"settings": db.dump_json(settings)})
     return {"user": public_user(db.one_row("SELECT * FROM users WHERE id = ?", (user["id"],)))}
 
 
@@ -379,5 +445,6 @@ def register_routes(app):
     app.add_api_route("/api/auth/logout", logout, methods=["POST"])
     app.add_api_route("/api/auth/me", me, methods=["GET"])
     app.add_api_route("/api/auth/settings", save_settings, methods=["POST"])
+    app.add_api_route("/api/auth/profile", save_profile, methods=["POST"])
     app.add_api_route("/api/auth/forgot", forgot, methods=["POST"])
     app.add_api_route("/api/auth/reset", reset, methods=["POST"])

@@ -43,6 +43,7 @@ const Register = named(() => import("./pages/auth/Auth"), "Register")
 const Verify = named(() => import("./pages/auth/Auth"), "Verify")
 const Forgot = named(() => import("./pages/auth/Auth"), "Forgot")
 const Reset = named(() => import("./pages/auth/Auth"), "Reset")
+const Welcome = named(() => import("./pages/auth/Auth"), "Welcome")
 const AppShell = lazy(() => import("./pages/app/AppShell"))
 const AppHome = lazy(() => import("./pages/app/Home"))
 const Chat = lazy(() => import("./pages/app/Chat"))
@@ -111,6 +112,7 @@ function App() {
         <Route path="/verify" element={<Bare><Verify /></Bare>} />
         <Route path="/forgot" element={<Bare><Forgot /></Bare>} />
         <Route path="/reset/:token" element={<Bare><Reset /></Bare>} />
+        <Route path="/welcome" element={<Bare><Welcome /></Bare>} />
         <Route path="/app" element={<Suspense fallback={<AppSkeleton />}><AppShell /></Suspense>}>
           <Route index element={<InApp><AppHome kind="chat" /></InApp>} />
           <Route path="code" element={<InApp><AppHome kind="code" /></InApp>} />

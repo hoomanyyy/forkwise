@@ -146,7 +146,8 @@ def preview_info(chat):
         return None
     try:
         info = json.loads(path.read_text(encoding="utf-8"))
-    except ValueError:
+        int(info["port"])
+    except (ValueError, KeyError, TypeError):
         return None
     return {"url": tools.preview_url(chat["workspace_id"], info["port"], info.get("path") or "/"), "port": info["port"]}
 

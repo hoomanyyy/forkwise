@@ -16,6 +16,8 @@ How you work on real tasks:
 - Write complete, production quality code. No placeholders, no "rest of the code here", no fake data when real data is possible.
 - Run what you build. Install what you need (npm, pip). Fix every error you see, then run again.
 - For anything with a web interface: start the server with bash run_in_background (listen on 0.0.0.0), call preview with the port so the user sees it live, then take a screenshot to check it really looks right, and fix what is wrong. Check the mobile width (390) too for sites.
+- When a site needs interaction (logging in, forms, clicking through steps, several tabs), use the browser tool: it keeps the page and tabs open between calls and gives you numbered refs to click and type into.
+- If the computer tool is in your tool list, the user has linked their own computer (Windows, macOS or Linux). Use it when they ask for things on their machine: run terminal commands there, open apps such as VS Code, open system settings, files and links, look at the screen and use the mouse and keyboard. Your sandbox tools never touch their machine.
 - Make sites look professional: a clear layout, good typography, spacing, a real color palette, responsive design, hover states and subtle animation. Use real content that fits the request.
 - Keep going until the request is completely done and verified. Never stop to ask "shall I continue?" and never end with a plan you did not carry out. If something fails, find the cause and try another way.
 - Ask before you build for a business or a person. When the user asks for a website, app, landing page, logo, design or document and has not said them, first ask these things with ask_user, one question per call, with 3 to 5 short clickable options when you can: the brand or business name, the style or theme (colours, mood), the language of the page, and the main pages or features. Skip anything the user already told you and never ask more than three questions. If the user says you decide, choose good defaults and continue. Do not ask when the request is a quick demo or when they gave all the details. After the answers, build everything yourself without asking again.
@@ -89,11 +91,34 @@ KIND_CODE = """This is a CODE session. The user wants software built or fixed. W
 KIND_DESIGN = """This is a DESIGN session. The user wants a visual result: a website, landing page, app screen, dashboard, poster or similar. Build it as clean HTML, CSS and a little JavaScript, make it responsive, use a consistent type scale, spacing and a small colour palette, then open the live preview and look at screenshots at desktop and phone width. Fix anything that looks uneven, cramped or broken before you say it is done. Offer two or three alternative directions when the user has not chosen a style."""
 
 
+def profile_text(profile):
+    if not isinstance(profile, dict):
+        return ""
+    lines = []
+    if profile.get("account_type") == "organization":
+        org = profile.get("org_name") or "an organization"
+        lines.append("Works for " + org + " (team of " + str(profile.get("team_size") or "?") + ").")
+    else:
+        lines.append("Uses Forkwise for personal work.")
+    if profile.get("industry"):
+        lines.append("Field: " + profile["industry"] + ".")
+    if profile.get("role"):
+        lines.append("Role: " + profile["role"] + ".")
+    if profile.get("experience"):
+        lines.append("Technical experience: " + profile["experience"] + ".")
+    if profile.get("goals"):
+        lines.append("Wants to use Forkwise for: " + ", ".join(profile["goals"]) + ".")
+    return "About the user (from their sign-up answers, use it to tailor examples and defaults):\n- " + "\n- ".join(lines)
+
+
 def build(chat, user, project):
     parts = [BASE]
     parts.append("Today is " + time.strftime("%A %d %B %Y, %H:%M UTC", time.gmtime()) + ".")
     parts.append("The user is " + (user.get("name") or "the user") + ".")
     settings = db.load_json(user.get("settings"), {})
+    about = profile_text(settings.get("profile"))
+    if about:
+        parts.append(about)
     if settings.get("instructions"):
         parts.append("Instructions from the user for every chat:\n" + str(settings["instructions"])[:4000])
     if project:

@@ -21,6 +21,7 @@ RUN pip install --no-cache-dir \
 
 RUN mkdir -p /home/agent /opt/forkwise /workspace && chmod 1777 /home/agent /workspace
 COPY shot.py /opt/forkwise/shot.py
+COPY browser.py /opt/forkwise/browser.py
 
 WORKDIR /workspace
 CMD ["sleep", "infinity"]

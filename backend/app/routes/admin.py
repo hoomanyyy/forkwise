@@ -45,7 +45,7 @@ def users(request: Request, q: str = ""):
     admin_user(request)
     now = db.now()
     like = "%" + q.strip().lower() + "%"
-    rows = db.all_rows("SELECT id, email, name, is_admin, created_at, plan, plan_until FROM users WHERE LOWER(email) LIKE ? OR LOWER(name) LIKE ? ORDER BY created_at DESC LIMIT 200", (like, like))
+    rows = db.all_rows("SELECT id, email, name, is_admin, created_at, plan, plan_until, settings FROM users WHERE LOWER(email) LIKE ? OR LOWER(name) LIKE ? ORDER BY created_at DESC LIMIT 200", (like, like))
     result = []
     for row in rows:
         usage = db.one_row("SELECT COALESCE(SUM(tokens_in + tokens_out), 0) AS tokens, COALESCE(SUM(runs), 0) AS runs, MAX(day) AS last_day FROM usage_daily WHERE user_id = ?", (row["id"],))
@@ -63,6 +63,7 @@ def users(request: Request, q: str = ""):
             "runs": usage["runs"],
             "last_day": usage["last_day"] or "",
             "chats": chats,
+            "profile": db.load_json(row.get("settings"), {}).get("profile") or {},
         })
     return {"users": result}
 

@@ -12,7 +12,7 @@ import { useStore } from "../../lib/store"
 import { api, apiUrl } from "../../lib/api"
 import { useConfirm } from "../../components/ui/Modal"
 
-const FILE_TOOLS = ["write_file", "edit_file", "multi_edit", "bash", "create_tool", "show_file", "screenshot"]
+const FILE_TOOLS = ["write_file", "edit_file", "multi_edit", "bash", "create_tool", "show_file", "screenshot", "browser", "computer"]
 const INIT_PROMPT = "Look through this project and write a FORKWISE.md file in the project folder: what the project is, the stack, how to install and run it (exact commands and ports), the folder layout, important decisions and conventions. Keep it short and useful for future work."
 
 function readWidth() {
