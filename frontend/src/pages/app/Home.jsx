@@ -6,7 +6,6 @@ import { LogoMark } from "../../components/ui/Logo"
 import { useStore } from "../../lib/store"
 import { api } from "../../lib/api"
 import { TEMPLATES } from "../../content/catalog"
-import { Cover } from "../../components/site/Cover"
 import { NewProjectModal } from "./Projects"
 import { CODE_IDEAS, DESIGN_GALLERY, DESIGN_IDEAS, KIND_HOME } from "../../lib/kinds"
 
@@ -180,7 +179,6 @@ export default function Home({ kind }) {
                 const box = document.querySelector(".home")
                 if (box) box.scrollTo({ top: 0, behavior: "smooth" })
               }}>
-                <div className="template-art"><Cover seed={item.slug + "t"} label={item.title} /></div>
                 <strong>{item.title}</strong>
                 <span className="muted small">{item.text}</span>
               </button>

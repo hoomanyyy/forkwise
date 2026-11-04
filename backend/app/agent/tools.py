@@ -8,7 +8,7 @@ import time
 from pathlib import Path
 import httpx
 from app import db, config
-from app.agent import sandbox, web, specs, mcp
+from app.agent import sandbox, web, specs, mcp, integrations
 
 TEXT_LIMIT = 40000
 IMAGE_TYPES = [".png", ".jpg", ".jpeg", ".gif", ".webp"]
@@ -844,6 +844,12 @@ async def mcp_specs(user_id):
 def needs_approval(name, args):
     if name in specs.READ_ONLY:
         return False
+    if name == "github" and args.get("action") in integrations.GITHUB_READ:
+        return False
+    if name == "gmail" and args.get("action") in ["search", "read", "labels"]:
+        return False
+    if name == "google_api" and (args.get("method") or "GET").upper() == "GET":
+        return False
     if name == "browser" and args.get("action") in specs.BROWSER_READ_ONLY:
         return False
     if name == "computer" and args.get("action") in specs.COMPUTER_READ_ONLY:
@@ -883,6 +889,8 @@ async def execute(run, name, args, call_id):
             return await browser(run, args)
         if name == "computer":
             return await computer(run, args)
+        if name in ["github", "gmail", "google_api"]:
+            return await integrations.execute(run, name, args)
         if name == "web_search":
             return await web_search(run, args)
         if name == "web_fetch":

@@ -137,7 +137,8 @@ function writeHint(value) {
 
 function readTheme() {
   try {
-    return "dark"
+    const saved = localStorage.getItem("fw-theme")
+    return saved === "light" ? "light" : "dark"
   } catch (problem) {
     return "dark"
   }

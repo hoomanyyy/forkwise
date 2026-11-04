@@ -23,6 +23,24 @@ async def get(url, params=None, data=None):
         return await client.get(url, params=params)
 
 
+async def get_public(url):
+    headers = {"User-Agent": AGENT, "Accept-Language": "en-US,en;q=0.9,fa;q=0.8"}
+    current = url
+    async with httpx.AsyncClient(timeout=20, follow_redirects=False, headers=headers) as client:
+        for hop in range(6):
+            parts = urlparse(current)
+            if parts.scheme not in ["http", "https"] or not parts.hostname:
+                raise ValueError("Only http and https links can be opened.")
+            if not public_host(parts.hostname):
+                raise ValueError("This address is private and cannot be opened.")
+            response = await client.get(current)
+            if response.status_code in [301, 302, 303, 307, 308] and response.headers.get("location"):
+                current = str(httpx.URL(current).join(response.headers["location"]))
+                continue
+            return response
+    raise ValueError("Too many redirects.")
+
+
 async def brave(query):
     headers = {"X-Subscription-Token": config.SEARCH_API_KEY, "Accept": "application/json"}
     async with httpx.AsyncClient(timeout=20) as client:
@@ -111,8 +129,8 @@ def public_host(host):
     except socket.gaierror:
         return False
     for info in infos:
-        address = ipaddress.ip_address(info[4][0])
-        if address.is_private or address.is_loopback or address.is_link_local or address.is_reserved or address.is_multicast:
+        address = ipaddress.ip_address(info[4][0].split("%")[0])
+        if address.is_private or address.is_loopback or address.is_link_local or address.is_reserved or address.is_multicast or address.is_unspecified:
             return False
     return True
 
@@ -145,9 +163,7 @@ async def fetch(url, max_chars=20000):
     parts = urlparse(url)
     if parts.scheme not in ["http", "https"] or not parts.hostname:
         raise ValueError("Only http and https links can be opened.")
-    if not public_host(parts.hostname):
-        raise ValueError("This address is private and cannot be opened.")
-    response = await get(url)
+    response = await get_public(url)
     kind = response.headers.get("content-type", "")
     raw = response.content[:MAX_BYTES]
     text = raw.decode(response.encoding or "utf-8", "replace")

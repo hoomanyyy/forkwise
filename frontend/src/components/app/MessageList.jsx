@@ -1,7 +1,8 @@
 import { useState } from "react"
 import { Brain, Check, ChevronDown, Copy, FileText, History, Info, AlertTriangle } from "lucide-react"
 import Markdown from "./Markdown"
-import ToolCall, { DraftCall } from "./ToolCall"
+import { DraftCall } from "./ToolCall"
+import Flow, { buildFlow } from "./Flow"
 import { LogoMark } from "../ui/Logo"
 import { rawUrl } from "../../lib/api"
 
@@ -97,34 +98,7 @@ export default function MessageList({ state, wid, respond, onPreview, onRewind, 
           <div className="turn" key={turn.user ? turn.user.id : "t" + index}>
             {turn.user && <UserMessage message={turn.user} wid={wid} onRewind={onRewind} canRewind={!live.running} />}
             <div className="msg-assistant">
-              {turn.items.map((item) => {
-                if (item.role === "summary") {
-                  return <div key={item.id} className="divider-note"><Info size={13} />Earlier messages were summarized to save space.</div>
-                }
-                if (item.role !== "assistant") return null
-                return (
-                  <div key={item.id} className="assistant-step">
-                    <Reasoning text={item.reasoning} />
-                    {item.content && item.content.trim() && <Markdown text={item.content} />}
-                    {(item.tool_calls || []).map((call) => (
-                      <ToolCall
-                        key={call.id}
-                        call={call}
-                        result={results[call.id]}
-                        live={live.tools[call.id]}
-                        waiting={live.waiting[call.id]}
-                        subs={live.subs[call.id]}
-                        wid={wid}
-                        respond={respond}
-                        onPreview={onPreview}
-                        planActive={call.id === lastPlanId && !live.running && state.chat && state.chat.mode === "plan"}
-                        onApprovePlan={onApprovePlan}
-                        onRevisePlan={onRevisePlan}
-                      />
-                    ))}
-                  </div>
-                )
-              })}
+              <Flow nodes={buildFlow(turn.items)} results={results} ctx={{ live, wid, respond, onPreview, lastPlanId, chat: state.chat, onApprovePlan, onRevisePlan }} />
               {lastTurn && live.running && (
                 <div className="assistant-step live">
                   <Reasoning text={live.reasoning} live />

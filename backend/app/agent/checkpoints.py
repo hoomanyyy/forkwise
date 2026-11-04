@@ -70,11 +70,33 @@ async def changed_files(wid, commit):
     files = []
     if result["code"] != 0:
         return files
+    counts = {}
+    stat = await git(wid, ["diff", "--cached", "--numstat", commit])
+    if stat["code"] == 0:
+        for line in stat["output"].splitlines():
+            parts = line.split("\t")
+            if len(parts) >= 3:
+                added = int(parts[0]) if parts[0].isdigit() else 0
+                removed = int(parts[1]) if parts[1].isdigit() else 0
+                counts[parts[-1]] = {"added": added, "removed": removed, "binary": parts[0] == "-"}
     for line in result["output"].splitlines():
         parts = line.split("\t")
         if len(parts) >= 2:
-            files.append({"status": parts[0][0], "path": parts[-1]})
+            path = parts[-1]
+            numbers = counts.get(path, {"added": 0, "removed": 0, "binary": False})
+            files.append({"status": parts[0][0], "path": path, "added": numbers["added"], "removed": numbers["removed"], "binary": numbers["binary"]})
     return files
+
+
+async def restore_file(wid, commit, path):
+    async with lock_for(wid):
+        await prepare(wid)
+        exists = await git(wid, ["cat-file", "-e", commit + ":" + path])
+        if exists["code"] == 0:
+            result = await git(wid, ["checkout", commit, "--", path], timeout=60)
+            await git(wid, ["reset", "-q", "--", path], timeout=60)
+            return result["code"] == 0
+        return False
 
 
 async def file_at(wid, commit, path):

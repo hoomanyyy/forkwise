@@ -184,6 +184,49 @@ CREATE TABLE IF NOT EXISTS usage_daily (
     runs INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (user_id, day)
 );
+CREATE TABLE IF NOT EXISTS connections (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    provider TEXT NOT NULL,
+    label TEXT NOT NULL DEFAULT '',
+    account TEXT NOT NULL DEFAULT '',
+    scopes TEXT NOT NULL DEFAULT '',
+    token_enc TEXT NOT NULL DEFAULT '',
+    refresh_enc TEXT NOT NULL DEFAULT '',
+    expires_at REAL NOT NULL DEFAULT 0,
+    meta TEXT NOT NULL DEFAULT '{}',
+    created_at REAL NOT NULL,
+    last_used REAL NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS connections_user ON connections(user_id);
+CREATE TABLE IF NOT EXISTS secrets (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    value_enc TEXT NOT NULL,
+    project_id TEXT,
+    created_at REAL NOT NULL,
+    updated_at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS secrets_user ON secrets(user_id);
+CREATE TABLE IF NOT EXISTS schedules (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    prompt TEXT NOT NULL,
+    kind TEXT NOT NULL DEFAULT 'code',
+    project_id TEXT,
+    model TEXT NOT NULL DEFAULT '',
+    every TEXT NOT NULL DEFAULT 'daily',
+    at_time TEXT NOT NULL DEFAULT '09:00',
+    tz_offset INTEGER NOT NULL DEFAULT 0,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    last_run REAL NOT NULL DEFAULT 0,
+    next_run REAL NOT NULL DEFAULT 0,
+    last_chat TEXT NOT NULL DEFAULT '',
+    created_at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS schedules_user ON schedules(user_id);
 """
 
 
@@ -361,6 +404,49 @@ MYSQL_TABLES = [
     tokens_out BIGINT NOT NULL DEFAULT 0,
     runs INT NOT NULL DEFAULT 0,
     PRIMARY KEY (user_id, day)
+)""",
+"""CREATE TABLE IF NOT EXISTS connections (
+    id VARCHAR(64) PRIMARY KEY,
+    user_id VARCHAR(64) NOT NULL,
+    provider VARCHAR(32) NOT NULL,
+    label VARCHAR(255) NOT NULL DEFAULT '',
+    account VARCHAR(255) NOT NULL DEFAULT '',
+    scopes VARCHAR(1024) NOT NULL DEFAULT '',
+    token_enc LONGTEXT NOT NULL,
+    refresh_enc LONGTEXT NOT NULL,
+    expires_at DOUBLE NOT NULL DEFAULT 0,
+    meta LONGTEXT NOT NULL,
+    created_at DOUBLE NOT NULL,
+    last_used DOUBLE NOT NULL DEFAULT 0,
+    INDEX connections_user (user_id)
+)""",
+"""CREATE TABLE IF NOT EXISTS secrets (
+    id VARCHAR(64) PRIMARY KEY,
+    user_id VARCHAR(64) NOT NULL,
+    name VARCHAR(128) NOT NULL,
+    value_enc LONGTEXT NOT NULL,
+    project_id VARCHAR(64) NULL,
+    created_at DOUBLE NOT NULL,
+    updated_at DOUBLE NOT NULL,
+    INDEX secrets_user (user_id)
+)""",
+"""CREATE TABLE IF NOT EXISTS schedules (
+    id VARCHAR(64) PRIMARY KEY,
+    user_id VARCHAR(64) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    prompt LONGTEXT NOT NULL,
+    kind VARCHAR(16) NOT NULL DEFAULT 'code',
+    project_id VARCHAR(64) NULL,
+    model VARCHAR(255) NOT NULL DEFAULT '',
+    every VARCHAR(16) NOT NULL DEFAULT 'daily',
+    at_time VARCHAR(8) NOT NULL DEFAULT '09:00',
+    tz_offset INT NOT NULL DEFAULT 0,
+    enabled INT NOT NULL DEFAULT 1,
+    last_run DOUBLE NOT NULL DEFAULT 0,
+    next_run DOUBLE NOT NULL DEFAULT 0,
+    last_chat VARCHAR(64) NOT NULL DEFAULT '',
+    created_at DOUBLE NOT NULL,
+    INDEX schedules_user (user_id)
 )""",
 ]
 

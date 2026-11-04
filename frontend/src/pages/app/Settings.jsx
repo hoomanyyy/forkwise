@@ -1,17 +1,45 @@
 import { useEffect, useState } from "react"
 import { Link, Navigate, NavLink, useNavigate, useParams } from "react-router-dom"
-import { BarChart3, BookOpen, Brain, Plug, ShieldCheck, Sparkles, Trash2, User, Wrench, Plus, Laptop, Copy, Download } from "lucide-react"
+import { BarChart3, BookOpen, Brain, Plug, ShieldCheck, Sparkles, Trash2, User, Wrench, Plus, Laptop, Copy, Download, Clock, KeyRound, Link2, Keyboard, Palette } from "lucide-react"
 import { useStore } from "../../lib/store"
 import { api, apiUrl } from "../../lib/api"
 import Select from "../../components/ui/Select"
 import { useConfirm } from "../../components/ui/Modal"
+import Connections from "./settings/Connections"
+import Secrets from "./settings/Secrets"
+import Schedules from "./settings/Schedules"
 
-const TABS = [
-  { key: "general", label: "Profile", icon: User },
-  { key: "security", label: "Security", icon: ShieldCheck },
-  { key: "computer", label: "Computer", icon: Laptop },
-  { key: "usage", label: "Usage", icon: BarChart3 },
-  { key: "data", label: "Data", icon: BookOpen },
+const GROUPS = [
+  {
+    title: "Account",
+    tabs: [
+      { key: "general", label: "Profile", icon: User },
+      { key: "appearance", label: "Preferences", icon: Palette },
+      { key: "security", label: "Security", icon: ShieldCheck },
+    ],
+  },
+  {
+    title: "Integrations",
+    tabs: [
+      { key: "connections", label: "Connected accounts", icon: Link2 },
+      { key: "secrets", label: "Secrets", icon: KeyRound },
+      { key: "schedules", label: "Schedules", icon: Clock },
+    ],
+  },
+  {
+    title: "Computer",
+    tabs: [
+      { key: "computer", label: "Your computer", icon: Laptop },
+    ],
+  },
+  {
+    title: "Workspace",
+    tabs: [
+      { key: "usage", label: "Usage", icon: BarChart3 },
+      { key: "shortcuts", label: "Keyboard shortcuts", icon: Keyboard },
+      { key: "data", label: "Data", icon: BookOpen },
+    ],
+  },
 ]
 
 function General() {
@@ -402,6 +430,55 @@ export function Instructions() {
   )
 }
 
+function Appearance() {
+  const { theme, setTheme } = useStore()
+  const options = [
+    { key: "light", label: "Light" },
+    { key: "dark", label: "Dark" },
+  ]
+  return (
+    <div className="settings-stack">
+      <div className="settings-card">
+        <h3>Theme</h3>
+        <p className="muted small">How the app looks on this device.</p>
+        <div className="seg-choice" role="radiogroup">
+          {options.map((item) => (
+            <button key={item.key} type="button" role="radio" aria-checked={theme === item.key} className={theme === item.key ? "on" : ""} onClick={() => setTheme(item.key)}>{item.label}</button>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+const SHORTCUTS = [
+  ["Open search and commands", ["Ctrl", "K"]],
+  ["Show or hide the sidebar", ["Ctrl", "B"]],
+  ["Send the message", ["Enter"]],
+  ["New line in the message", ["Shift", "Enter"]],
+  ["Save the open file", ["Ctrl", "S"]],
+  ["Close a dialog or menu", ["Esc"]],
+]
+
+function Shortcuts() {
+  return (
+    <div className="settings-stack">
+      <div className="settings-card">
+        <h3>Keyboard shortcuts</h3>
+        <p className="muted small">On a Mac use Cmd instead of Ctrl.</p>
+        <div className="list">
+          {SHORTCUTS.map((item) => (
+            <div className="list-row" key={item[0]}>
+              <div className="meta"><strong>{item[0]}</strong></div>
+              <span className="row" style={{ gap: 4 }}>{item[1].map((key) => <span className="kbd" key={key}>{key}</span>)}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function DataTab() {
   const { toast } = useStore()
 
@@ -552,18 +629,28 @@ export default function Settings() {
     <div className="page settings">
       <div className="page-head"><div><h1>Settings</h1></div></div>
       <div className="settings-layout">
-        <nav className="settings-nav">
-          {TABS.map((item) => {
-            const Icon = item.icon
-            return <NavLink key={item.key} to={"/app/settings/" + item.key} className={current === item.key ? "active" : ""}><Icon size={15} />{item.label}</NavLink>
-          })}
+        <nav className="settings-nav" aria-label="Settings">
+          {GROUPS.map((group) => (
+            <div className="settings-group" key={group.title}>
+              <div className="settings-group-title">{group.title}</div>
+              {group.tabs.map((item) => {
+                const Icon = item.icon
+                return <NavLink key={item.key} to={"/app/settings/" + item.key} className={current === item.key ? "active" : ""}><Icon size={15} />{item.label}</NavLink>
+              })}
+            </div>
+          ))}
         </nav>
         <div className="settings-body">
           {current === "general" && <General />}
+          {current === "appearance" && <Appearance />}
           {current === "security" && <Security />}
-          {current === "data" && <DataTab />}
-          {current === "usage" && <Usage />}
+          {current === "connections" && <Connections />}
+          {current === "secrets" && <Secrets />}
+          {current === "schedules" && <Schedules />}
           {current === "computer" && <ComputerTab />}
+          {current === "usage" && <Usage />}
+          {current === "shortcuts" && <Shortcuts />}
+          {current === "data" && <DataTab />}
         </div>
       </div>
     </div>

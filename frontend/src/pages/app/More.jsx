@@ -4,7 +4,6 @@ import { Check, Mail, Users, MessageSquare, Activity, Cpu } from "lucide-react"
 import { useStore } from "../../lib/store"
 import { api } from "../../lib/api"
 import { PLANS, TEMPLATES } from "../../content/catalog"
-import { Cover } from "../../components/site/Cover"
 
 function formatNumber(value) {
   return Number(value || 0).toLocaleString()
@@ -152,7 +151,6 @@ export function AppTemplates() {
       <div className="tpl-grid">
         {TEMPLATES.filter((item) => filter === "All" || item.category === filter).map((item) => (
           <button key={item.slug} type="button" className="tpl" onClick={() => navigate("/app?template=" + item.slug)}>
-            <div className="tpl-art"><Cover seed={item.slug + "t"} label={item.title} /></div>
             <div className="tpl-body"><span className="chip accent">{item.category}</span><p>{item.text}</p></div>
           </button>
         ))}

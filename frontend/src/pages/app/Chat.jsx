@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate, useParams } from "react-router-dom"
 import { ChevronDown, Download, FolderKanban, ListChecks, PanelRight, ArrowDown } from "lucide-react"
 import Composer from "../../components/app/Composer"
 import MessageList from "../../components/app/MessageList"
+import RunBar from "../../components/app/RunBar"
 import Workspace from "../../components/app/workspace/Workspace"
 import { TodoList } from "../../components/app/ToolCall"
 import { LogoMark } from "../../components/ui/Logo"
@@ -30,7 +31,8 @@ export default function Chat() {
   const { models, patchChat, theme, toast } = useStore()
   const confirm = useConfirm()
   const [panel, setPanel] = useState(false)
-  const [tab, setTab] = useState("preview")
+  const [tab, setTab] = useState("activity")
+  const [openPath, setOpenPath] = useState("")
   const [refreshKey, setRefreshKey] = useState(0)
   const [width, setWidth] = useState(readWidth)
   const [seed, setSeed] = useState(null)
@@ -44,7 +46,13 @@ export default function Chat() {
 
   const { state, send, stop, respond, reload, setChat } = useChat(chatId, {
     onEvent(event) {
-      if (event.type === "tool_start") toolNames.current[event.id] = event.name
+      if (event.type === "tool_start") {
+        toolNames.current[event.id] = event.name
+        if (event.name === "computer" || event.name === "browser" || event.name === "screenshot") {
+          setPanel(true)
+          setTab(event.name === "computer" ? "computer" : "browser")
+        }
+      }
       if (event.type === "preview") {
         setPanel(true)
         setTab("preview")
@@ -148,6 +156,12 @@ export default function Chat() {
     setSeed({ value: "Change the plan: " })
   }
 
+  function openFile(path) {
+    setPanel(true)
+    setTab("files")
+    setOpenPath(path)
+  }
+
   function openPreview() {
     setPanel(true)
     setTab("preview")
@@ -206,7 +220,7 @@ export default function Chat() {
           <h1 className="chat-name" dir="auto">{chat.title}</h1>
           <span className="tool-spacer" />
           <a className="icon-btn" title="Download all files" href={apiUrl("/api/ws/" + chat.workspace_id + "/zip")}><Download size={16} /></a>
-          <button className={"icon-btn" + (panel ? " active" : "")} title="Show the computer: preview, files, changes and terminal" onClick={() => setPanel(!panel)}><PanelRight size={17} /></button>
+          <button className={"icon-btn" + (panel ? " active" : "")} title="Show the workspace: activity, preview, browser, files, changes and terminal" onClick={() => setPanel(!panel)}><PanelRight size={17} /></button>
         </header>
         <div className="chat-scroll" ref={scroller} onScroll={onScroll}>
           <div className="chat-inner">
@@ -228,6 +242,7 @@ export default function Chat() {
           {!atBottom && (
             <button className="to-bottom" onClick={() => { scroller.current.scrollTop = scroller.current.scrollHeight }} aria-label="Scroll to the latest message"><ArrowDown size={16} /></button>
           )}
+          <RunBar state={state} onStop={stop} onOpenChanges={() => { setPanel(true); setTab("changes") }} />
           {showTodos && (
             <div className={"todo-dock" + (todosOpen ? " open" : "")}>
               <button type="button" className="todo-dock-head" onClick={() => setTodosOpen(!todosOpen)}>
@@ -270,6 +285,11 @@ export default function Chat() {
               checkpoint={state.checkpoint}
               changes={state.changes}
               theme={theme}
+              openPath={openPath}
+              messages={state.messages}
+              todos={todos}
+              running={state.live.running}
+              onOpenFile={openFile}
             />
           </div>
         </>

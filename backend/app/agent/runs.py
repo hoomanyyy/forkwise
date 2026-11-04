@@ -4,7 +4,7 @@ import json
 import time
 import traceback
 from app import db, config
-from app.agent import llm, tools, specs, prompt, checkpoints, sandbox
+from app.agent import llm, tools, specs, prompt, checkpoints, sandbox, integrations
 
 RUNS = {}
 ACTIVE = {}
@@ -36,6 +36,7 @@ class Run:
         self.todos = db.load_json(chat.get("todos"), [])
         self.allowed = db.load_json(chat.get("allowed_tools"), [])
         self.done = False
+        self.unattended = False
         self.tokens_in = 0
         self.tokens_out = 0
         self.finished_at = 0
@@ -57,6 +58,8 @@ class Run:
             pass
 
     async def wait_for_user(self, call_id, kind, payload):
+        if self.unattended:
+            return None
         future = asyncio.get_running_loop().create_future()
         self.waiting[call_id] = future
         data = {"id": call_id, "kind": kind}
@@ -212,9 +215,11 @@ async def refresh_tools(run):
         for spec in extra:
             found.append(spec)
         run.mcp_routes = routes
+        for spec in integrations.specs_for(run.user["id"]):
+            found.append(spec)
         from app.routes import desktop
         devices = desktop.online_devices(run.user["id"])
-        if devices:
+        if devices and not run.unattended:
             found.append(specs.computer_spec(devices))
     run.tool_specs = found
 
@@ -349,6 +354,17 @@ def parse_args(call):
     return value, raw
 
 
+COMPUTER_SHELL = ["shell", "write_file", "wallpaper"]
+
+
+def allow_key(name, args):
+    if name == "computer":
+        if args.get("action") in COMPUTER_SHELL:
+            return "computer:shell"
+        return "computer:input"
+    return name
+
+
 async def execute_call(run, call):
     name = call["function"]["name"]
     args, raw = parse_args(call)
@@ -357,18 +373,22 @@ async def execute_call(run, call):
     run.emit("tool_start", {"id": call["id"], "name": name, "args": args})
     if run.mode == "plan" and name == "task":
         args["agent"] = "explore"
-    ask_first = run.mode == "ask" and tools.needs_approval(name, args)
-    if name == "computer" and "computer" not in run.allowed:
+    must = integrations.always_ask(name, args)
+    ask_first = must or (run.mode == "ask" and tools.needs_approval(name, args))
+    key = allow_key(name, args)
+    if name == "computer" and key not in run.allowed:
         from app.routes import desktop
         ask_first = ask_first or desktop.must_confirm(run.user, args)
-    if ask_first and name not in run.allowed:
-        answer = await run.wait_for_user(call["id"], "approval", {"name": name, "args": args})
-        if answer == "always":
-            run.allowed.append(name)
+    if ask_first and (must or key not in run.allowed):
+        answer = await run.wait_for_user(call["id"], "approval", {"name": name, "args": args, "always": not must})
+        if answer == "always" and not must:
+            run.allowed.append(key)
             db.update("chats", "id", run.chat["id"], {"allowed_tools": db.dump_json(run.allowed)})
-        elif answer != "allow":
+        elif answer != "allow" and answer != "always":
             note = "The user denied this action."
-            if isinstance(answer, str) and answer not in ["deny", ""]:
+            if run.unattended:
+                note = "This action needs the user's approval and nobody is here to give it. Skip it and say so in your report."
+            elif isinstance(answer, str) and answer not in ["deny", ""]:
                 note = note + " Their note: " + answer
             return name, args, tools.result(note, ok=False, meta={"denied": True})
     outcome = await tools.execute(run, name, args, call["id"])

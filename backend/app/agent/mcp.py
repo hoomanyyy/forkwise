@@ -1,6 +1,8 @@
 import json
 import re
+from urllib.parse import urlparse
 import httpx
+from app.agent import web
 
 SESSIONS = {}
 TOOL_CACHE = {}
@@ -29,7 +31,16 @@ def parse_reply(response):
         return {}
 
 
+def check_url(url):
+    parts = urlparse(url or "")
+    if parts.scheme not in ["http", "https"] or not parts.hostname:
+        raise RuntimeError("The MCP server needs an http or https link.")
+    if not web.public_host(parts.hostname):
+        raise RuntimeError("This address is private. Use a public MCP server link.")
+
+
 async def rpc(server, method, params, request_id=1):
+    check_url(server["url"])
     headers = {"Content-Type": "application/json", "Accept": "application/json, text/event-stream"}
     extra = server.get("headers") or {}
     for key in extra:
@@ -41,7 +52,7 @@ async def rpc(server, method, params, request_id=1):
     if request_id is not None:
         body["id"] = request_id
     async with httpx.AsyncClient(timeout=60) as client:
-        response = await client.post(server["url"], headers=headers, json=body)
+        response = await client.post(server["url"], headers=headers, json=body, follow_redirects=False)
     if response.headers.get("mcp-session-id"):
         SESSIONS[server["id"]] = response.headers["mcp-session-id"]
     if request_id is None:

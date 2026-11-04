@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react"
 import {
   BookOpen, Bot, Brain, Camera, Check, ChevronRight, Download, FilePen, FilePlus, FileText, FolderTree, Globe,
   ListChecks, Loader2, MessageCircleQuestion, MonitorPlay, Plug, Search, ShieldQuestion, Sparkles, Square,
-  TerminalSquare, Wrench, X, ExternalLink, FileSearch, Laptop, MousePointerClick
+  TerminalSquare, Wrench, X, ExternalLink, FileSearch, Laptop, MousePointerClick, Github, Mail, Clipboard, ImageIcon,
+  Keyboard, AppWindow, Move, Clock
 } from "lucide-react"
 import Markdown from "./Markdown"
 import { rawUrl } from "../../lib/api"
@@ -88,11 +89,34 @@ export function describe(name, args, meta) {
     if (a === "shell") return { icon: Laptop, verb: "Ran on your computer", target: args.command, code: true }
     if (a === "open") return { icon: Laptop, verb: "Opened on your computer", target: args.target }
     if (a === "screenshot") return { icon: Laptop, verb: "Looked at your screen", target: "" }
-    if (a === "type") return { icon: Laptop, verb: "Typed on your computer", target: (args.text || "").slice(0, 60) }
-    if (a === "key") return { icon: Laptop, verb: "Pressed", target: args.keys }
-    if (a === "click") return { icon: Laptop, verb: "Clicked on your screen", target: args.x + ", " + args.y }
+    if (a === "type") return { icon: Keyboard, verb: "Typed", target: (args.text || "").slice(0, 60) }
+    if (a === "key") return { icon: Keyboard, verb: "Pressed", target: args.keys }
+    if (a === "click") return { icon: MousePointerClick, verb: args.double ? "Double-clicked" : "Clicked", target: args.x + ", " + args.y }
+    if (a === "move") return { icon: Move, verb: "Moved the mouse", target: args.x + ", " + args.y }
+    if (a === "drag") return { icon: Move, verb: "Dragged", target: args.x + ", " + args.y + " to " + args.x2 + ", " + args.y2 }
+    if (a === "scroll") return { icon: MousePointerClick, verb: "Scrolled", target: String(args.amount || "") }
+    if (a === "windows") return { icon: AppWindow, verb: "Listed open windows", target: "" }
+    if (a === "focus") return { icon: AppWindow, verb: "Switched to", target: args.target }
+    if (a === "wait") return { icon: Clock, verb: "Waited", target: (args.amount || 1) + " s" }
+    if (a === "clipboard_get") return { icon: Clipboard, verb: "Read the clipboard", target: "" }
+    if (a === "clipboard_set") return { icon: Clipboard, verb: "Copied to the clipboard", target: (args.text || "").slice(0, 60) }
+    if (a === "list_dir") return { icon: FolderTree, verb: "Looked through", target: args.path }
+    if (a === "read_file") return { icon: FileText, verb: "Read from your computer", target: args.path }
+    if (a === "write_file") return { icon: FilePlus, verb: "Wrote on your computer", target: args.path }
+    if (a === "wallpaper") return { icon: ImageIcon, verb: "Changed the wallpaper", target: args.source || args.path }
     return { icon: Laptop, verb: "Your computer", target: a }
   }
+  if (name === "github") {
+    const a = args.action || "whoami"
+    const words = { whoami: "Checked the account", repos: "Listed repositories", repo: "Opened repository", issues: "Listed issues of", pulls: "Listed pull requests of", get_file: "Read from GitHub", search: "Searched GitHub for", create_issue: "Opened an issue in", create_pr: "Opened a pull request in", comment: "Commented on", clone: "Cloned", push: "Pushed", api_get: "GitHub API", api_post: "GitHub API" }
+    return { icon: Github, verb: words[a] || "GitHub", target: args.repo || args.query || args.path || "" }
+  }
+  if (name === "gmail") {
+    const a = args.action || "search"
+    const words = { search: "Searched mail for", read: "Read an email", draft: "Saved a draft to", send: "Sent an email to", labels: "Listed labels" }
+    return { icon: Mail, verb: words[a] || "Gmail", target: args.to || args.query || args.subject || "" }
+  }
+  if (name === "google_api") return { icon: Globe, verb: "Google", target: args.url || args.path || "" }
   if (name === "web_search") return { icon: Globe, verb: "Searched the web for", target: args.query }
   if (name === "web_fetch") return { icon: Globe, verb: "Read", target: host(args.url || "") }
   if (name === "todo_write") return { icon: ListChecks, verb: "Updated the plan", target: "" }
@@ -194,14 +218,31 @@ export function formatSize(size) {
   return (size / 1024 / 1024).toFixed(1) + " MB"
 }
 
+function approvalText(name, args) {
+  if (name === "computer") {
+    const info = describe(name, args || {}, {})
+    return info.verb + (info.target ? ": " + info.target : "")
+  }
+  if (name === "gmail") return describe(name, args || {}, {}).verb + " " + ((args && (args.to || args.subject)) || "")
+  if (name === "github") return describe(name, args || {}, {}).verb + " " + ((args && (args.repo || args.branch)) || "")
+  if (name === "bash") return (args && args.command) || ""
+  return ""
+}
+
 function Approval({ waiting, respond }) {
   const [note, setNote] = useState("")
+  const args = waiting.args || {}
+  const detail = approvalText(waiting.name, args)
+  const sensitive = waiting.always === false
+  const body = args.body || args.content || args.text || ""
   return (
-    <div className="approval">
-      <div className="approval-title"><ShieldQuestion size={16} />Forkwise wants to run this. Allow it?</div>
+    <div className={"approval" + (sensitive ? " sensitive" : "")}>
+      <div className="approval-title"><ShieldQuestion size={16} />{sensitive ? "This needs your approval every time" : "Forkwise wants to do this. Allow it?"}</div>
+      {detail && <pre className="approval-detail" dir="auto">{detail}</pre>}
+      {body && waiting.name !== "computer" && <pre className="approval-detail muted" dir="auto">{String(body).slice(0, 800)}</pre>}
       <div className="approval-actions">
-        <button className="btn btn-primary btn-sm" onClick={() => respond(waiting.id, "allow")}>Allow</button>
-        <button className="btn btn-soft btn-sm" onClick={() => respond(waiting.id, "always")}>Allow {waiting.name} for this chat</button>
+        <button className="btn btn-primary btn-sm" onClick={() => respond(waiting.id, "allow")}>Allow once</button>
+        {!sensitive && <button className="btn btn-soft btn-sm" onClick={() => respond(waiting.id, "always")}>Always allow this in this chat</button>}
         <input className="input approval-note" placeholder="Or tell it what to do instead" value={note} onChange={(e) => setNote(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") respond(waiting.id, note || "deny") }} />
         <button className="btn btn-danger btn-sm" onClick={() => respond(waiting.id, note || "deny")}>Deny</button>
       </div>

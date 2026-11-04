@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from app import config, db
-from app.routes import auth, chats, files, settings, preview, terminal, site, billing, google, admin, desktop
+from app.routes import auth, chats, files, settings, preview, terminal, site, billing, google, admin, desktop, connections, schedules
 from app.agent import sandbox, runs
 
 
@@ -16,6 +16,7 @@ async def on_start():
     loop.create_task(sandbox.reaper())
     loop.create_task(runs.cleaner())
     loop.create_task(site.sampler())
+    loop.create_task(schedules.loop())
     db.execute("UPDATE runs SET status = 'stopped' WHERE status = 'running'")
 
 
@@ -77,3 +78,5 @@ site.register_routes(app)
 billing.register_routes(app)
 google.register_routes(app)
 admin.register_routes(app)
+connections.register_routes(app)
+schedules.register_routes(app)

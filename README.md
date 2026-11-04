@@ -92,3 +92,5 @@ On the server run `sudo bash /opt/forkwise/repo/backend/deploy/mysql.sh`. It ins
 ## Google sign-in
 
 On the server run `sudo bash /opt/forkwise/repo/backend/deploy/google.sh` and paste the client ID and secret from the Google Cloud console. Redirect URI: `https://api.forkwiseai.com/api/auth/google/callback`.
+
+To let people link Gmail and Google services (Settings, Connected accounts), add this second redirect URI to the same Google client: `https://api.forkwiseai.com/api/connections/google/callback`. To link GitHub with a button, create a GitHub OAuth app with the callback `https://api.forkwiseai.com/api/connections/github/callback` and set `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` in the server `.env`. Without them people can still link GitHub with a personal access token. Set `SECRET_KEY` to a long random value so stored tokens and secrets are encrypted with your own key.

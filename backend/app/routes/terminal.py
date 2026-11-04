@@ -41,8 +41,8 @@ async def terminal(websocket: WebSocket, wid: str):
         await websocket.send_text("\r\nCould not start the computer: " + str(problem) + "\r\n")
         await websocket.close()
         return
-    argv, cwd = sandbox.shell_argv(wid, "exec bash -l", interactive=True)
-    env = dict(os.environ)
+    env, names = sandbox.process_env(wid)
+    argv, cwd = sandbox.shell_argv(wid, "exec bash -l", interactive=True, env_names=names)
     env["TERM"] = "xterm-256color"
     master, slave = pty.openpty()
     set_size(master, 30, 110)
@@ -67,6 +67,11 @@ async def terminal(websocket: WebSocket, wid: str):
                 break
             await websocket.send_text(data.decode("utf-8", "replace"))
             sandbox.touch(wid)
+        try:
+            await websocket.send_text("\r\n[the shell has ended]\r\n")
+            await websocket.close()
+        except Exception:
+            pass
 
     sender = loop.create_task(pump_out())
     try:

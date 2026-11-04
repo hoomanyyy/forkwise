@@ -113,8 +113,14 @@ async def call(user_id, args):
     future = asyncio.get_running_loop().create_future()
     link.pending[message["id"]] = future
     timeout = 60
+    if args.get("action") == "wallpaper":
+        timeout = 90
     if args.get("action") == "shell":
-        timeout = min(int(args.get("timeout") or 120), 600) + 15
+        try:
+            wait = int(args.get("timeout") or 120)
+        except (TypeError, ValueError):
+            wait = 120
+        timeout = min(max(wait, 1), 600) + 15
     try:
         async with link.lock:
             await link.websocket.send_text(json.dumps(message))
@@ -130,7 +136,7 @@ async def call(user_id, args):
 
 
 def must_confirm(user, args):
-    if args.get("action") in ["screenshot", "info", "windows"]:
+    if args.get("action") in ["screenshot", "info", "windows", "wait"]:
         return False
     settings = db.load_json(user.get("settings"), {})
     return not settings.get("desktop_auto")
@@ -138,7 +144,7 @@ def must_confirm(user, args):
 
 async def desktop_socket(websocket: WebSocket):
     header = websocket.headers.get("authorization") or ""
-    token = header[7:].strip() if header.lower().startswith("bearer ") else websocket.query_params.get("token", "")
+    token = header[7:].strip() if header.lower().startswith("bearer ") else ""
     device = db.one_row("SELECT * FROM devices WHERE token_hash = ?", (hash_token(token),)) if token else None
     if device is None:
         await websocket.close(code=4401)

@@ -11,7 +11,6 @@ async function load(name) {
   return import(pathToFileURL(path.join(root, "src", "content", name)).href)
 }
 
-const catalog = await load("catalog.js")
 const docs = await load("docs.js")
 const posts = await load("posts.js")
 
@@ -20,32 +19,19 @@ if (!fs.existsSync(stash)) fs.copyFileSync(path.join(dist, "index.html"), stash)
 const base = fs.readFileSync(stash, "utf8")
 
 const pages = [
-  { path: "/", title: "", description: "Forkwise is a chat assistant with its own computer. It answers, researches, remembers, and builds real websites, apps and reports you can see live.", priority: "1.0" },
-  { path: "/product", title: "Product", description: "One chat that answers questions, researches the web, remembers you and builds real software on its own computer.", priority: "0.9" },
-  { path: "/product/computer", title: "The computer", description: "Every Forkwise chat has a private Linux computer with live preview, a code editor, diffs and a terminal.", priority: "0.7" },
-  { path: "/product/abilities", title: "Memory and abilities", description: "Forkwise remembers what matters to you and writes permanent tools for itself.", priority: "0.7" },
-  { path: "/product/control", title: "Plan and control", description: "Choose Auto, Ask first or Plan, and undo anything with checkpoints.", priority: "0.7" },
+  { path: "/", title: "", description: "Forkwise is an AI engineer with its own computer. It writes code, runs it, browses, uses your GitHub and Gmail, and can control your own computer.", priority: "1.0" },
+  { path: "/product", title: "Product", description: "A workspace where an AI agent writes code, runs it, browses, uses your GitHub and Gmail and controls your computer, with every step visible.", priority: "0.9" },
   { path: "/pricing", title: "Pricing", description: "Start free. Upgrade when Forkwise becomes part of your work.", priority: "0.9" },
-  { path: "/use-cases", title: "Use cases", description: "What people build with Forkwise: websites, data reports, automation and media edits.", priority: "0.7" },
-  { path: "/templates", title: "Templates", description: "Ready prompts for websites, data, automation and media.", priority: "0.6" },
-  { path: "/teams", title: "For teams", description: "Run Forkwise for your company on your own server, with your own models.", priority: "0.6" },
-  { path: "/compare", title: "Compare", description: "How Forkwise differs from chat assistants and code editors.", priority: "0.6" },
+  { path: "/download", title: "Download", description: "The Forkwise desktop app lets the agent use your own computer: terminal, apps, screen, mouse and keyboard.", priority: "0.8" },
   { path: "/docs", title: "Documentation", description: "Guides for every part of Forkwise.", priority: "0.8" },
   { path: "/blog", title: "Blog", description: "Product news, engineering notes and guides from the Forkwise team.", priority: "0.7" },
   { path: "/changelog", title: "Changelog", description: "Every Forkwise release and what changed.", priority: "0.5" },
-  { path: "/faq", title: "FAQ", description: "Answers to common questions about Forkwise.", priority: "0.6" },
-  { path: "/status", title: "Status", description: "Live health of the Forkwise platform.", priority: "0.4" },
-  { path: "/about", title: "About", description: "Forkwise builds an AI engineer that does the work and shows it.", priority: "0.5" },
-  { path: "/brand", title: "Brand", description: "The Forkwise logo, colors and typefaces.", priority: "0.3" },
   { path: "/contact", title: "Contact", description: "Talk to the Forkwise team.", priority: "0.5" },
   { path: "/security", title: "Security", description: "How Forkwise isolates your work and protects your data.", priority: "0.6" },
   { path: "/privacy", title: "Privacy policy", description: "How Forkwise handles your data.", priority: "0.3" },
   { path: "/terms", title: "Terms of service", description: "The terms for using Forkwise.", priority: "0.3" },
 ]
 
-for (const item of catalog.USE_CASES) {
-  pages.push({ path: "/use-cases/" + item.slug, title: item.title, description: item.short, priority: "0.6" })
-}
 for (const key of Object.keys(docs.DOCS)) {
   const item = docs.DOCS[key]
   pages.push({ path: "/docs/" + key, title: item.title + " — Docs", description: item.summary, priority: "0.6" })
@@ -87,15 +73,6 @@ function jsonLd(page) {
   }
   if (page.article) {
     list.push({ "@context": "https://schema.org", "@type": "Article", headline: page.article.title, description: page.article.summary, datePublished: new Date(page.article.date).toISOString().slice(0, 10), author: { "@type": "Organization", name: "Forkwise" }, mainEntityOfPage: site + page.path })
-  }
-  if (page.path === "/faq") {
-    const questions = []
-    for (const group of catalog.FAQ) {
-      for (const row of group.items) {
-        questions.push({ "@type": "Question", name: row[0], acceptedAnswer: { "@type": "Answer", text: row[1] } })
-      }
-    }
-    list.push({ "@context": "https://schema.org", "@type": "FAQPage", mainEntity: questions })
   }
   return list.map((item) => '<script type="application/ld+json">' + JSON.stringify(item).replace(/</g, "\\u003c") + "</script>").join("\n    ")
 }

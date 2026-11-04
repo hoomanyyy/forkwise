@@ -110,7 +110,7 @@ def code_email(name, code):
     digits = ""
     for digit in code:
         digits = digits + '<span style="display:inline-block;width:42px;height:54px;line-height:54px;margin:0 3px;border-radius:10px;background:#eeebff;color:#11132e;font-size:28px;font-weight:700;font-family:Menlo,Consolas,monospace;text-align:center">' + digit + "</span>"
-    html = (
+    page = (
         '<div style="background:#f4f5fa;padding:32px 12px;font-family:Arial,Helvetica,sans-serif">'
         '<div style="max-width:460px;margin:0 auto;background:#ffffff;border-radius:18px;padding:34px 30px;border:1px solid #e3e5f0">'
         '<div style="font-size:20px;font-weight:700;color:#11132e;margin-bottom:22px">Forkwise</div>'
@@ -120,7 +120,7 @@ def code_email(name, code):
         '<div style="font-size:13px;color:#8a8eae">The code works for ' + str(CODE_MINUTES) + " minutes. If you did not create a Forkwise account, you can ignore this email.</div>"
         "</div></div>"
     )
-    return text, html
+    return text, page
 
 
 def send_code(user):
@@ -131,9 +131,9 @@ def send_code(user):
         raise HTTPException(status_code=429, detail="Wait " + str(wait) + " seconds before asking for another code.")
     code = str(secrets.randbelow(900000) + 100000)
     salt = secrets.token_hex(8)
-    text, html = code_email(user["name"] or "there", code)
+    text, page = code_email(user["name"] or "there", code)
     try:
-        mailer.send(email, code + " is your Forkwise code", text, html)
+        mailer.send(email, code + " is your Forkwise code", text, page)
     except Exception:
         raise HTTPException(status_code=502, detail="We could not send the email. Check the address and try again in a minute.")
     db.execute(
@@ -263,7 +263,7 @@ RESET_SENT = {}
 def reset_email(name, link):
     safe_name = html.escape(name)
     text = "Hi " + name + ",\n\nOpen this link to choose a new Forkwise password. It works for one hour.\n\n" + link + "\n\nIf you did not ask for this, ignore this email."
-    html = (
+    page = (
         '<div style="background:#f4f5fa;padding:32px 12px;font-family:Arial,Helvetica,sans-serif">'
         '<div style="max-width:460px;margin:0 auto;background:#ffffff;border-radius:18px;padding:34px 30px;border:1px solid #e3e5f0">'
         '<div style="font-size:20px;font-weight:700;color:#11132e;margin-bottom:22px">Forkwise</div>'
@@ -273,7 +273,7 @@ def reset_email(name, link):
         '<div style="font-size:13px;color:#8a8eae">If you did not ask for this, you can ignore this email. Your password stays the same.</div>'
         "</div></div>"
     )
-    return text, html
+    return text, page
 
 
 def forgot(body: ForgotBody):
@@ -282,16 +282,16 @@ def forgot(body: ForgotBody):
     email = clean_email(body.email)
     if db.now() - RESET_SENT.get(email, 0) < RESEND_SECONDS:
         raise HTTPException(status_code=429, detail="We just sent a link. Wait a few seconds before asking again.")
+    RESET_SENT[email] = db.now()
     user = db.one_row("SELECT * FROM users WHERE email = ?", (email,))
     if user:
         token = secrets.token_urlsafe(32)
         db.insert("password_resets", {"token": token, "user_id": user["id"], "expires_at": db.now() + 3600, "used": 0})
-        text, html = reset_email(user["name"] or "there", config.SITE_URL + "/reset/" + token)
+        text, page = reset_email(user["name"] or "there", config.SITE_URL + "/reset/" + token)
         try:
-            mailer.send(email, "Reset your Forkwise password", text, html)
+            mailer.send(email, "Reset your Forkwise password", text, page)
         except Exception:
             raise HTTPException(status_code=502, detail="We could not send the email. Check the address and try again in a minute.")
-        RESET_SENT[email] = db.now()
     return {"ok": True}
 
 
@@ -320,6 +320,8 @@ def save_settings(body: SettingsBody, request: Request):
         if key in ["profile", "onboarded"]:
             continue
         settings[key] = body.settings[key]
+    if len(db.dump_json(settings)) > 60000:
+        raise HTTPException(status_code=400, detail="Settings are too large.")
     values = {"settings": db.dump_json(settings)}
     if body.name.strip():
         values["name"] = body.name.strip()
@@ -407,12 +409,12 @@ def sign_out_others(request: Request):
     return {"ok": True}
 
 
-def delete_account(body: DeleteBody, request: Request, response: Response):
+async def delete_account(body: DeleteBody, request: Request, response: Response):
     from app.routes import admin
     user = current_user(request)
     if clean_email(body.email) != user["email"]:
         raise HTTPException(status_code=400, detail="Type your email address exactly to confirm.")
-    admin.remove_user_data(user["id"])
+    await admin.remove_user_data(user["id"])
     response.delete_cookie(COOKIE, path="/", domain=config.COOKIE_DOMAIN or None)
     return {"ok": True}
 

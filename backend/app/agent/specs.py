@@ -1,6 +1,6 @@
 READ_ONLY = ["read_file", "list_dir", "glob", "grep", "web_search", "web_fetch", "todo_write", "job_output", "ask_user", "use_skill", "memory", "screenshot", "exit_plan_mode"]
 BROWSER_READ_ONLY = ["screenshot", "read", "tabs", "wait"]
-COMPUTER_READ_ONLY = ["screenshot", "info"]
+COMPUTER_READ_ONLY = ["screenshot", "info", "windows", "wait"]
 
 
 def fn(name, description, properties, required=None):
@@ -205,19 +205,24 @@ def plan_specs():
 
 def computer_spec(devices):
     names = ", ".join(device["name"] + " (" + (device.get("platform") or "unknown OS") + ")" for device in devices)
-    return fn("computer", "Control the user's own computer through the Forkwise Desktop app they connected: " + names + ". This is their real machine, not your sandbox. Use it only when the user asks for something on their computer. You can run commands in a full terminal (PowerShell on Windows, the login shell elsewhere), open apps (code, notepad, chrome...), files, folders, links in their browser and system settings (on Windows ms-settings: links such as ms-settings:display), take screenshots, and use the mouse and keyboard. Take a screenshot first to see the screen; click positions are in screenshot pixels. Destructive actions need extra care: say what you will do first.", {
-        "action": {"type": "string", "enum": ["info", "shell", "open", "screenshot", "click", "move", "type", "key", "scroll", "windows", "clipboard_get", "clipboard_set"]},
+    return fn("computer", "Control the user's own computer through the Forkwise Desktop app they connected: " + names + ". This is their real machine, not your sandbox. Use it only when the user asks for something on their computer. You can run commands in a full terminal (PowerShell on Windows, the login shell elsewhere), open apps (code, notepad, chrome...), files, folders, links in their browser and system settings (on Windows ms-settings: links such as ms-settings:display), read, write and list files, change the wallpaper, switch windows, use the clipboard, take screenshots, and use the mouse and keyboard. Take a screenshot first to see the screen; click positions are in screenshot pixels. After every click, key press or typing step take a screenshot to check the result before the next step. Destructive actions need extra care: say what you will do first.", {
+        "action": {"type": "string", "enum": ["info", "screenshot", "windows", "focus", "shell", "open", "click", "move", "drag", "type", "key", "scroll", "wait", "clipboard_get", "clipboard_set", "list_dir", "read_file", "write_file", "wallpaper"]},
         "device": string("Device name or id, if more than one is connected."),
         "command": string("For shell: the command to run."),
         "cwd": string("For shell: working folder."),
         "timeout": integer("For shell: seconds, default 120, max 600."),
-        "target": string("For open: an app name (code, notepad, calc, chrome), a path, a URL or a settings link like ms-settings:bluetooth."),
+        "target": string("For open: an app name (code, notepad, calc, chrome), a path, a URL or a settings link like ms-settings:bluetooth. For focus: part of the window title."),
         "args": {"type": "array", "items": {"type": "string"}, "description": "For open: extra arguments for the app, like a folder for code."},
-        "x": integer("For click, move and scroll: x in screenshot pixels."),
-        "y": integer("For click, move and scroll: y in screenshot pixels."),
+        "x": integer("For click, move, drag and scroll: x in screenshot pixels."),
+        "y": integer("For click, move, drag and scroll: y in screenshot pixels."),
+        "x2": integer("For drag: end x in screenshot pixels."),
+        "y2": integer("For drag: end y in screenshot pixels."),
         "button": {"type": "string", "enum": ["left", "right", "middle"]},
         "double": boolean("Double click."),
         "text": string("For type and clipboard_set."),
         "keys": string("For key: a key or combination like enter, ctrl+s, alt+tab, win+r."),
-        "amount": integer("For scroll: clicks, positive up and negative down."),
+        "amount": integer("For scroll: clicks, positive up and negative down. For wait: seconds, at most 30."),
+        "path": string("For list_dir, read_file, write_file and wallpaper: a path on the user's computer. ~ means their home folder."),
+        "content": string("For write_file: the text to write."),
+        "source": string("For wallpaper: an image path on the computer or an https link to an image."),
     }, ["action"])

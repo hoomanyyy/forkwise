@@ -1,10 +1,12 @@
+import shutil
 import time
 from fastapi import Request, HTTPException
 from pydantic import BaseModel
-from app import db, plans
+from app import db, config
 from app.routes.auth import admin_user
 
 PLAN_NAMES = ["free", "pro", "premium"]
+USER_TABLES = ["chats", "projects", "memories", "custom_tools", "skills", "mcp_servers", "devices", "connections", "secrets", "schedules", "sessions", "password_resets", "usage_daily", "payments"]
 
 
 class UserChange(BaseModel):
@@ -88,22 +90,45 @@ def change_user(user_id: str, body: UserChange, request: Request):
     return {"ok": True}
 
 
-def delete_user(user_id: str, request: Request):
+async def delete_user(user_id: str, request: Request):
     admin = admin_user(request)
     if user_id == admin["id"]:
         raise HTTPException(status_code=400, detail="You cannot delete your own account here.")
-    remove_user_data(user_id)
+    await remove_user_data(user_id)
     return {"ok": True}
 
 
-def remove_user_data(user_id):
+async def remove_user_data(user_id):
+    from app.agent import runs, sandbox
+    from app.routes import desktop
+    workspaces = []
+    for table in ["chats", "projects"]:
+        for row in db.all_rows("SELECT workspace_id FROM " + table + " WHERE user_id = ?", (user_id,)):
+            if row["workspace_id"] and row["workspace_id"] not in workspaces:
+                workspaces.append(row["workspace_id"])
     chat_rows = db.all_rows("SELECT id FROM chats WHERE user_id = ?", (user_id,))
     for chat in chat_rows:
+        active = runs.ACTIVE.get(chat["id"])
+        if active and active in runs.RUNS:
+            runs.RUNS[active].stop()
         db.execute("DELETE FROM messages WHERE chat_id = ?", (chat["id"],))
         db.execute("DELETE FROM runs WHERE chat_id = ?", (chat["id"],))
-    for table in ["chats", "projects", "memories", "custom_tools", "skills", "mcp_servers", "sessions", "password_resets", "usage_daily", "payments"]:
+    for link in list(desktop.ONLINE.values()):
+        if link.device["user_id"] == user_id:
+            try:
+                await link.websocket.close(code=4401)
+            except Exception:
+                pass
+    for table in USER_TABLES:
         db.execute("DELETE FROM " + table + " WHERE user_id = ?", (user_id,))
     db.execute("DELETE FROM users WHERE id = ?", (user_id,))
+    for wid in workspaces:
+        try:
+            await sandbox.remove(wid)
+        except Exception:
+            pass
+        shutil.rmtree(config.CHECKPOINTS_DIR / (wid + ".git"), ignore_errors=True)
+    shutil.rmtree(config.TOOLS_DIR / user_id, ignore_errors=True)
 
 
 def payments(request: Request):

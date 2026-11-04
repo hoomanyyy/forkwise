@@ -7,7 +7,7 @@ import shutil
 import subprocess
 import time
 from pathlib import Path
-from app import config
+from app import config, db, vault
 
 LAST_USED = {}
 STARTING = {}
@@ -153,23 +153,79 @@ async def ensure(wid):
         STARTING.pop(wid, None)
 
 
-def shell_argv(wid, command, interactive=False):
+def secret_env(wid):
+    owner = db.one_row("SELECT id, user_id FROM projects WHERE workspace_id = ?", (wid,))
+    project_id = None
+    user_id = ""
+    if owner:
+        user_id = owner["user_id"]
+        project_id = owner["id"]
+    else:
+        chat = db.one_row("SELECT user_id FROM chats WHERE workspace_id = ? LIMIT 1", (wid,))
+        if chat:
+            user_id = chat["user_id"]
+    env = {}
+    if user_id == "":
+        return env
+    rows = db.all_rows("SELECT * FROM secrets WHERE user_id = ? ORDER BY created_at", (user_id,))
+    for row in rows:
+        if row["project_id"] and row["project_id"] != project_id:
+            continue
+        value = vault.unseal(row["value_enc"])
+        if value:
+            env[row["name"]] = value
+    return env
+
+
+def shell_argv(wid, command, interactive=False, env_names=()):
     if is_docker():
         argv = ["docker", "exec", "-i"]
         if interactive:
             argv.append("-t")
+        for name in env_names:
+            argv = argv + ["-e", name]
         argv = argv + ["-w", "/workspace", box_name(wid), "bash", "-lc", command]
         return argv, None
     return ["bash", "-lc", command], str(host_root(wid))
 
 
-async def run(wid, command, timeout=120, on_output=None, limit=30000):
-    await ensure(wid)
-    argv, cwd = shell_argv(wid, command)
-    env = None
-    if not is_docker():
+def process_env(wid, extra=None):
+    values = secret_env(wid)
+    if extra:
+        for name in extra:
+            values[name] = extra[name]
+    if is_docker():
         env = dict(os.environ)
-        env["WORKSPACE"] = str(host_root(wid))
+    else:
+        env = clean_env(wid)
+    for name in values:
+        env[name] = values[name]
+    return env, list(values.keys())
+
+
+SECRET_WORDS = ["KEY", "SECRET", "PASSWORD", "TOKEN", "PASS", "CREDENTIAL"]
+
+
+def clean_env(wid):
+    env = {}
+    for name in os.environ:
+        upper = name.upper()
+        secret = False
+        for word in SECRET_WORDS:
+            if word in upper:
+                secret = True
+        if name.startswith(("MYSQL_", "SMTP_", "PROVIDER_", "LLM_", "CF_", "GOOGLE_", "GITHUB_", "NOWPAYMENTS_")):
+            secret = True
+        if not secret:
+            env[name] = os.environ[name]
+    env["WORKSPACE"] = str(host_root(wid))
+    return env
+
+
+async def run(wid, command, timeout=120, on_output=None, limit=30000, extra_env=None):
+    await ensure(wid)
+    env, names = process_env(wid, extra_env)
+    argv, cwd = shell_argv(wid, command, env_names=names)
     process = await asyncio.create_subprocess_exec(
         *argv, cwd=cwd, env=env,
         stdin=asyncio.subprocess.DEVNULL,

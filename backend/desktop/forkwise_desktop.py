@@ -1,28 +1,72 @@
 """Forkwise Desktop: lets your Forkwise agent use this computer.
 
-Run:  python forkwise_desktop.py --server https://api.forkwiseai.com --token YOUR_TOKEN
-Get a token in Forkwise > Settings > Computer. Stop any time with Ctrl+C.
+Run with a window:   python forkwise_desktop.py
+Run in a terminal:   python forkwise_desktop.py --no-window --token YOUR_TOKEN
+Get a token in Forkwise > Settings > Computer. Pause or stop any time.
 """
 import argparse
 import asyncio
-import importlib.util
 import base64
 import getpass
+import importlib.util
 import io
 import json
 import os
 import platform
+import queue
 import shutil
 import socket
 import subprocess
 import sys
+import threading
 import time
+import urllib.request
 import webbrowser
 
-VERSION = "1.0.0"
+VERSION = "2.0.0"
 NEEDED = {"websockets": "websockets", "mss": "mss", "PIL": "pillow", "pyautogui": "pyautogui", "pyperclip": "pyperclip"}
 SYSTEM = platform.system()
 SCALE = {"value": 1.0}
+CONFIG_FOLDER = os.path.join(os.path.expanduser("~"), ".forkwise")
+CONFIG_FILE = os.path.join(CONFIG_FOLDER, "desktop.json")
+MAX_READ = 300000
+MAX_WRITE = 3000000
+MAX_IMAGE = 15000000
+DEFAULT_SERVER = "https://api.forkwiseai.com"
+
+
+class State:
+    def __init__(self):
+        self.paused = False
+        self.confirm = False
+        self.connected = False
+        self.name = ""
+        self.stop = False
+        self.logs = queue.Queue()
+        self.questions = queue.Queue()
+        self.use_window = False
+
+
+STATE = State()
+
+
+def say(text):
+    line = time.strftime("%H:%M:%S") + "  " + text
+    print(line, flush=True)
+    STATE.logs.put(line)
+
+
+def make_dpi_aware():
+    if SYSTEM != "Windows":
+        return
+    try:
+        import ctypes
+        try:
+            ctypes.windll.shcore.SetProcessDpiAwareness(2)
+        except Exception:
+            ctypes.windll.user32.SetProcessDPIAware()
+    except Exception:
+        pass
 
 
 def ensure_packages():
@@ -31,13 +75,27 @@ def ensure_packages():
         if importlib.util.find_spec(module) is None:
             missing.append(package)
     if missing:
-        print("Installing: " + ", ".join(missing))
+        say("Installing: " + ", ".join(missing))
         user_flag = [] if sys.prefix != sys.base_prefix else ["--user"]
         subprocess.call([sys.executable, "-m", "pip", "install", "--quiet"] + user_flag + missing)
 
 
-def say(text):
-    print(time.strftime("%H:%M:%S") + "  " + text, flush=True)
+def load_config():
+    try:
+        with open(CONFIG_FILE, "r", encoding="utf-8") as handle:
+            return json.load(handle)
+    except (OSError, ValueError):
+        return {}
+
+
+def save_config(data):
+    os.makedirs(CONFIG_FOLDER, exist_ok=True)
+    with open(CONFIG_FILE, "w", encoding="utf-8") as handle:
+        json.dump(data, handle)
+    try:
+        os.chmod(CONFIG_FILE, 0o600)
+    except OSError:
+        pass
 
 
 def run_shell(command, cwd=None, timeout=120):
@@ -158,6 +216,123 @@ def window_list():
     return run_shell("wmctrl -l 2>/dev/null || ps -eo pid,comm --sort=-%cpu | head -40", timeout=30)
 
 
+def quote_single(text):
+    return "'" + text.replace("'", "''") + "'"
+
+
+def focus_window(title):
+    title = (title or "").strip()
+    if title == "":
+        return False, "target is missing: give part of the window title."
+    if SYSTEM == "Windows":
+        command = "$w = New-Object -ComObject WScript.Shell; if ($w.AppActivate(" + quote_single(title) + ")) { 'Focused' } else { 'No window found' }"
+        ok, text = run_shell(command, timeout=20)
+        return "Focused" in text, text.strip()
+    if SYSTEM == "Darwin":
+        safe = title.replace('"', "")
+        return run_shell('osascript -e \'tell application "' + safe + '" to activate\'', timeout=20)
+    safe = title.replace("'", "")
+    return run_shell("wmctrl -a '" + safe + "'", timeout=20)
+
+
+def list_folder(path):
+    folder = os.path.expanduser(path or "~")
+    if not os.path.isdir(folder):
+        return False, "Not a folder: " + folder
+    lines = []
+    try:
+        names = os.listdir(folder)
+    except OSError as problem:
+        return False, str(problem)
+    names.sort(key=str.lower)
+    for name in names[:400]:
+        full = os.path.join(folder, name)
+        if os.path.isdir(full):
+            lines.append("[dir]  " + name)
+        else:
+            try:
+                size = os.path.getsize(full)
+            except OSError:
+                size = 0
+            lines.append("       " + name + "  (" + str(size) + " bytes)")
+    if len(names) > 400:
+        lines.append("... " + str(len(names) - 400) + " more")
+    return True, folder + "\n" + "\n".join(lines)
+
+
+def read_text_file(path):
+    full = os.path.expanduser(path or "")
+    if not os.path.isfile(full):
+        return False, "Not a file: " + full
+    with open(full, "rb") as handle:
+        raw = handle.read(MAX_READ + 1)
+    if b"\x00" in raw[:4000]:
+        return False, full + " is a binary file."
+    text = raw[:MAX_READ].decode("utf-8", errors="replace")
+    if len(raw) > MAX_READ:
+        text = text + "\n[cut at " + str(MAX_READ) + " bytes]"
+    return True, text
+
+
+def write_text_file(path, content):
+    full = os.path.expanduser(path or "")
+    if full == "":
+        return False, "path is missing."
+    data = (content or "").encode("utf-8")
+    if len(data) > MAX_WRITE:
+        return False, "The content is too large."
+    folder = os.path.dirname(full)
+    if folder:
+        os.makedirs(folder, exist_ok=True)
+    with open(full, "wb") as handle:
+        handle.write(data)
+    return True, "Wrote " + str(len(data)) + " bytes to " + full
+
+
+def fetch_image(link):
+    if not link.lower().startswith("https://"):
+        return None, "Only https image links are allowed."
+    os.makedirs(CONFIG_FOLDER, exist_ok=True)
+    ending = ".png"
+    lowered = link.lower().split("?")[0]
+    for choice in [".jpg", ".jpeg", ".png", ".bmp", ".webp"]:
+        if lowered.endswith(choice):
+            ending = choice
+    target = os.path.join(CONFIG_FOLDER, "wallpaper" + ending)
+    request = urllib.request.Request(link, headers={"User-Agent": "ForkwiseDesktop/" + VERSION})
+    with urllib.request.urlopen(request, timeout=60) as reply:
+        data = reply.read(MAX_IMAGE + 1)
+    if len(data) > MAX_IMAGE:
+        return None, "The image is larger than 15 MB."
+    with open(target, "wb") as handle:
+        handle.write(data)
+    return target, ""
+
+
+def set_wallpaper(source):
+    source = (source or "").strip()
+    if source == "":
+        return False, "source is missing."
+    path = os.path.expanduser(source)
+    if source.lower().startswith("http"):
+        path, problem = fetch_image(source)
+        if path is None:
+            return False, problem
+    if not os.path.isfile(path):
+        return False, "Image not found: " + path
+    path = os.path.abspath(path)
+    if SYSTEM == "Windows":
+        import ctypes
+        done = ctypes.windll.user32.SystemParametersInfoW(20, 0, path, 3)
+        return bool(done), "Wallpaper changed to " + path if done else "Windows refused to change the wallpaper."
+    if SYSTEM == "Darwin":
+        safe = path.replace('"', "")
+        return run_shell('osascript -e \'tell application "System Events" to tell every desktop to set picture to POSIX file "' + safe + '"\'', timeout=30)
+    uri = "file://" + path
+    run_shell("gsettings set org.gnome.desktop.background picture-uri-dark '" + uri + "'", timeout=20)
+    return run_shell("gsettings set org.gnome.desktop.background picture-uri '" + uri + "'", timeout=20)
+
+
 def handle(message):
     action = message.get("action")
     if action == "info":
@@ -194,6 +369,13 @@ def handle(message):
         else:
             tool.click(x, y, clicks=2 if message.get("double") else 1, button=message.get("button") or "left")
         return {"ok": True, "text": action + " at " + str(message.get("x")) + "," + str(message.get("y")) + ". Take a screenshot to check the result."}
+    if action == "drag":
+        x, y = real_point(message.get("x", 0), message.get("y", 0))
+        x2, y2 = real_point(message.get("x2", 0), message.get("y2", 0))
+        tool = gui()
+        tool.moveTo(x, y, duration=0.15)
+        tool.dragTo(x2, y2, duration=0.5, button=message.get("button") or "left")
+        return {"ok": True, "text": "Dragged. Take a screenshot to check the result."}
     if action == "type":
         text = message.get("text") or ""
         tool = gui()
@@ -215,9 +397,16 @@ def handle(message):
             tool.moveTo(*real_point(message["x"], message["y"]))
         tool.scroll(int(message.get("amount") or -5))
         return {"ok": True, "text": "Scrolled."}
+    if action == "wait":
+        seconds = max(0, min(int(message.get("amount") or 1), 30))
+        time.sleep(seconds)
+        return {"ok": True, "text": "Waited " + str(seconds) + " seconds."}
     if action == "windows":
         ok, text = window_list()
         return {"ok": ok, "text": text}
+    if action == "focus":
+        ok, text = focus_window(message.get("target"))
+        return {"ok": ok, "text": text or "Done."}
     if action == "clipboard_get":
         import pyperclip
         return {"ok": True, "text": pyperclip.paste()[:20000]}
@@ -225,85 +414,269 @@ def handle(message):
         import pyperclip
         pyperclip.copy(message.get("text") or "")
         return {"ok": True, "text": "Copied to the clipboard."}
+    if action == "list_dir":
+        ok, text = list_folder(message.get("path"))
+        return {"ok": ok, "text": text}
+    if action == "read_file":
+        ok, text = read_text_file(message.get("path"))
+        return {"ok": ok, "text": text}
+    if action == "write_file":
+        ok, text = write_text_file(message.get("path"), message.get("content"))
+        return {"ok": ok, "text": text}
+    if action == "wallpaper":
+        ok, text = set_wallpaper(message.get("source") or message.get("path"))
+        return {"ok": ok, "text": text}
     return {"ok": False, "text": "Unknown action " + str(action)}
 
 
 def describe(message):
     action = message.get("action")
     if action == "shell":
-        return "shell: " + (message.get("command") or "")[:200]
+        return "run a command: " + (message.get("command") or "")[:300]
     if action == "open":
         return "open: " + str(message.get("target"))
     if action == "type":
         return "type " + str(len(message.get("text") or "")) + " characters"
     if action == "key":
-        return "keys: " + str(message.get("keys"))
-    return action
+        return "press keys: " + str(message.get("keys"))
+    if action in ["read_file", "write_file", "list_dir"]:
+        return action.replace("_", " ") + ": " + str(message.get("path"))
+    if action == "wallpaper":
+        return "change the wallpaper to " + str(message.get("source") or message.get("path"))
+    if action == "focus":
+        return "switch to the window: " + str(message.get("target"))
+    if action in ["click", "move", "drag", "scroll"]:
+        return action + " at " + str(message.get("x")) + "," + str(message.get("y"))
+    return str(action)
 
 
-async def session(url, token, confirm):
+def ask_here(text):
+    if STATE.use_window:
+        holder = {"answer": False, "done": threading.Event()}
+        STATE.questions.put((text, holder))
+        holder["done"].wait(120)
+        return holder["answer"]
+    answer = input("   Allow " + text + "? [y/N] ")
+    return answer.strip().lower() in ["y", "yes"]
+
+
+def safe_handle(message):
+    try:
+        return handle(message)
+    except BaseException as problem:
+        name = type(problem).__name__
+        if name == "FailSafeException":
+            STATE.paused = True
+            say("Paused: the mouse reached a screen corner. Press Resume to continue.")
+            return {"ok": False, "text": "The user moved the mouse to a corner of the screen to stop you. Stop and ask what to do."}
+        return {"ok": False, "text": name + ": " + str(problem)[:1000]}
+
+
+async def session(url, token):
     import websockets
     headers = {"Authorization": "Bearer " + token}
     try:
         connection = websockets.connect(url, additional_headers=headers, max_size=32 * 1024 * 1024, ping_interval=20)
     except TypeError:
         connection = websockets.connect(url, extra_headers=headers, max_size=32 * 1024 * 1024, ping_interval=20)
-    async with connection as socket_link:
+    async with connection as link:
         hello = {"type": "hello", "version": VERSION, "platform": SYSTEM + " " + platform.release(), "hostname": socket.gethostname(), "user": getpass.getuser()}
-        await socket_link.send(json.dumps(hello))
-        say("Connected. Your Forkwise agent can now use this computer. Press Ctrl+C to disconnect.")
+        await link.send(json.dumps(hello))
         loop = asyncio.get_running_loop()
-        async for raw in socket_link:
+        async for raw in link:
+            if STATE.stop:
+                return
             message = json.loads(raw)
             if message.get("type") == "welcome":
-                say("Linked as \"" + message.get("name", "") + "\"")
+                STATE.connected = True
+                STATE.name = message.get("name", "")
+                say("Connected as \"" + STATE.name + "\". Your Forkwise agent can use this computer.")
                 continue
             if "id" not in message:
                 continue
-            say("Agent: " + describe(message))
-            if confirm and message.get("action") not in ["info", "screenshot"]:
-                answer = await loop.run_in_executor(None, input, "   Allow? [y/N] ")
-                if answer.strip().lower() not in ["y", "yes"]:
-                    await socket_link.send(json.dumps({"id": message["id"], "ok": False, "text": "The user refused this on their computer."}))
+            what = describe(message)
+            say("Agent: " + what)
+            if STATE.paused:
+                await link.send(json.dumps({"id": message["id"], "ok": False, "text": "The user paused Forkwise Desktop. Ask them to press Resume."}))
+                continue
+            safe_action = message.get("action") in ["info", "screenshot", "wait"]
+            if STATE.confirm and not safe_action:
+                allowed = await loop.run_in_executor(None, ask_here, what)
+                if not allowed:
+                    await link.send(json.dumps({"id": message["id"], "ok": False, "text": "The user refused this on their computer."}))
                     continue
-            try:
-                reply = await loop.run_in_executor(None, handle, message)
-            except Exception as problem:
-                reply = {"ok": False, "text": type(problem).__name__ + ": " + str(problem)[:1000]}
+            reply = await loop.run_in_executor(None, safe_handle, message)
             reply["id"] = message["id"]
-            await socket_link.send(json.dumps(reply))
+            await link.send(json.dumps(reply))
+
+
+def network_loop(base, token):
+    url = ("wss://" + base[8:] if base.startswith("https://") else "ws://" + base.replace("http://", "", 1)) + "/api/ws/desktop"
+    delay = 2
+    while not STATE.stop:
+        try:
+            asyncio.run(session(url, token))
+            delay = 2
+        except Exception as problem:
+            STATE.connected = False
+            text = str(problem)
+            if "4401" in text or "HTTP 403" in text:
+                say("The token was refused. Create a new one in Forkwise > Settings > Computer.")
+                return
+            say("Connection lost (" + text[:100] + "). Retrying in " + str(delay) + "s")
+        STATE.connected = False
+        for tick in range(delay * 5):
+            if STATE.stop:
+                return
+            time.sleep(0.2)
+        delay = min(delay * 2, 60)
+
+
+def run_window(base, token, options):
+    import tkinter as tk
+    from tkinter import messagebox, scrolledtext
+    STATE.use_window = True
+    root = tk.Tk()
+    root.title("Forkwise Desktop")
+    root.geometry("560x420")
+    root.configure(bg="#0e0f12")
+    top = tk.Frame(root, bg="#0e0f12")
+    top.pack(fill="x", padx=16, pady=(16, 8))
+    dot = tk.Label(top, text="●", fg="#8a8f98", bg="#0e0f12", font=("Segoe UI", 14))
+    dot.pack(side="left")
+    status = tk.Label(top, text="Connecting...", fg="#e8e9ec", bg="#0e0f12", font=("Segoe UI", 12, "bold"))
+    status.pack(side="left", padx=8)
+    version = tk.Label(top, text="v" + VERSION, fg="#6b7078", bg="#0e0f12", font=("Segoe UI", 9))
+    version.pack(side="right")
+    row = tk.Frame(root, bg="#0e0f12")
+    row.pack(fill="x", padx=16, pady=4)
+    pause_text = tk.StringVar(value="Pause")
+    confirm_value = tk.BooleanVar(value=STATE.confirm)
+
+    def toggle_pause():
+        STATE.paused = not STATE.paused
+        pause_text.set("Resume" if STATE.paused else "Pause")
+        say("Paused. The agent cannot use this computer." if STATE.paused else "Resumed.")
+
+    def toggle_confirm():
+        STATE.confirm = bool(confirm_value.get())
+        say("Every action now asks you first." if STATE.confirm else "Actions run without asking here.")
+
+    def quit_app():
+        STATE.stop = True
+        root.destroy()
+
+    tk.Button(row, textvariable=pause_text, command=toggle_pause, bg="#1b1d22", fg="#e8e9ec", relief="flat", padx=14, pady=6, activebackground="#262a31", activeforeground="#ffffff", bd=0).pack(side="left")
+    tk.Button(row, text="Disconnect and quit", command=quit_app, bg="#1b1d22", fg="#ff8a9a", relief="flat", padx=14, pady=6, activebackground="#262a31", activeforeground="#ffffff", bd=0).pack(side="left", padx=8)
+    tk.Checkbutton(row, text="Ask me before every action", variable=confirm_value, command=toggle_confirm, bg="#0e0f12", fg="#c8cad0", selectcolor="#1b1d22", activebackground="#0e0f12", activeforeground="#ffffff", bd=0).pack(side="right")
+    box = scrolledtext.ScrolledText(root, bg="#0a0b0d", fg="#c8cad0", insertbackground="#ffffff", relief="flat", font=("Consolas", 10), height=14, bd=0)
+    box.pack(fill="both", expand=True, padx=16, pady=(8, 8))
+    box.configure(state="disabled")
+    hint = tk.Label(root, text="Move the mouse to a screen corner to stop the agent at any time.", fg="#6b7078", bg="#0e0f12", font=("Segoe UI", 9))
+    hint.pack(pady=(0, 12))
+
+    def poll():
+        while True:
+            try:
+                line = STATE.logs.get_nowait()
+            except queue.Empty:
+                break
+            box.configure(state="normal")
+            box.insert("end", line + "\n")
+            box.see("end")
+            box.configure(state="disabled")
+        while True:
+            try:
+                text, holder = STATE.questions.get_nowait()
+            except queue.Empty:
+                break
+            holder["answer"] = messagebox.askyesno("Forkwise agent wants to", text[:400], parent=root)
+            holder["done"].set()
+        if STATE.paused:
+            dot.configure(fg="#f5b84a")
+            status.configure(text="Paused")
+        elif STATE.connected:
+            dot.configure(fg="#4ade80")
+            status.configure(text="Connected" + (" as " + STATE.name if STATE.name else ""))
+        else:
+            dot.configure(fg="#8a8f98")
+            status.configure(text="Connecting...")
+        root.after(300, poll)
+
+    root.protocol("WM_DELETE_WINDOW", quit_app)
+    worker = threading.Thread(target=network_loop, args=(base, token), daemon=True)
+    worker.start()
+    poll()
+    root.mainloop()
+
+
+def ask_token_window():
+    import tkinter as tk
+    result = {"token": "", "server": DEFAULT_SERVER}
+    root = tk.Tk()
+    root.title("Forkwise Desktop")
+    root.geometry("520x250")
+    root.configure(bg="#0e0f12")
+    tk.Label(root, text="Connect this computer to Forkwise", fg="#e8e9ec", bg="#0e0f12", font=("Segoe UI", 13, "bold")).pack(pady=(24, 4))
+    tk.Label(root, text="Paste the device token from Forkwise > Settings > Computer", fg="#8a8f98", bg="#0e0f12", font=("Segoe UI", 10)).pack()
+    entry = tk.Entry(root, width=52, bg="#1b1d22", fg="#ffffff", insertbackground="#ffffff", relief="flat", font=("Consolas", 10))
+    entry.pack(pady=18, ipady=6)
+    entry.focus_set()
+
+    def go():
+        result["token"] = entry.get().strip()
+        root.destroy()
+
+    tk.Button(root, text="Connect", command=go, bg="#8b7bff", fg="#ffffff", relief="flat", padx=24, pady=8, bd=0, activebackground="#7a6af0", activeforeground="#ffffff").pack()
+    def on_enter(event):
+        go()
+
+    root.bind("<Return>", on_enter)
+    root.mainloop()
+    return result["token"]
 
 
 def main():
     parser = argparse.ArgumentParser(description="Connect this computer to Forkwise.")
-    parser.add_argument("--server", default=os.environ.get("FORKWISE_SERVER", "https://api.forkwiseai.com"))
+    parser.add_argument("--server", default=os.environ.get("FORKWISE_SERVER", ""))
     parser.add_argument("--token", default=os.environ.get("FORKWISE_TOKEN", ""))
     parser.add_argument("--confirm", action="store_true", help="Ask here before every action.")
+    parser.add_argument("--no-window", action="store_true", help="Run in the terminal without a window.")
+    parser.add_argument("--forget", action="store_true", help="Delete the saved token.")
     options = parser.parse_args()
-    if not options.token:
-        options.token = input("Paste your Forkwise device token: ").strip()
+    make_dpi_aware()
+    if options.forget:
+        try:
+            os.remove(CONFIG_FILE)
+        except OSError:
+            pass
+        print("Saved token removed.")
+        return
+    saved = load_config()
+    token = options.token or saved.get("token", "")
+    base = (options.server or saved.get("server") or DEFAULT_SERVER).rstrip("/")
+    window = not options.no_window
+    if window:
+        if importlib.util.find_spec("tkinter") is None:
+            window = False
+    if not token:
+        if window:
+            token = ask_token_window()
+        else:
+            token = input("Paste your Forkwise device token: ").strip()
+    if not token:
+        print("No token given.")
+        return
+    save_config({"token": token, "server": base})
+    STATE.confirm = bool(options.confirm)
     ensure_packages()
-    base = options.server.rstrip("/")
-    url = ("wss://" + base[8:] if base.startswith("https://") else "ws://" + base.replace("http://", "", 1)) + "/api/ws/desktop"
-    delay = 2
-    while True:
-        try:
-            asyncio.run(session(url, options.token, options.confirm))
-            delay = 2
-        except KeyboardInterrupt:
-            say("Disconnected.")
-            return
-        except Exception as problem:
-            text = str(problem)
-            if "4401" in text or "HTTP 403" in text:
-                say("The token was refused. Create a new one in Settings > Computer.")
-                return
-            say("Connection lost (" + text[:120] + "). Retrying in " + str(delay) + "s")
-        try:
-            time.sleep(delay)
-        except KeyboardInterrupt:
-            return
-        delay = min(delay * 2, 60)
+    if window:
+        run_window(base, token, options)
+        return
+    try:
+        network_loop(base, token)
+    except KeyboardInterrupt:
+        say("Disconnected.")
 
 
 if __name__ == "__main__":

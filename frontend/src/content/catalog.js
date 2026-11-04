@@ -7,7 +7,7 @@ export const PLANS = [
     yearly: 0,
     cta: "Start free",
     to: "/register",
-    features: ["Chat, web research and memory", "A private computer per chat", "Live preview of what it builds", "Daily usage limit", "Community support"],
+    features: ["Chat, web research and memory", "A private computer per chat", "Live preview, files, changes and terminal", "GitHub and Gmail accounts", "Your own computer through the desktop app", "Daily usage limit"],
   },
   {
     key: "pro",
@@ -19,7 +19,7 @@ export const PLANS = [
     to: "/register?plan=pro",
     featured: true,
     tag: "Most popular",
-    features: ["Everything in Free", "About 10 times the daily usage", "The strongest models", "Projects with shared files and notes", "Tools and skills Forkwise makes for you", "Email support"],
+    features: ["Everything in Free", "10 times the daily usage", "Email support"],
   },
   {
     key: "premium",
@@ -29,7 +29,7 @@ export const PLANS = [
     yearly: 39,
     cta: "Get Premium",
     to: "/register?plan=premium",
-    features: ["Everything in Pro", "About 30 times the daily usage", "Bigger computers for heavy jobs", "Longer running tasks", "MCP connectors", "Priority support"],
+    features: ["Everything in Pro", "30 times the daily usage", "Priority support"],
   },
   {
     key: "teams",
@@ -39,74 +39,7 @@ export const PLANS = [
     yearly: null,
     cta: "Talk to us",
     to: "/contact?topic=Teams",
-    features: ["Run it on your own server", "Your own models and keys", "Admin dashboard and limits", "Single sign-on on request", "Setup help and training"],
-  },
-]
-
-export const USE_CASES = [
-  {
-    slug: "websites",
-    title: "Websites and apps",
-    short: "From one sentence to a live site you can open, share and download.",
-    hero: "Describe the site. Watch it go live.",
-    lead: "Forkwise writes the pages, starts a real server and shows the result next to the chat. It checks the desktop and phone layouts itself and fixes what looks wrong.",
-    image: "/images/shot-chat.webp",
-    color: ["#6e5cff", "#1fa2ec"],
-    points: [
-      ["Real code you own", "HTML, React, Vue or a full stack app with an API and a database. Download everything as a zip at any time."],
-      ["Checked like a person would", "It opens the site in a real browser, takes screenshots, reads the console and fixes errors before it says done."],
-      ["Change it by talking", "\"Make the header darker\", \"add a booking form\", \"translate it to Persian\". Every change is shown line by line."],
-      ["Undo anything", "Go back to any earlier message and the files return to how they were."],
-    ],
-    prompts: ["Build a landing page for my bakery with a menu and an order form", "Make a portfolio site from my CV (attached) with a dark theme", "Create a small shop with products, a cart and a checkout page"],
-  },
-  {
-    slug: "data",
-    title: "Data and reports",
-    short: "Upload a spreadsheet, ask a question, get a dashboard you can open.",
-    hero: "Your spreadsheet, finally answering back.",
-    lead: "Attach CSV, Excel or JSON files. Forkwise cleans them with Python, finds what matters, draws the charts and builds an interactive dashboard or a report you can send.",
-    image: "/images/shot-files.webp",
-    color: ["#1fa2ec", "#16a34a"],
-    points: [
-      ["Python does the math", "Numbers come from pandas and real code, not from guessing. You can read every line it ran."],
-      ["Dashboards, not walls of text", "It builds a live dashboard with filters and charts and shows it in the preview."],
-      ["Files you can send", "Excel exports, PDF reports and PNG charts, ready to download."],
-      ["Remembers your setup", "Tell it once how your columns work and it keeps that for next time."],
-    ],
-    prompts: ["Here are our sales for 2026. Which products grew and which fell?", "Clean this messy contact list and remove duplicates", "Make a monthly report as a PDF with charts from this file"],
-  },
-  {
-    slug: "automation",
-    title: "Automation",
-    short: "Bots, scrapers, API scripts and jobs that keep running.",
-    hero: "Tell it the chore. Get a working script.",
-    lead: "Forkwise writes and runs scripts that talk to APIs, read websites, convert files and send messages. When it needs something again, it turns it into a permanent tool.",
-    image: "/images/shot-abilities.webp",
-    color: ["#8b7bff", "#c77a05"],
-    points: [
-      ["Runs the code for real", "It installs packages, calls the API, reads the reply and fixes problems on the spot."],
-      ["Background jobs", "Servers and long jobs keep running, and you can see and stop them in the terminal panel."],
-      ["Tools it keeps", "A price checker or a converter becomes a tool it can use in every later chat."],
-      ["Connect your apps", "Add MCP connectors to reach the services you already use."],
-    ],
-    prompts: ["Write a Telegram bot that replies with the gold price", "Check these 50 links and tell me which are broken", "Make yourself a tool that converts currencies with a free API"],
-  },
-  {
-    slug: "media",
-    title: "Images, audio and video",
-    short: "Convert, cut, resize and combine media files by asking.",
-    hero: "Media edits without the editing software.",
-    lead: "Upload videos, audio and images. Forkwise uses ffmpeg and ImageMagick on its computer to trim, merge, convert, add subtitles, compress and resize, then hands you the result.",
-    image: "/images/shot-plan.webp",
-    color: ["#d6334f", "#8b7bff"],
-    points: [
-      ["Any format", "MP4, WebM, MOV, MP3, WAV, PNG, JPG, WebP, GIF and more."],
-      ["Batch jobs", "Resize 300 photos, convert a folder of audio, or make thumbnails for every video."],
-      ["Preview before download", "Results appear in the chat with a player or preview and a download button."],
-      ["Precise when you need it", "Exact times, sizes and quality settings, or just say \"make it smaller for Instagram\"."],
-    ],
-    prompts: ["Cut the first 12 seconds of this video and make it 1080x1920", "Turn these photos into a slideshow video with music", "Compress this video under 25 MB without losing much quality"],
+    features: ["Run it on your own server", "Your own models and keys", "Admin dashboard and limits", "Setup help and training"],
   },
 ]
 

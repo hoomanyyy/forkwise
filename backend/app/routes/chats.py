@@ -221,6 +221,22 @@ async def delete_chat(chat_id: str, request: Request):
     return {"ok": True}
 
 
+def clean_attachments(wid, items):
+    found = []
+    for item in items[:20]:
+        if not isinstance(item, dict):
+            continue
+        try:
+            target = sandbox.resolve(wid, item.get("path"))
+        except ValueError:
+            continue
+        rel = sandbox.relative(wid, target)
+        if not rel.startswith("uploads/") or not target.is_file():
+            continue
+        found.append({"path": rel, "name": str(item.get("name") or target.name)[:120], "size": target.stat().st_size, "kind": tools.guess_kind(rel)})
+    return found
+
+
 def check_limit(user):
     limit = plans.daily_limit(user)
     if limit <= 0 or user["is_admin"]:
@@ -238,8 +254,9 @@ async def send_message(chat_id: str, body: NewMessage, request: Request):
         raise HTTPException(status_code=400, detail="The message is empty.")
     check_limit(user)
     meta = {}
-    if len(body.attachments) > 0:
-        meta["attachments"] = body.attachments[:20]
+    attachments = clean_attachments(chat["workspace_id"], body.attachments)
+    if len(attachments) > 0:
+        meta["attachments"] = attachments
     active = runs.ACTIVE.get(chat_id)
     if active and active in runs.RUNS and not runs.RUNS[active].done:
         run = runs.RUNS[active]

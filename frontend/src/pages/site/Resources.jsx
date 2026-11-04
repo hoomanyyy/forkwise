@@ -1,12 +1,10 @@
 import { useEffect, useMemo, useState } from "react"
 import { Link, Navigate, NavLink, useParams } from "react-router-dom"
-import { Search, RefreshCw } from "lucide-react"
+import { Search } from "lucide-react"
 import { CtaBand, PageHero, Section, usePageTitle } from "../../components/site/parts"
 import { Cover, Prose, headings } from "../../components/site/Cover"
 import { DOCS, DOC_GROUPS, docOrder } from "../../content/docs"
 import { POSTS, RELEASES } from "../../content/posts"
-import { FAQ } from "../../content/catalog"
-import { api } from "../../lib/api"
 
 function DocsSide() {
   return (
@@ -184,124 +182,6 @@ export function Changelog() {
               </div>
             ))}
           </div>
-        </div>
-      </section>
-    </>
-  )
-}
-
-export function Faq() {
-  usePageTitle("FAQ", "Answers to common questions about Forkwise.")
-  return (
-    <>
-      <PageHero kicker="FAQ" title="Questions and answers" lead="Can't find what you need? Write to us and a person will answer." actions={<Link to="/contact" className="btn btn-ghost">Contact us</Link>} />
-      <section className="section tight">
-        <div className="section-inner faq-layout">
-          <nav className="faq-nav">
-            {FAQ.map((group) => <a key={group.group} href={"#" + group.group.toLowerCase().replace(/[^a-z]+/g, "-")}>{group.group}</a>)}
-          </nav>
-          <div>
-            {FAQ.map((group) => (
-              <div key={group.group} className="faq-group" id={group.group.toLowerCase().replace(/[^a-z]+/g, "-")}>
-                <h2>{group.group}</h2>
-                <div className="faq-list">
-                  {group.items.map((item) => <details key={item[0]} className="faq-item"><summary>{item[0]}</summary><p>{item[1]}</p></details>)}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-      <CtaBand />
-    </>
-  )
-}
-
-function formatUptime(seconds) {
-  if (seconds < 3600) return Math.floor(seconds / 60) + " minutes"
-  if (seconds < 86400) return Math.floor(seconds / 3600) + " hours"
-  return Math.floor(seconds / 86400) + " days"
-}
-
-export function Status() {
-  usePageTitle("Status", "Live health of the Forkwise platform.")
-  const [data, setData] = useState(null)
-  const [error, setError] = useState(false)
-  const [checked, setChecked] = useState(null)
-  const [history, setHistory] = useState(null)
-
-  async function load() {
-    try {
-      const result = await api.get("/api/status")
-      setData(result)
-      setError(false)
-      setHistory(await api.get("/api/status/history?days=30"))
-    } catch (problem) {
-      setError(true)
-    }
-    setChecked(new Date())
-  }
-
-  useEffect(() => {
-    load()
-    const timer = setInterval(load, 30000)
-    return () => clearInterval(timer)
-  }, [])
-
-  let overall = "checking"
-  if (error) overall = "down"
-  else if (data) overall = data.api && data.database && data.models && data.sandbox ? "ok" : "partial"
-  const titles = { checking: "Checking the platform", ok: "All systems normal", partial: "Some parts are limited", down: "The API can't be reached" }
-  const rows = data ? [
-    ["API", data.api, "Answers requests from the app"],
-    ["Database", data.database, "Accounts, chats and projects"],
-    ["AI models", data.models, "Connection to the model providers"],
-    ["Computers", data.sandbox, "Private workspaces for each chat"],
-    ["Email", data.email, "Password reset and notifications"],
-  ] : []
-
-  return (
-    <>
-      <PageHero kicker="Status" title="Platform status" lead="Checked live from the Forkwise API every 30 seconds." />
-      <section className="section tight">
-        <div className="section-inner" style={{ maxWidth: 860 }}>
-          <div className={"status-hero " + overall}>
-            <span className="status-dot" />
-            <div style={{ flex: 1 }}>
-              <h2>{titles[overall]}</h2>
-              <span className="muted small">{checked ? "Last checked " + checked.toLocaleTimeString() : "Checking"}{data ? ", running for " + formatUptime(data.uptime) : ""}</span>
-            </div>
-            <button className="btn btn-ghost btn-sm" onClick={load}><RefreshCw size={14} />Check again</button>
-          </div>
-          {history && (
-            <div className="uptime-card">
-              <div className="uptime-head">
-                <strong>Last 30 days</strong>
-                <span className="muted small">{history.uptime !== null ? (history.uptime * 100).toFixed(2) + "% available" : "Collecting data"}</span>
-              </div>
-              <div className="uptime-bars" role="img" aria-label="Daily availability for the last 30 days">
-                {history.days.map((day) => {
-                  let level = "none"
-                  if (day.availability !== null) level = day.availability >= 0.99 ? "ok" : day.availability >= 0.9 ? "warn" : "bad"
-                  const label = day.day + (day.availability === null ? ": no data" : ": " + (day.availability * 100).toFixed(1) + "% available")
-                  return <span key={day.day} className={"uptime-bar " + level} title={label} />
-                })}
-              </div>
-              <div className="uptime-foot"><span>30 days ago</span><span>Today</span></div>
-              <p className="faint small" style={{ margin: "10px 0 0" }}>The platform checks itself every 5 minutes. Days before the first check show no data.</p>
-            </div>
-          )}
-          {rows.length > 0 && (
-            <div className="status-list">
-              {rows.map((row) => (
-                <div key={row[0]} className={"status-row " + (row[1] ? "ok" : "partial")}>
-                  <span className="status-dot" />
-                  <strong>{row[0]}</strong>
-                  <span className="muted small">{row[1] ? row[2] : "Not available right now"}</span>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       </section>
     </>

@@ -2,10 +2,60 @@ export const DOC_GROUPS = [
   { title: "Start here", slugs: ["getting-started", "how-forkwise-decides"] },
   { title: "Working with Forkwise", slugs: ["the-computer", "modes-and-checkpoints", "projects", "files-and-uploads"] },
   { title: "Make it yours", slugs: ["memory", "abilities", "connectors", "project-settings"] },
+  { title: "Accounts and your computer", slugs: ["github-and-gmail", "schedules-and-secrets", "desktop-app"] },
   { title: "Run it yourself", slugs: ["self-hosting"] },
 ]
 
 export const DOCS = {
+  "github-and-gmail": {
+    title: "GitHub and Gmail",
+    summary: "Link one or more GitHub and Google accounts and let Forkwise use them.",
+    body: `Open **Settings, Connected accounts**.
+
+## GitHub
+
+Press **Sign in with GitHub**, or paste a personal access token. You can link several accounts, give each a label such as Work, and rename or remove them later. Tokens are encrypted on the server and never shown again or given to the model. Clone and push use them for you.
+
+With a GitHub account linked, ask things like "clone my private repo acme/site, fix the failing test and open a pull request". Pushing, opening pull requests and issues, and commenting ask for your approval every time.
+
+## Gmail, Drive and Calendar
+
+Choose the services you want, then press **Link a Google account**. Link a second account the same way. Forkwise can search and read mail, save drafts, look through Drive and handle calendar events, but only for the services you allowed. **Sending an email always asks first.**
+
+## If something fails
+
+If an account shows **Reconnect**, its access was revoked or expired. Remove it and link it again. Google sign-in only works when the server owner has added Google client keys; GitHub tokens work everywhere.`,
+  },
+  "schedules-and-secrets": {
+    title: "Schedules and secrets",
+    summary: "Run tasks on a timer and store API keys safely.",
+    body: `## Schedules
+
+Open **Settings, Schedules** and press **New schedule**. Write what Forkwise should do, choose hourly, daily, weekdays or weekly, and the time in your time zone. Each run becomes a normal chat you can open later. Use **Run now** to test it.
+
+Scheduled runs happen while you are away, so they never wait for approval. They use only the tools that need no approval and skip anything that does, then say so in their report. You can have up to 20 schedules, and runs count against your daily usage.
+
+## Secrets
+
+Open **Settings, Secrets** and save a value under a name like \`STRIPE_KEY\`. Forkwise passes secrets to its terminal and to commands as environment variables, so a command can read \`$STRIPE_KEY\`. Values are encrypted, cannot be read back, and are not written into files, chats or logs. A secret can apply to every project or to one.`,
+  },
+  "desktop-app": {
+    title: "The desktop app",
+    summary: "Let Forkwise use your own computer: terminal, apps, screen, mouse and keyboard.",
+    body: `The Forkwise Desktop app links your Windows, macOS or Linux computer to your account.
+
+## Link a computer
+
+Open **Settings, Your computer**, name the computer and press **Link a computer**. Copy the command shown and run it in PowerShell (Windows) or a terminal. The one-time token is shown only once. A small window opens and stays connected.
+
+## What the agent can do
+
+Run commands in a full terminal, open apps (VS Code, Notepad, folders, links), open Windows settings pages, search in your browser, read, write and list files, change the wallpaper, switch windows, use the clipboard, take screenshots, and use the mouse and keyboard. It takes a screenshot after each step to check the result.
+
+## Staying in control
+
+By default every action asks for your approval. Shell commands and mouse or keyboard input are approved separately, so you can allow one without the other. Screenshots never ask. Close the app window or press Ctrl+C in it to stop everything immediately.`,
+  },
   "getting-started": {
     title: "Getting started",
     summary: "Create an account, send your first message and see Forkwise work.",

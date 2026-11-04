@@ -4,10 +4,9 @@ import { Wordmark } from "../ui/Logo"
 import { api } from "../../lib/api"
 
 const GROUPS = [
-  { title: "Product", links: [["Overview", "/product"], ["The computer", "/product/computer"], ["Memory and abilities", "/product/abilities"], ["Plan and control", "/product/control"], ["Pricing", "/pricing"]] },
-  { title: "Solutions", links: [["Websites and apps", "/use-cases/websites"], ["Data and reports", "/use-cases/data"], ["Automation", "/use-cases/automation"], ["Media files", "/use-cases/media"], ["Templates", "/templates"], ["For teams", "/teams"]] },
-  { title: "Resources", links: [["Documentation", "/docs"], ["Blog", "/blog"], ["Changelog", "/changelog"], ["Compare", "/compare"], ["FAQ", "/faq"], ["Status", "/status"]] },
-  { title: "Company", links: [["About", "/about"], ["Contact", "/contact"], ["Brand", "/brand"], ["Security", "/security"], ["Privacy", "/privacy"], ["Terms", "/terms"]] },
+  { title: "Product", links: [["Overview", "/product"], ["Pricing", "/pricing"], ["Download", "/download"], ["Changelog", "/changelog"]] },
+  { title: "Resources", links: [["Documentation", "/docs"], ["Blog", "/blog"], ["Security", "/security"]] },
+  { title: "Company", links: [["Contact", "/contact"], ["Privacy", "/privacy"], ["Terms", "/terms"]] },
 ]
 
 function StatusPill() {
@@ -23,7 +22,7 @@ function StatusPill() {
     }
   }, [])
   const text = { checking: "Checking status", ok: "All systems normal", partial: "Some services limited", down: "API unreachable" }[state]
-  return <Link to="/status" className={"status-pill " + state}><span />{text}</Link>
+  return <span className={"status-pill " + state}><span />{text}</span>
 }
 
 export default function SiteFooter() {

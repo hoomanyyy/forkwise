@@ -159,6 +159,26 @@ async def file_diff(wid: str, request: Request, since: str, path: str):
     return {"path": path, "before": before or "", "after": after or "", "created": before is None, "deleted": after is None}
 
 
+class RevertBody(BaseModel):
+    since: str
+    path: str
+
+
+async def revert_file(wid: str, body: RevertBody, request: Request):
+    own_workspace(current_user(request), wid)
+    if not re.match(r"^[0-9a-f]{7,40}$", body.since or ""):
+        raise HTTPException(status_code=400, detail="Bad checkpoint.")
+    target = safe(wid, body.path)
+    if target == sandbox.host_root(wid).resolve() or target.is_dir():
+        raise HTTPException(status_code=400, detail="Pick a single file.")
+    restored = await checkpoints.restore_file(wid, body.since, body.path)
+    if not restored:
+        if target.exists():
+            target.unlink()
+        return {"ok": True, "deleted": True}
+    return {"ok": True, "deleted": False}
+
+
 async def jobs(wid: str, request: Request):
     own_workspace(current_user(request), wid)
     result = []
@@ -195,6 +215,7 @@ def register_routes(app):
     app.add_api_route("/api/ws/{wid}/zip", zip_all, methods=["GET"])
     app.add_api_route("/api/ws/{wid}/changes", changes, methods=["GET"])
     app.add_api_route("/api/ws/{wid}/diff", file_diff, methods=["GET"])
+    app.add_api_route("/api/ws/{wid}/revert", revert_file, methods=["POST"])
     app.add_api_route("/api/ws/{wid}/jobs", jobs, methods=["GET"])
     app.add_api_route("/api/ws/{wid}/jobs/{job_id}", job_log, methods=["GET"])
     app.add_api_route("/api/ws/{wid}/jobs/{job_id}/kill", kill, methods=["POST"])

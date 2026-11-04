@@ -1,10 +1,11 @@
 import { lazy, Suspense } from "react"
 import { createRoot } from "react-dom/client"
-import { BrowserRouter, Route, Routes } from "react-router-dom"
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom"
 import "./styles/base.css"
 import "./styles/site.css"
 import "./styles/app.css"
 import "./styles/polish.css"
+import "./styles/flat.css"
 import { StoreProvider, useStore } from "./lib/store"
 import { ConfirmProvider } from "./components/ui/Modal"
 import { SiteLayout } from "./components/site/parts"
@@ -16,24 +17,13 @@ function named(loader, name) {
 
 const Home = lazy(() => import("./pages/site/Home"))
 const Product = named(() => import("./pages/site/Product"), "Product")
-const Computer = named(() => import("./pages/site/Product"), "Computer")
-const Abilities = named(() => import("./pages/site/Product"), "Abilities")
-const Control = named(() => import("./pages/site/Product"), "Control")
+const Download = named(() => import("./pages/site/Product"), "Download")
 const Pricing = named(() => import("./pages/site/Solutions"), "Pricing")
-const UseCases = named(() => import("./pages/site/Solutions"), "UseCases")
-const UseCase = named(() => import("./pages/site/Solutions"), "UseCase")
-const Templates = named(() => import("./pages/site/Solutions"), "Templates")
-const Teams = named(() => import("./pages/site/Solutions"), "Teams")
-const Compare = named(() => import("./pages/site/Solutions"), "Compare")
 const Docs = named(() => import("./pages/site/Resources"), "Docs")
 const DocPage = named(() => import("./pages/site/Resources"), "DocPage")
 const Blog = named(() => import("./pages/site/Resources"), "Blog")
 const BlogPost = named(() => import("./pages/site/Resources"), "BlogPost")
 const Changelog = named(() => import("./pages/site/Resources"), "Changelog")
-const Faq = named(() => import("./pages/site/Resources"), "Faq")
-const Status = named(() => import("./pages/site/Resources"), "Status")
-const About = named(() => import("./pages/site/Company"), "About")
-const Brand = named(() => import("./pages/site/Company"), "Brand")
 const Contact = named(() => import("./pages/site/Company"), "Contact")
 const Security = named(() => import("./pages/site/Company"), "Security")
 const Legal = named(() => import("./pages/site/Company"), "Legal")
@@ -83,28 +73,29 @@ function App() {
         <Route element={<SiteLayout />}>
           <Route path="/" element={<Page><Home /></Page>} />
           <Route path="/product" element={<Page><Product /></Page>} />
-          <Route path="/product/computer" element={<Page><Computer /></Page>} />
-          <Route path="/product/abilities" element={<Page><Abilities /></Page>} />
-          <Route path="/product/control" element={<Page><Control /></Page>} />
+          <Route path="/download" element={<Page><Download /></Page>} />
           <Route path="/pricing" element={<Page><Pricing /></Page>} />
-          <Route path="/use-cases" element={<Page><UseCases /></Page>} />
-          <Route path="/use-cases/:slug" element={<Page><UseCase /></Page>} />
-          <Route path="/templates" element={<Page><Templates /></Page>} />
-          <Route path="/teams" element={<Page><Teams /></Page>} />
-          <Route path="/compare" element={<Page><Compare /></Page>} />
           <Route path="/docs" element={<Page><Docs /></Page>} />
           <Route path="/docs/:slug" element={<Page><DocPage /></Page>} />
           <Route path="/blog" element={<Page><Blog /></Page>} />
           <Route path="/blog/:slug" element={<Page><BlogPost /></Page>} />
           <Route path="/changelog" element={<Page><Changelog /></Page>} />
-          <Route path="/faq" element={<Page><Faq /></Page>} />
-          <Route path="/status" element={<Page><Status /></Page>} />
-          <Route path="/about" element={<Page><About /></Page>} />
-          <Route path="/brand" element={<Page><Brand /></Page>} />
           <Route path="/contact" element={<Page><Contact /></Page>} />
           <Route path="/security" element={<Page><Security /></Page>} />
           <Route path="/privacy" element={<Page><Legal kind="privacy" /></Page>} />
           <Route path="/terms" element={<Page><Legal kind="terms" /></Page>} />
+          <Route path="/product/computer" element={<Navigate to="/download" replace />} />
+          <Route path="/product/abilities" element={<Navigate to="/product" replace />} />
+          <Route path="/product/control" element={<Navigate to="/product" replace />} />
+          <Route path="/use-cases" element={<Navigate to="/product" replace />} />
+          <Route path="/use-cases/:slug" element={<Navigate to="/product" replace />} />
+          <Route path="/templates" element={<Navigate to="/product" replace />} />
+          <Route path="/teams" element={<Navigate to="/pricing" replace />} />
+          <Route path="/compare" element={<Navigate to="/product" replace />} />
+          <Route path="/faq" element={<Navigate to="/pricing" replace />} />
+          <Route path="/status" element={<Navigate to="/" replace />} />
+          <Route path="/about" element={<Navigate to="/contact" replace />} />
+          <Route path="/brand" element={<Navigate to="/contact" replace />} />
           <Route path="*" element={<Page><NotFound /></Page>} />
         </Route>
         <Route path="/login" element={<Bare><Login /></Bare>} />
