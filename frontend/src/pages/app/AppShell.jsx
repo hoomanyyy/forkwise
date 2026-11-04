@@ -46,7 +46,7 @@ export default function AppShell() {
     return <AppSkeleton />
   }
   if (!user) return <Navigate to={"/login?next=" + encodeURIComponent(window.location.pathname + window.location.search)} replace />
-  if (!(user.settings && user.settings.onboarded)) return <Navigate to={"/welcome?next=" + encodeURIComponent(window.location.pathname + window.location.search)} replace />
+  if (!(user.settings && user.settings.onboarded) && localStorage.getItem("fw-onboarded") !== "1") return <Navigate to={"/welcome?next=" + encodeURIComponent(window.location.pathname + window.location.search)} replace />
 
   return (
     <div className={"shell" + (collapsed ? " sidebar-closed" : "")}>

@@ -211,7 +211,7 @@
   border-radius: 50%;
   background: var(--sky);
   flex-shrink: 0;
-  box-shadow: 0 0 0 3px rgba(63, 182, 245, 0.18);
+  box-shadow: 0 0 0 3px rgba(159, 156, 149, 0.18);
   animation: pulse 1.2s infinite;
 }
 
@@ -360,8 +360,8 @@
   justify-content: center;
   padding: 40px 20px 60px;
   background:
-    radial-gradient(900px 420px at 50% -10%, rgba(139, 123, 255, 0.16), transparent 70%),
-    radial-gradient(700px 360px at 85% 110%, rgba(63, 182, 245, 0.08), transparent 70%);
+    radial-gradient(900px 420px at 50% -10%, rgba(192, 190, 186, 0.16), transparent 70%),
+    radial-gradient(700px 360px at 85% 110%, rgba(159, 156, 149, 0.08), transparent 70%);
 }
 
 .home-inner {
@@ -433,8 +433,8 @@
 }
 
 .composer:focus-within {
-  border-color: rgba(139, 123, 255, 0.55);
-  box-shadow: var(--shadow), 0 0 0 4px rgba(139, 123, 255, 0.1);
+  border-color: rgba(192, 190, 186, 0.55);
+  box-shadow: var(--shadow), 0 0 0 4px rgba(192, 190, 186, 0.1);
 }
 
 .composer.plan {
@@ -495,7 +495,7 @@
 }
 
 [data-theme="light"] .mode-pill.mode-auto {
-  color: #5b4bff;
+  color: #aaa6a0;
 }
 
 .mode-pill.mode-plan {
@@ -898,7 +898,7 @@
 .md a {
   color: var(--sky);
   text-decoration: none;
-  border-bottom: 1px solid rgba(63, 182, 245, 0.35);
+  border-bottom: 1px solid rgba(159, 156, 149, 0.35);
 }
 
 .md a:hover {
@@ -975,9 +975,9 @@
   justify-content: space-between;
   padding: 6px 8px 6px 14px;
   font-size: 12px;
-  color: #9a9dc8;
+  color: #b5b2ad;
   background: rgba(255, 255, 255, 0.03);
-  border-bottom: 1px solid rgba(160, 166, 255, 0.1);
+  border-bottom: 1px solid rgba(210, 208, 205, 0.1);
   font-family: var(--font-mono);
 }
 
@@ -987,7 +987,7 @@
   gap: 5px;
   padding: 3px 8px;
   border-radius: 7px;
-  color: #9a9dc8;
+  color: #b5b2ad;
   font-size: 12px;
 }
 
@@ -1000,7 +1000,7 @@
   margin: 0;
   padding: 14px 16px;
   overflow-x: auto;
-  color: #e6e8ff;
+  color: #f3f3f2;
 }
 
 .hljs {
@@ -1021,7 +1021,7 @@
 }
 
 .tool.running {
-  border-color: rgba(63, 182, 245, 0.35);
+  border-color: rgba(159, 156, 149, 0.35);
 }
 
 .tool.failed .tool-icon {
@@ -1029,8 +1029,8 @@
 }
 
 .tool.ability {
-  border-color: rgba(139, 123, 255, 0.45);
-  background: linear-gradient(120deg, rgba(139, 123, 255, 0.1), rgba(63, 182, 245, 0.06));
+  border-color: rgba(192, 190, 186, 0.45);
+  background: linear-gradient(120deg, rgba(192, 190, 186, 0.1), rgba(159, 156, 149, 0.06));
 }
 
 .tool-head {
@@ -1134,7 +1134,7 @@
   white-space: pre-wrap;
   word-break: break-word;
   background: var(--code-bg);
-  color: #d9dcfa;
+  color: #ebeae8;
 }
 
 .tool-inline {
@@ -1157,7 +1157,7 @@
   padding: 0 14px;
   white-space: pre-wrap;
   word-break: break-word;
-  color: #c9cce9;
+  color: #dbdad7;
 }
 
 .diff-line.add {
@@ -1171,7 +1171,7 @@
 }
 
 .diff-line.hunk {
-  color: #7f84b8;
+  color: #a09d97;
   padding-top: 4px;
 }
 
@@ -1245,7 +1245,7 @@
   flex-direction: column;
   gap: 6px;
   font-size: 13px;
-  border-left: 2px solid rgba(139, 123, 255, 0.4);
+  border-left: 2px solid rgba(192, 190, 186, 0.4);
   margin: 10px 14px;
 }
 
@@ -1311,9 +1311,9 @@
 }
 
 .tool-block .question {
-  border: 1px solid rgba(139, 123, 255, 0.4);
+  border: 1px solid rgba(192, 190, 186, 0.4);
   border-radius: 14px;
-  background: linear-gradient(120deg, rgba(139, 123, 255, 0.09), rgba(63, 182, 245, 0.05));
+  background: linear-gradient(120deg, rgba(192, 190, 186, 0.09), rgba(159, 156, 149, 0.05));
 }
 
 .question.done {
@@ -1472,7 +1472,7 @@
 .todo-list li.completed .todo-box {
   background: var(--ok);
   border-color: var(--ok);
-  color: #0b0e1f;
+  color: #161514;
 }
 
 .todo-list li.in_progress .todo-box {
@@ -1774,7 +1774,7 @@ body.dragging iframe {
   min-height: 0;
   display: flex;
   justify-content: center;
-  background: repeating-linear-gradient(45deg, transparent 0 12px, rgba(160, 166, 255, 0.025) 12px 24px), var(--bg);
+  background: repeating-linear-gradient(45deg, transparent 0 12px, rgba(210, 208, 205, 0.025) 12px 24px), var(--bg);
   overflow: auto;
 }
 
@@ -1913,11 +1913,11 @@ body.dragging iframe {
   flex: 1;
   min-height: 0;
   padding: 8px 4px 4px 10px;
-  background: #080a1d;
+  background: #131312;
 }
 
 [data-theme="light"] .terminal-host {
-  background: #f3f4fd;
+  background: #f8f8f8;
 }
 
 .jobs {
@@ -2154,7 +2154,7 @@ a.list-row:hover {
 }
 
 [data-theme="light"] .ability-name {
-  color: #5b4bff;
+  color: #aaa6a0;
 }
 
 .ability-desc {
@@ -2291,7 +2291,7 @@ a.list-row:hover {
     display: block;
     position: fixed;
     inset: 0;
-    background: rgba(5, 6, 20, 0.55);
+    background: rgba(13, 13, 12, 0.55);
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.25s;
@@ -2365,7 +2365,7 @@ a.list-row:hover {
 }
 
 [data-theme="dark"] .sidebar {
-  background: #07081a;
+  background: #111110;
 }
 
 .shell.sidebar-closed .sidebar {
@@ -2444,7 +2444,7 @@ a.list-row:hover {
 
 .home {
   background:
-    radial-gradient(800px 380px at 50% -5%, rgba(110, 92, 255, 0.14), transparent 70%),
+    radial-gradient(800px 380px at 50% -5%, rgba(178, 175, 169, 0.14), transparent 70%),
     var(--bg);
 }
 
@@ -2548,7 +2548,7 @@ a.list-row:hover {
 
 .tool.running::after {
   border-color: var(--sky);
-  box-shadow: 0 0 0 4px rgba(31, 162, 236, 0.18);
+  box-shadow: 0 0 0 4px rgba(140, 136, 127, 0.18);
   animation: pulse 1.2s infinite;
 }
 
@@ -3000,7 +3000,7 @@ a.list-row:hover {
 .showcase-tab.active {
   background: var(--accent);
   border-color: var(--accent);
-  color: #0b0e1f;
+  color: #161514;
 }
 
 .page > .notice {
@@ -3178,8 +3178,8 @@ a.list-row:hover {
 }
 
 .chip.plan-premium {
-  background: rgba(31, 162, 236, 0.16);
-  color: #5cc0f5;
+  background: rgba(140, 136, 127, 0.16);
+  color: #adaaa4;
 }
 
 .actions-cell {
@@ -3548,7 +3548,7 @@ a.list-row:hover {
   padding: 26px 28px;
   border-radius: var(--r-lg);
   background:
-    radial-gradient(520px 200px at 0% 0%, rgba(110, 92, 255, 0.16), transparent 70%),
+    radial-gradient(520px 200px at 0% 0%, rgba(178, 175, 169, 0.16), transparent 70%),
     var(--surface);
   border: 1px solid var(--line-strong);
   margin-bottom: 8px;
@@ -3678,11 +3678,11 @@ a.list-row:hover {
   color: var(--accent);
   font-size: 13.5px;
   font-weight: 600;
-  border: 1px solid rgba(139, 123, 255, 0.3);
+  border: 1px solid rgba(192, 190, 186, 0.3);
 }
 
 .upgrade-pill:hover {
-  background: rgba(139, 123, 255, 0.24);
+  background: rgba(192, 190, 186, 0.24);
 }
 
 .sidebar-foot .me {

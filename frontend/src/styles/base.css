@@ -4,19 +4,19 @@
 @import "vazirmatn/Vazirmatn-Variable-font-face.css";
 
 :root {
-  --porcelain: #f4f5fa;
+  --porcelain: #f7f7f7;
   --paper: #ffffff;
-  --mist: #ebedf6;
-  --fog: #dfe2f0;
-  --ink: #11132e;
-  --ink-2: #2b2e55;
-  --graphite: #555979;
-  --pebble: #8a8eae;
-  --iris: #6e5cff;
-  --iris-deep: #5443f0;
-  --iris-tint: #eeebff;
-  --sky: #1fa2ec;
-  --sky-tint: #e4f4fd;
+  --mist: #f1f1f0;
+  --fog: #e9e8e6;
+  --ink: #21201e;
+  --ink-2: #43413d;
+  --graphite: #6c6962;
+  --pebble: #a19e97;
+  --iris: #b2afa9;
+  --iris-deep: #9f9b94;
+  --iris-tint: #f5f5f4;
+  --sky: #8c887f;
+  --sky-tint: #f1f1f0;
   --verify: #16a34a;
   --verify-glow: #4ade80;
   --verify-tint: #e3f8ea;
@@ -24,15 +24,15 @@
   --amber-tint: #fdf2dc;
   --rose: #d6334f;
   --rose-tint: #fde8ec;
-  --abyss: #090b1f;
+  --abyss: #151413;
 
   --bg: var(--porcelain);
   --bg-raised: var(--paper);
   --surface: var(--paper);
   --surface-2: var(--mist);
   --surface-3: var(--fog);
-  --line: rgba(17, 19, 46, 0.09);
-  --line-strong: rgba(17, 19, 46, 0.17);
+  --line: rgba(33, 32, 30, 0.09);
+  --line-strong: rgba(33, 32, 30, 0.17);
   --text: var(--ink);
   --text-2: var(--graphite);
   --text-3: var(--pebble);
@@ -44,13 +44,13 @@
   --warn-tint: var(--amber-tint);
   --bad: var(--rose);
   --bad-tint: var(--rose-tint);
-  --brand: linear-gradient(115deg, #8b7bff 0%, #6e5cff 38%, #1fa2ec 100%);
-  --code-bg: #0c0e26;
-  --code-text: #dcdffb;
-  --shadow-sm: 0 1px 2px rgba(17, 19, 46, 0.06), 0 2px 8px -4px rgba(17, 19, 46, 0.08);
-  --shadow: 0 2px 4px rgba(17, 19, 46, 0.04), 0 18px 48px -22px rgba(17, 19, 46, 0.28);
-  --shadow-lg: 0 40px 90px -40px rgba(30, 24, 120, 0.45);
-  --ring: 0 0 0 3px rgba(110, 92, 255, 0.22);
+  --brand: linear-gradient(115deg, #c0beba 0%, #b2afa9 38%, #8c887f 100%);
+  --code-bg: #1a1918;
+  --code-text: #ececeb;
+  --shadow-sm: 0 1px 2px rgba(33, 32, 30, 0.06), 0 2px 8px -4px rgba(33, 32, 30, 0.08);
+  --shadow: 0 2px 4px rgba(33, 32, 30, 0.04), 0 18px 48px -22px rgba(33, 32, 30, 0.28);
+  --shadow-lg: 0 40px 90px -40px rgba(76, 73, 68, 0.45);
+  --ring: 0 0 0 3px rgba(178, 175, 169, 0.22);
 
   --font-display: "Onest Variable", "Vazirmatn", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-ui: "Onest Variable", "Vazirmatn", system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -67,42 +67,42 @@
 }
 
 [data-theme="dark"], .band-dark {
-  --porcelain: #090b1f;
-  --paper: #121535;
-  --mist: #181b40;
-  --fog: #21254f;
-  --ink: #eef0ff;
-  --ink-2: #c9ccf0;
-  --graphite: #a7abd6;
-  --pebble: #6e72a3;
-  --iris-tint: rgba(139, 123, 255, 0.16);
-  --sky-tint: rgba(31, 162, 236, 0.16);
+  --porcelain: #151413;
+  --paper: #252422;
+  --mist: #2e2d2a;
+  --fog: #3b3935;
+  --ink: #f7f7f6;
+  --ink-2: #dedddb;
+  --graphite: #c2c0bb;
+  --pebble: #8e8a83;
+  --iris-tint: rgba(192, 190, 186, 0.16);
+  --sky-tint: rgba(140, 136, 127, 0.16);
   --verify-tint: rgba(74, 222, 128, 0.12);
   --amber-tint: rgba(245, 184, 74, 0.12);
   --rose-tint: rgba(255, 122, 144, 0.12);
-  --bg: #090b1f;
-  --bg-raised: #0e1029;
-  --surface: #121535;
-  --surface-2: #181b40;
-  --surface-3: #21254f;
-  --line: rgba(150, 158, 255, 0.11);
-  --line-strong: rgba(150, 158, 255, 0.21);
-  --text: #eef0ff;
-  --text-2: #a7abd6;
-  --text-3: #6e72a3;
-  --accent: #8b7bff;
-  --accent-tint: rgba(139, 123, 255, 0.14);
+  --bg: #151413;
+  --bg-raised: #1d1c1a;
+  --surface: #252422;
+  --surface-2: #2e2d2a;
+  --surface-3: #3b3935;
+  --line: rgba(205, 203, 200, 0.11);
+  --line-strong: rgba(205, 203, 200, 0.21);
+  --text: #f7f7f6;
+  --text-2: #c2c0bb;
+  --text-3: #8e8a83;
+  --accent: #c0beba;
+  --accent-tint: rgba(192, 190, 186, 0.14);
   --ok: #4ade80;
   --ok-tint: rgba(74, 222, 128, 0.12);
   --warn: #f5b84a;
   --warn-tint: rgba(245, 184, 74, 0.1);
   --bad: #ff7a90;
   --bad-tint: rgba(255, 122, 144, 0.1);
-  --code-bg: #070919;
+  --code-bg: #11100f;
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow: 0 24px 60px -28px rgba(0, 0, 0, 0.8);
   --shadow-lg: 0 40px 100px -40px rgba(0, 0, 0, 0.9);
-  --ring: 0 0 0 3px rgba(139, 123, 255, 0.3);
+  --ring: 0 0 0 3px rgba(192, 190, 186, 0.3);
   color-scheme: dark;
 }
 
@@ -165,7 +165,7 @@ button {
 }
 
 ::selection {
-  background: rgba(110, 92, 255, 0.25);
+  background: rgba(178, 175, 169, 0.25);
 }
 
 ::-webkit-scrollbar {
@@ -220,7 +220,7 @@ code, pre, kbd {
 .btn-primary {
   background: var(--text);
   color: var(--bg-raised);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.12) inset, 0 8px 22px -12px rgba(17, 19, 46, 0.7);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.12) inset, 0 8px 22px -12px rgba(33, 32, 30, 0.7);
 }
 
 .btn-primary:hover {
@@ -230,7 +230,7 @@ code, pre, kbd {
 [data-theme="dark"] .btn-primary, .band-dark .btn-primary {
   background: var(--brand);
   color: #fff;
-  box-shadow: 0 10px 28px -12px rgba(84, 67, 240, 0.75);
+  box-shadow: 0 10px 28px -12px rgba(159, 155, 148, 0.75);
 }
 
 [data-theme="dark"] .btn-primary:hover, .band-dark .btn-primary:hover {
@@ -242,7 +242,7 @@ code, pre, kbd {
   background: var(--brand);
   background-size: 160% 100%;
   background-position: 0 0;
-  box-shadow: 0 10px 28px -12px rgba(84, 67, 240, 0.75);
+  box-shadow: 0 10px 28px -12px rgba(159, 155, 148, 0.75);
 }
 
 .btn-brand:hover {
@@ -359,7 +359,7 @@ code, pre, kbd {
   border-radius: var(--r-sm);
   padding: 0 14px;
   outline: none;
-  box-shadow: inset 0 1px 2px rgba(17, 19, 46, 0.05);
+  box-shadow: inset 0 1px 2px rgba(33, 32, 30, 0.05);
   transition: border-color 0.18s, box-shadow 0.18s, background 0.18s;
 }
 
@@ -385,7 +385,7 @@ code, pre, kbd {
 }
 
 .input:hover, .textarea:hover, .select:hover {
-  border-color: rgba(110, 92, 255, 0.4);
+  border-color: rgba(178, 175, 169, 0.4);
 }
 
 .input:focus, .textarea:focus, .select:focus {
@@ -588,8 +588,8 @@ code, pre, kbd {
   gap: 10px;
   padding: 11px 16px;
   border-radius: 12px;
-  background: #11132e;
-  color: #f1f2ff;
+  background: #21201e;
+  color: #f8f8f8;
   box-shadow: 0 20px 40px -18px rgba(0, 0, 0, 0.6);
   font-size: 14px;
   animation: rise 0.25s var(--ease);
@@ -600,7 +600,7 @@ code, pre, kbd {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #8b7bff;
+  background: #c0beba;
 }
 
 .toast.ok::before {
@@ -789,8 +789,8 @@ code, pre, kbd {
 }
 
 option, optgroup {
-  background-color: #121535;
-  color: #eef0ff;
+  background-color: #252422;
+  color: #f7f7f6;
 }
 
 select {
@@ -830,7 +830,7 @@ select {
 }
 
 .dd-btn:hover {
-  border-color: rgba(139, 123, 255, 0.5);
+  border-color: rgba(192, 190, 186, 0.5);
 }
 
 .dd-btn[aria-expanded="true"],
@@ -863,7 +863,7 @@ select {
   overflow-y: auto;
   padding: 5px;
   border-radius: 12px;
-  background: #151841;
+  background: #2d2c29;
   border: 1px solid var(--line-strong);
   box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.8);
   transform-origin: top center;
@@ -897,7 +897,7 @@ select {
 
 .dd-opt.focus,
 .dd-opt:hover {
-  background: rgba(139, 123, 255, 0.14);
+  background: rgba(192, 190, 186, 0.14);
   color: var(--text);
 }
 
@@ -950,12 +950,12 @@ input:-webkit-autofill:focus,
 textarea:-webkit-autofill {
   -webkit-text-fill-color: var(--text);
   caret-color: var(--text);
-  -webkit-box-shadow: 0 0 0 1000px #0e1029 inset;
+  -webkit-box-shadow: 0 0 0 1000px #1d1c1a inset;
   transition: background-color 9999s ease-out 0s;
 }
 
 ::selection {
-  background: rgba(139, 123, 255, 0.35);
+  background: rgba(192, 190, 186, 0.35);
   color: #fff;
 }
 

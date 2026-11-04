@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { Link, useNavigate, useSearchParams } from "react-router-dom"
-import { Clock, Code2, FolderKanban, Globe, LayoutTemplate, ListChecks, MessageSquare, Palette, Plus, Sparkles, FileSpreadsheet, Zap } from "lucide-react"
+import { Code2, FolderKanban, Globe, LayoutTemplate, ListChecks, MessageSquare, Palette, Plus, Sparkles, FileSpreadsheet } from "lucide-react"
 import Composer from "../../components/app/Composer"
-import { LogoMark } from "../../components/ui/Logo"
 import { useStore } from "../../lib/store"
 import { api } from "../../lib/api"
 import { TEMPLATES } from "../../content/catalog"
@@ -37,7 +36,7 @@ function greeting(name) {
 export default function Home({ kind }) {
   const section = kind || "chat"
   const copy = KIND_HOME[section]
-  const { user, models, addChat, toast, projects, chats, chatsReady, usage } = useStore()
+  const { user, models, addChat, toast, projects, chats, chatsReady } = useStore()
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const projectId = params.get("project") || ""
@@ -47,12 +46,7 @@ export default function Home({ kind }) {
   const [model, setModel] = useState(settings.model || (models[0] && models[0].key) || "")
   const [seed, setSeed] = useState(null)
   const pending = useRef(null)
-  const [billing, setBilling] = useState(null)
   const [newProject, setNewProject] = useState(false)
-
-  useEffect(() => {
-    api.get("/api/billing").then(setBilling).catch(() => setBilling(null))
-  }, [])
 
   useEffect(() => {
     const template = TEMPLATES.find((item) => item.slug === params.get("template"))
@@ -75,21 +69,23 @@ export default function Home({ kind }) {
     return data.chat.workspace_id
   }
 
-  async function send(text, files) {
+  async function send(text, files, extra) {
     try {
       const chat = await ensureChat()
-      navigate("/app/c/" + chat.id, { state: { first: { text, files, mode, model } } })
+      navigate("/app/c/" + chat.id, { state: { first: { text, files, mode, model, effort: extra && extra.effort, skills: extra && extra.skills } } })
     } catch (problem) {
       toast(problem.message, "error")
     }
   }
 
+  const mine = chats.filter((item) => (item.kind || "chat") === section)
+  const ideas = section === "code" ? CODE_IDEAS.map((item) => ({ ...item, icon: Code2 })) : section === "design" ? DESIGN_IDEAS.map((item) => ({ ...item, icon: Palette })) : IDEAS
+
   return (
     <div className="home">
       <div className="home-inner">
-        <div className="home-mark"><LogoMark size={54} draw /></div>
         <h1 className="home-title">{copy.title || greeting(user && user.name)}</h1>
-        <p className="home-sub">{project ? "New chat in " + project.name + ". It shares the project's files and notes." : copy.sub}</p>
+        {project && <p className="home-sub">New chat in {project.name}. It shares the project's files and notes.</p>}
         <Composer
           big
           placeholder={copy.placeholder}
@@ -112,11 +108,11 @@ export default function Home({ kind }) {
         />
         {models.length === 0 && <div className="notice error">No AI model is set up on the server yet. Add LLM_API_KEY and LLM_MODELS to the server .env file.</div>}
         <div className="ideas">
-          {(section === "code" ? CODE_IDEAS.map((item) => ({ ...item, icon: Code2 })) : section === "design" ? DESIGN_IDEAS.map((item) => ({ ...item, icon: Palette })) : IDEAS).map((idea) => {
+          {ideas.map((idea) => {
             const Icon = idea.icon
             return (
               <button key={idea.title} type="button" className="idea" onClick={() => setSeed({ value: idea.text })}>
-                <Icon size={16} />
+                <Icon size={15} />
                 <span>{idea.title}</span>
               </button>
             )
@@ -125,66 +121,38 @@ export default function Home({ kind }) {
       </div>
       <NewProjectModal open={newProject} onClose={() => setNewProject(false)} />
       <div className="home-sections">
-        {section === "chat" && billing && (
-          <div className="home-usage">
-            <span className={"chip plan-" + billing.plan}><Zap size={13} />{billing.plan.charAt(0).toUpperCase() + billing.plan.slice(1)} plan</span>
-            {billing.limit > 0 && usage ? (
-              <>
-                <span className="meter"><span style={{ width: Math.min(100, ((usage.tokens_in + usage.tokens_out) / billing.limit) * 100) + "%" }} /></span>
-                <span className="muted small">{Math.round(Math.min(100, ((usage.tokens_in + usage.tokens_out) / billing.limit) * 100))}% of today's usage</span>
-              </>
-            ) : <span className="muted small">No daily limit</span>}
-            <Link to="/app/billing" className="text-link small">{billing.plan === "free" ? "Upgrade" : "Manage plan"}</Link>
-          </div>
-        )}
-        {section === "code" && (
+        {section === "code" && projects.length > 0 && (
           <section>
-            <div className="home-section-head"><h2>Your projects</h2><Link to="/app/projects" className="text-link small">All projects</Link></div>
-            <div className="recent-grid">
-              <button type="button" className="recent-card new-card" onClick={() => setNewProject(true)}>
-                <span className="recent-icon"><Plus size={16} /></span>
-                <span className="recent-title">New project</span>
-                <span className="recent-meta">Shared files for many chats</span>
-              </button>
-              {projects.slice(0, 5).map((item) => (
-                <button key={item.id} type="button" className="recent-card" onClick={() => navigate("/app/projects/" + item.id)}>
-                  <span className="recent-icon"><FolderKanban size={16} /></span>
+            <div className="home-section-head"><h2>Projects</h2><Link to="/app/projects" className="text-link small">View all</Link></div>
+            <div className="recent-list">
+              {projects.slice(0, 4).map((item) => (
+                <button key={item.id} type="button" className="recent-row" onClick={() => navigate("/app/projects/" + item.id)}>
+                  <FolderKanban size={15} />
                   <span className="recent-title" dir="auto">{item.name}</span>
-                  <span className="recent-meta"><Clock size={12} />{timeAgo(item.updated_at)}</span>
+                  <span className="recent-meta">{timeAgo(item.updated_at)}</span>
                 </button>
               ))}
-            </div>
-          </section>
-        )}
-        {chatsReady && chats.filter((item) => (item.kind || "chat") === section).length > 0 && (
-          <section>
-            <div className="home-section-head"><h2>Continue where you left off</h2></div>
-            <div className="recent-grid">
-              {chats.filter((item) => (item.kind || "chat") === section).slice(0, 6).map((chat) => (
-                <button key={chat.id} type="button" className="recent-card" onClick={() => navigate("/app/c/" + chat.id)}>
-                  <span className="recent-icon">{chat.mode === "plan" ? <ListChecks size={16} /> : section === "code" ? <Code2 size={16} /> : section === "design" ? <Palette size={16} /> : <MessageSquare size={16} />}</span>
-                  <span className="recent-title" dir="auto">{chat.title}</span>
-                  <span className="recent-meta"><Clock size={12} />{timeAgo(chat.updated_at)}</span>
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
-        <section>
-          <div className="home-section-head"><h2>{section === "design" ? "Start from a design" : "Start from a template"}</h2>{section !== "design" && <Link to="/app/templates" className="text-link small">All templates</Link>}</div>
-          <div className="template-grid">
-            {(section === "design" ? DESIGN_GALLERY.slice(0, 8) : section === "code" ? TEMPLATES.filter((item) => item.category !== "Media").slice(0, 4) : TEMPLATES.slice(0, 4)).map((item) => (
-              <button key={item.slug} type="button" className="template-card" onClick={() => {
-                setSeed({ value: item.prompt })
-                const box = document.querySelector(".home")
-                if (box) box.scrollTo({ top: 0, behavior: "smooth" })
-              }}>
-                <strong>{item.title}</strong>
-                <span className="muted small">{item.text}</span>
+              <button type="button" className="recent-row new-row" onClick={() => setNewProject(true)}>
+                <Plus size={15} /><span className="recent-title">New project</span>
               </button>
-            ))}
-          </div>
-        </section>
+            </div>
+          </section>
+        )}
+        {chatsReady && mine.length > 0 && (
+          <section>
+            <div className="home-section-head"><h2>Recent</h2></div>
+            <div className="recent-list">
+              {mine.slice(0, 8).map((chat) => (
+                <button key={chat.id} type="button" className="recent-row" onClick={() => navigate("/app/c/" + chat.id)}>
+                  {chat.mode === "plan" ? <ListChecks size={15} /> : section === "code" ? <Code2 size={15} /> : section === "design" ? <Palette size={15} /> : <MessageSquare size={15} />}
+                  <span className="recent-title" dir="auto">{chat.title}</span>
+                  <span className="recent-meta">{timeAgo(chat.updated_at)}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+        <div className="home-footnote"><Link to="/app/templates" className="text-link small">Browse templates</Link></div>
       </div>
     </div>
   )

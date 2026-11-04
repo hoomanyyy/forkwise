@@ -1,11 +1,19 @@
 import { useEffect, useRef, useState } from "react"
-import { ArrowUp, ChevronDown, Hand, Loader2, Paperclip, Square, X, Zap, Map as MapIcon, FileText, Check } from "lucide-react"
-import { upload, rawUrl } from "../../lib/api"
+import { Link } from "react-router-dom"
+import { ArrowUp, ChevronDown, ChevronRight, Hand, Loader2, Paperclip, Plus, Square, X, Zap, Map as MapIcon, FileText, Check, Sparkles, Github, Mail, Monitor, Brain } from "lucide-react"
+import { api, upload, rawUrl } from "../../lib/api"
 
 export const MODES = [
   { key: "auto", label: "Auto", icon: Zap, hint: "Works on its own from start to finish" },
   { key: "ask", label: "Ask first", icon: Hand, hint: "Asks before it changes files or runs commands" },
   { key: "plan", label: "Plan", icon: MapIcon, hint: "Researches and writes a plan, builds after you approve" },
+]
+
+export const EFFORTS = [
+  { key: "", label: "Auto", hint: "The model decides how long to think" },
+  { key: "low", label: "Low", hint: "Fast answers, little thinking" },
+  { key: "medium", label: "Medium", hint: "Balanced for most work" },
+  { key: "high", label: "High", hint: "Thinks longest, best for hard bugs" },
 ]
 
 const COMMANDS = [
@@ -62,6 +70,12 @@ export default function Composer({ onSend, onStop, running, mode, onMode, model,
   const [modeOpen, setModeOpen] = useState(false)
   const [modelOpen, setModelOpen] = useState(false)
   const [wid, setWid] = useState(null)
+  const [plusOpen, setPlusOpen] = useState(false)
+  const [skillList, setSkillList] = useState([])
+  const [picked, setPicked] = useState([])
+  const [effort, setEffort] = useState(() => {
+    try { return localStorage.getItem("fw-effort") || "" } catch (e) { return "" }
+  })
   const [error, setError] = useState("")
   const [commandIndex, setCommandIndex] = useState(0)
   const area = useRef(null)
@@ -80,6 +94,20 @@ export default function Composer({ onSend, onStop, running, mode, onMode, model,
     box.style.height = "0px"
     box.style.height = Math.min(box.scrollHeight, 320) + "px"
   }, [text])
+
+  useEffect(() => {
+    if (!plusOpen) return
+    api.get("/api/skills").then((data) => setSkillList(Array.isArray(data) ? data : data.skills || [])).catch(() => setSkillList([]))
+  }, [plusOpen])
+
+  function chooseEffort(value) {
+    setEffort(value)
+    try { localStorage.setItem("fw-effort", value) } catch (e) {}
+  }
+
+  function togglePicked(name) {
+    setPicked((old) => (old.includes(name) ? old.filter((item) => item !== name) : [...old, name].slice(0, 5)))
+  }
 
   const commands = text.startsWith("/") && !text.includes(" ") ? COMMANDS.filter((item) => item.cmd.startsWith(text.toLowerCase())) : []
 
@@ -111,9 +139,10 @@ export default function Composer({ onSend, onStop, running, mode, onMode, model,
     }
     if (!value && files.length === 0) return
     if (uploading) return
-    onSend(value, files)
+    onSend(value, files, { effort: effort, skills: picked })
     setText("")
     setFiles([])
+    setPicked([])
   }
 
   function onKey(event) {
@@ -193,41 +222,78 @@ export default function Composer({ onSend, onStop, running, mode, onMode, model,
       />
       {error && <div className="composer-error">{error}</div>}
       <div className="composer-bar">
-        <button type="button" className="icon-btn" title="Attach files" onClick={() => picker.current.click()}>
-          {uploading ? <Loader2 size={17} className="spin" /> : <Paperclip size={17} />}
-        </button>
-        <input ref={picker} type="file" multiple hidden onChange={(e) => { addFiles(Array.from(e.target.files)); e.target.value = "" }} />
         <div className="pop-anchor">
-          <button type="button" className={"mode-pill mode-" + mode} onClick={() => setModeOpen(!modeOpen)} title="Shift+Tab to switch">
-            <ModeIcon size={14} />{current.label}<ChevronDown size={13} />
+          <button type="button" className={"icon-btn plus-btn" + (plusOpen ? " on" : "")} title="Add files, skills and connectors" onClick={() => setPlusOpen(!plusOpen)}>
+            {uploading ? <Loader2 size={17} className="spin" /> : <Plus size={18} />}
           </button>
-          <Popover open={modeOpen} onClose={() => setModeOpen(false)} className="up">
+          <Popover open={plusOpen} onClose={() => setPlusOpen(false)} className="up plus-menu">
+            <button type="button" className="pop-item" onClick={() => { setPlusOpen(false); picker.current.click() }}>
+              <Paperclip size={16} /><span><strong>Add files or photos</strong></span>
+            </button>
+            <div className="pop-sep" />
+            <div className="pop-label">Skills</div>
+            {skillList.length === 0 && <div className="pop-empty">No skills yet. Ask Forkwise to save one, or write your own.</div>}
+            {skillList.slice(0, 8).map((item) => (
+              <button key={item.id} type="button" className={"pop-item" + (picked.includes(item.name) ? " active" : "")} onClick={() => togglePicked(item.name)}>
+                <Sparkles size={16} /><span><strong>{item.name}</strong><small>{item.description}</small></span>
+                {picked.includes(item.name) && <Check size={14} />}
+              </button>
+            ))}
+            <Link to="/app/settings/abilities" className="pop-item" onClick={() => setPlusOpen(false)}>
+              <Plus size={16} /><span><strong>Manage skills</strong></span><ChevronRight size={14} />
+            </Link>
+            <div className="pop-sep" />
+            <div className="pop-label">Connect</div>
+            <Link to="/app/settings/connections" className="pop-item" onClick={() => setPlusOpen(false)}><Github size={16} /><span><strong>GitHub</strong></span><ChevronRight size={14} /></Link>
+            <Link to="/app/settings/connections" className="pop-item" onClick={() => setPlusOpen(false)}><Mail size={16} /><span><strong>Gmail and Google</strong></span><ChevronRight size={14} /></Link>
+            <Link to="/app/settings/computer" className="pop-item" onClick={() => setPlusOpen(false)}><Monitor size={16} /><span><strong>Your computer</strong></span><ChevronRight size={14} /></Link>
+            <div className="pop-sep" />
+            <div className="pop-label">Mode</div>
             {MODES.map((item) => {
               const Icon = item.icon
               return (
-                <button key={item.key} type="button" className={"pop-item" + (item.key === mode ? " active" : "")} onClick={() => { onMode(item.key); setModeOpen(false) }}>
-                  <Icon size={16} />
-                  <span><strong>{item.label}</strong><small>{item.hint}</small></span>
+                <button key={item.key} type="button" className={"pop-item" + (item.key === mode ? " active" : "")} onClick={() => { onMode(item.key); setPlusOpen(false) }}>
+                  <Icon size={16} /><span><strong>{item.label}</strong><small>{item.hint}</small></span>
                   {item.key === mode && <Check size={14} />}
                 </button>
               )
             })}
           </Popover>
         </div>
+        <input ref={picker} type="file" multiple hidden onChange={(e) => { addFiles(Array.from(e.target.files)); e.target.value = "" }} />
+        {mode !== "auto" && (
+          <button type="button" className={"mode-pill mode-" + mode} onClick={() => onMode("auto")} title="Click to go back to Auto">
+            <ModeIcon size={14} />{current.label}<X size={12} />
+          </button>
+        )}
+        {picked.map((name) => (
+          <button key={name} type="button" className="mode-pill skill-pill" onClick={() => togglePicked(name)} title="Remove skill">
+            <Sparkles size={13} />{name}<X size={12} />
+          </button>
+        ))}
         <span className="composer-spacer" />
         <ContextRing context={context} />
         {models.length > 0 && (
           <div className="pop-anchor">
             <button type="button" className="model-pill" onClick={() => setModelOpen(!modelOpen)}>
-              {currentModel ? currentModel.label : "Model"}<ChevronDown size={13} />
+              {currentModel ? currentModel.label : "Model"}{effort ? <span className="model-effort">{effort.charAt(0).toUpperCase() + effort.slice(1)}</span> : null}<ChevronDown size={13} />
             </button>
-            <Popover open={modelOpen} onClose={() => setModelOpen(false)} className="up right">
+            <Popover open={modelOpen} onClose={() => setModelOpen(false)} className="up right model-menu">
+              <div className="pop-label">Model</div>
               {models.map((item) => (
                 <button key={item.key} type="button" className={"pop-item" + (item.key === (currentModel && currentModel.key) ? " active" : "")} onClick={() => { onModel(item.key); setModelOpen(false) }}>
                   <span><strong>{item.label}</strong><small>{Math.round(item.context / 1000)}k context{item.vision ? ", sees images" : ""}</small></span>
                   {currentModel && item.key === currentModel.key && <Check size={14} />}
                 </button>
               ))}
+              <div className="pop-sep" />
+              <div className="pop-label"><Brain size={12} /> Thinking level</div>
+              <div className="effort-row">
+                {EFFORTS.map((item) => (
+                  <button key={item.key || "auto"} type="button" className={"effort-opt" + (effort === item.key ? " on" : "")} title={item.hint} onClick={() => chooseEffort(item.key)}>{item.label}</button>
+                ))}
+              </div>
+              <div className="pop-note">{(EFFORTS.find((item) => item.key === effort) || EFFORTS[0]).hint}. Not every model supports it.</div>
             </Popover>
           </div>
         )}

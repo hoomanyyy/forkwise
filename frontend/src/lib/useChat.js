@@ -206,7 +206,7 @@ export function useChat(chatId, handlers) {
       dispatch({ type: "optimistic", message: { id: tempId, temp: true, role: "user", content, meta: options.attachments && options.attachments.length ? { attachments: options.attachments } : {} } })
     }
     try {
-      const data = await api.post("/api/chats/" + chatId + "/messages", { content, attachments: options.attachments || [], model: options.model || "", mode: options.mode || "" })
+      const data = await api.post("/api/chats/" + chatId + "/messages", { content, attachments: options.attachments || [], model: options.model || "", mode: options.mode || "", effort: options.effort || "", skills: options.skills || [] })
       if (data.queued) {
         dispatch({ type: "queued", text: content })
         return

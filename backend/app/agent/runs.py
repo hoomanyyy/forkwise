@@ -9,13 +9,18 @@ from app.agent import llm, tools, specs, prompt, checkpoints, sandbox, integrati
 RUNS = {}
 ACTIVE = {}
 KEEP_IMAGES = 2
+KEEP_FULL_OUTPUTS = 14
+MASK_OVER = 1800
 WAIT_SECONDS = 1800
 SUB_STEPS = 60
 
 
 class Run:
-    def __init__(self, run_id, chat, user, project, model):
+    def __init__(self, run_id, chat, user, project, model, effort=""):
         self.id = run_id
+        self.effort = effort
+        self.recent_calls = []
+        self.compact_floor = 0
         self.chat = chat
         self.user = user
         self.project = project
@@ -169,6 +174,20 @@ def build_context(run):
         messages.append({"role": "tool", "tool_call_id": call_id, "content": "[this call was interrupted]"})
     if len(images) > 0:
         add_images(messages, images, run.wid)
+    return mask_old_outputs(messages)
+
+
+def mask_old_outputs(messages):
+    positions = []
+    for index in range(len(messages)):
+        if messages[index]["role"] == "tool":
+            positions.append(index)
+    for index in positions[:-KEEP_FULL_OUTPUTS]:
+        content = messages[index].get("content")
+        if isinstance(content, str) and len(content) > MASK_OVER:
+            cut = len(content) - 1000 - 600
+            messages[index] = dict(messages[index])
+            messages[index]["content"] = content[:1000] + "\n[... " + str(cut) + " characters of an old tool result were removed to save context; run the command or read the file again if you need them ...]\n" + content[-600:]
     return messages
 
 
@@ -238,32 +257,61 @@ def unfinished(todos):
     return False
 
 
+SUMMARY_PROMPT = """You compress the history of a long working session between a user and an AI engineer so the engineer can keep working without the old messages. Write a dense Markdown summary with these sections, and keep every concrete detail (names, paths, ports, commands, numbers, error texts):
+## Goal
+The user's request in their words, and any later changes to it.
+## Done so far
+What is finished and verified, and how it was verified.
+## Files and state
+Files created or changed (full paths) and what each does, running servers and ports, installed packages, environment facts.
+## Problems and fixes
+Errors seen, their cause and the fix, and approaches that did NOT work, so they are not tried again.
+## Decisions and preferences
+Choices the user made, style and language preferences, constraints.
+## Still to do
+The exact next steps, in order. Include the current task list.
+If there is a previous summary in the text, merge it into the new one: nothing from it may be lost."""
+
+
+def split_point(rows, limit):
+    budget = int(limit * 0.30)
+    used = 0
+    cut = len(rows)
+    while cut > 0:
+        row = rows[cut - 1]
+        used = used + (len(row["content"] or "") + len(row["tool_calls"] or "")) // 3
+        if used > budget:
+            break
+        cut = cut - 1
+    while cut < len(rows) and rows[cut]["role"] in ["tool", "summary"]:
+        cut = cut + 1
+    while cut > 0 and cut < len(rows) and rows[cut]["role"] == "tool":
+        cut = cut - 1
+    return cut
+
+
 async def compact(run, forced=False):
     rows = db.all_rows("SELECT * FROM messages WHERE chat_id = ? AND compacted = 0 ORDER BY created_at, id", (run.chat["id"],))
-    user_positions = []
-    position = 0
+    if len(rows) < 6:
+        return False
+    cut = split_point(rows, context_limit(run))
+    if forced and cut > len(rows) - 4:
+        cut = max(1, len(rows) - 4)
+        while cut < len(rows) and rows[cut]["role"] == "tool":
+            cut = cut + 1
+    old = rows[:cut]
+    if len(old) < 4:
+        return False
+    first_request = ""
     for row in rows:
         if row["role"] == "user":
-            user_positions.append(position)
-        position = position + 1
-    if len(user_positions) < 2:
-        cut = len(rows) - 1
-        if not forced or cut < 1:
-            return False
-        while cut > 0 and rows[cut]["role"] == "tool":
-            cut = cut - 1
-    else:
-        cut = user_positions[-1]
-        if not forced and len(user_positions) >= 3:
-            cut = user_positions[-2]
-    old = rows[:cut]
-    if len(old) < 2:
-        return False
+            first_request = (row["content"] or "")[:3000]
+            break
     lines = []
     for row in old:
         text = row["content"] or ""
         if row["role"] == "tool":
-            text = text[:1500]
+            text = text[:1200] + ("\n[...]\n" + text[-400:] if len(text) > 1800 else text[1200:])
         if row["role"] == "assistant":
             for call in db.load_json(row["tool_calls"], []):
                 text = text + "\n[called " + call["function"]["name"] + " " + call["function"].get("arguments", "")[:400] + "]"
@@ -271,15 +319,20 @@ async def compact(run, forced=False):
     transcript = "\n\n".join(lines)
     if len(transcript) > 300000:
         transcript = transcript[-300000:]
+    todo_text = ""
+    if len(run.todos) > 0:
+        todo_text = "\n\nCURRENT TASK LIST:\n" + "\n".join("- [" + str(item.get("status")) + "] " + str(item.get("content") or item.get("title") or "") for item in run.todos)
     run.emit("compacting", {})
     request = [
-        {"role": "system", "content": "You compress conversations between a user and an AI engineer so the work can continue. Keep every important fact: the goal, decisions, file names and paths, commands, ports, errors and how they were fixed, what is finished and what is left, user preferences. Write a dense Markdown summary."},
-        {"role": "user", "content": transcript},
+        {"role": "system", "content": SUMMARY_PROMPT},
+        {"role": "user", "content": "ORIGINAL REQUEST:\n" + first_request + todo_text + "\n\nHISTORY TO COMPRESS:\n" + transcript},
     ]
     try:
-        summary = await llm.ask(request, model=run.model, max_tokens=4000)
+        summary = await llm.ask(request, model=run.model, max_tokens=4500)
     except Exception as problem:
         run.emit("notice", {"text": "Could not compress the context: " + str(problem)[:200]})
+        return False
+    if len(summary) < 80:
         return False
     first_kept = rows[cut]["created_at"] if cut < len(rows) else db.now()
     for row in old:
@@ -287,6 +340,27 @@ async def compact(run, forced=False):
     save_message(run.chat["id"], "summary", summary, created=first_kept - 0.0005)
     run.emit("compacted", {"summary": summary[:3000]})
     return True
+
+
+def warn_if_stuck(run, name, args, outcome):
+    key = name + ":" + json.dumps(args, sort_keys=True, ensure_ascii=False)[:600]
+    run.recent_calls.append((key, bool(outcome["ok"])))
+    run.recent_calls = run.recent_calls[-8:]
+    same = 0
+    for item in run.recent_calls:
+        if item[0] == key and not item[1]:
+            same = same + 1
+    if same >= 3:
+        run.recent_calls = []
+        save_message(run.chat["id"], "note", "You have now run the same call three times and it failed each time. Stop repeating it. Read the error text again, find the real cause (check versions, paths, ports, permissions, the exact input), then change your approach: try a different tool or a smaller test, or search the web for the error message.", hidden=1)
+        run.emit("notice", {"text": "The same step failed three times, so the agent was told to change its approach."})
+    failures = 0
+    for item in run.recent_calls[-6:]:
+        if not item[1]:
+            failures = failures + 1
+    if failures >= 6:
+        run.recent_calls = []
+        save_message(run.chat["id"], "note", "Six calls in a row failed. Pause, write down in one short paragraph what you know and what you assumed, and verify the assumption with a simple check before continuing.", hidden=1)
 
 
 def context_limit(run):
@@ -412,11 +486,12 @@ def bad_tool_position(text, specs):
 async def model_turn(run, step):
     messages = build_context(run)
     estimate = llm.estimate_tokens(messages)
-    if estimate > context_limit(run) * 0.72:
+    if estimate > max(context_limit(run) * 0.70, run.compact_floor):
         done = await compact(run)
         if done:
             messages = build_context(run)
             estimate = llm.estimate_tokens(messages)
+            run.compact_floor = estimate + int(context_limit(run) * 0.12)
     run.emit("context", {"tokens": estimate, "limit": context_limit(run)})
 
     async def on_delta(kind, data):
@@ -425,9 +500,15 @@ async def model_turn(run, step):
     answer = None
     for attempt in range(4):
         try:
-            answer = await llm.stream_chat(run.model, messages, tools=run.tool_specs, on_delta=on_delta, stop_flag=run.stop_flag)
+            answer = await llm.stream_chat(run.model, messages, tools=run.tool_specs, on_delta=on_delta, stop_flag=run.stop_flag, effort=run.effort)
             break
         except llm.ModelError as problem:
+            text = str(problem).lower()
+            if ("context" in text and ("length" in text or "too long" in text or "exceed" in text or "maximum" in text)) or "too many tokens" in text:
+                if attempt < 2 and await compact(run, True):
+                    messages = build_context(run)
+                    run.emit("context", {"tokens": llm.estimate_tokens(messages), "limit": context_limit(run)})
+                    continue
             bad = bad_tool_position(str(problem), run.tool_specs)
             if bad < 0 or attempt == 3:
                 raise
@@ -498,6 +579,7 @@ async def run_main(run, first_text):
                 meta = outcome["meta"]
                 meta["ok"] = outcome["ok"]
                 save_message(run.chat["id"], "tool", outcome["text"], tool_call_id=call["id"], name=name, meta=meta)
+                warn_if_stuck(run, name, args, outcome)
                 run.emit("tool_end", {"id": call["id"], "ok": outcome["ok"], "text": outcome["text"][:6000], "meta": meta})
                 if outcome["end_turn"]:
                     end_turn = True
@@ -604,12 +686,12 @@ def summarize_args(args):
     return ", ".join(parts)[:300]
 
 
-def start(chat, user, project, text, meta):
+def start(chat, user, project, text, meta, effort=""):
     model = config.find_model(chat["model"])
     run_id = db.new_id("r_")
     message_id = save_message(chat["id"], "user", text, meta=meta)
     db.insert("runs", {"id": run_id, "chat_id": chat["id"], "user_id": user["id"], "status": "running", "first_message_id": message_id, "started_at": db.now()})
-    run = Run(run_id, chat, user, project, model)
+    run = Run(run_id, chat, user, project, model, effort)
     RUNS[run_id] = run
     ACTIVE[chat["id"]] = run_id
     run.emit("start", {"run_id": run_id, "message_id": message_id, "model": model["label"] if model else ""})

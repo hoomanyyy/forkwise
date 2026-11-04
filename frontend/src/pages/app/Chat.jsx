@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState } from "react"
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom"
-import { ChevronDown, Download, FolderKanban, ListChecks, PanelRight, ArrowDown } from "lucide-react"
+import { Download, FolderKanban, ListChecks, PanelRight, ArrowDown } from "lucide-react"
 import Composer from "../../components/app/Composer"
 import MessageList from "../../components/app/MessageList"
 import RunBar from "../../components/app/RunBar"
 import Workspace from "../../components/app/workspace/Workspace"
-import { TodoList } from "../../components/app/ToolCall"
 import { LogoMark } from "../../components/ui/Logo"
 import { ChatSkeleton } from "../../components/ui/Skeleton"
 import { useChat } from "../../lib/useChat"
@@ -36,7 +35,6 @@ export default function Chat() {
   const [refreshKey, setRefreshKey] = useState(0)
   const [width, setWidth] = useState(readWidth)
   const [seed, setSeed] = useState(null)
-  const [todosOpen, setTodosOpen] = useState(true)
   const [atBottom, setAtBottom] = useState(true)
   const scroller = useRef(null)
   const sentFirst = useRef(false)
@@ -80,7 +78,7 @@ export default function Chat() {
     if (!first || sentFirst.current || state.loading || !state.chat) return
     sentFirst.current = true
     navigate(location.pathname, { replace: true, state: null })
-    send(first.text, { attachments: first.files, mode: first.mode, model: first.model })
+    send(first.text, { attachments: first.files, mode: first.mode, model: first.model, effort: first.effort, skills: first.skills })
   }, [state.loading, state.chat, location.state])
 
   useEffect(() => {
@@ -219,6 +217,13 @@ export default function Chat() {
           )}
           <h1 className="chat-name" dir="auto">{chat.title}</h1>
           <span className="tool-spacer" />
+          {showTodos && (
+            <button type="button" className="plan-chip" title="Open the plan" onClick={() => { setPanel(true); setTab("plan") }}>
+              <ListChecks size={14} />
+              <span className="plan-chip-bar"><span style={{ width: (done / todos.length) * 100 + "%" }} /></span>
+              <span>{done}/{todos.length}</span>
+            </button>
+          )}
           <a className="icon-btn" title="Download all files" href={apiUrl("/api/ws/" + chat.workspace_id + "/zip")}><Download size={16} /></a>
           <button className={"icon-btn" + (panel ? " active" : "")} title="Show the workspace: activity, preview, browser, files, changes and terminal" onClick={() => setPanel(!panel)}><PanelRight size={17} /></button>
         </header>
@@ -243,20 +248,8 @@ export default function Chat() {
             <button className="to-bottom" onClick={() => { scroller.current.scrollTop = scroller.current.scrollHeight }} aria-label="Scroll to the latest message"><ArrowDown size={16} /></button>
           )}
           <RunBar state={state} onStop={stop} onOpenChanges={() => { setPanel(true); setTab("changes") }} />
-          {showTodos && (
-            <div className={"todo-dock" + (todosOpen ? " open" : "")}>
-              <button type="button" className="todo-dock-head" onClick={() => setTodosOpen(!todosOpen)}>
-                <ListChecks size={15} />
-                <span>Plan</span>
-                <span className="todo-progress"><span style={{ width: (done / todos.length) * 100 + "%" }} /></span>
-                <span className="faint small">{done} of {todos.length}</span>
-                <ChevronDown size={14} className="todo-chev" />
-              </button>
-              {todosOpen && <TodoList todos={todos} />}
-            </div>
-          )}
           <Composer
-            onSend={(text, files) => send(text, { attachments: files })}
+            onSend={(text, files, extra) => send(text, { attachments: files, effort: extra && extra.effort, skills: extra && extra.skills })}
             onStop={stop}
             running={state.live.running}
             mode={chat.mode}

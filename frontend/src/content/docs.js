@@ -50,7 +50,19 @@ Open **Settings, Your computer**, name the computer and press **Link a computer*
 
 ## What the agent can do
 
-Run commands in a full terminal, open apps (VS Code, Notepad, folders, links), open Windows settings pages, search in your browser, read, write and list files, change the wallpaper, switch windows, use the clipboard, take screenshots, and use the mouse and keyboard. It takes a screenshot after each step to check the result.
+Run commands in a full terminal, open apps (VS Code, Notepad, folders, links), open Windows settings pages, read, write and list files, change the wallpaper, switch windows, use the clipboard, take screenshots, and use the mouse and keyboard. It takes a screenshot after each step to check the result.
+
+## Browser tabs
+
+For web pages the agent opens a separate browser window (Chrome, Edge or Brave, with its own profile). It can open new tabs, switch and close tabs, read the page text or source, list the clickable elements, then click and type by element number. This is much more reliable than clicking pixels. Sign in to your sites in that window once and it remembers you. Your everyday browser profile is never touched.
+
+## App controls
+
+On Windows the agent can list the buttons, fields and menu items of the window in front and click them by position, so it does not have to guess from a screenshot.
+
+## Download
+
+Ready-made builds for Windows, macOS and Linux are on the [Download page](/download). They are not code-signed yet, so your system may ask you to confirm the first run.
 
 ## Staying in control
 
@@ -77,7 +89,7 @@ Type anything in the box and press Enter. Try one of these to see the three kind
 
 When Forkwise uses its computer, each step appears in the chat as a small line: a file it wrote, a command it ran, a page it opened. Click a line to see the details, such as the code change or the command output.
 
-The **Plan** box above the message box shows its task list and progress. When it starts a website, the **Preview** panel opens on the right.
+The task list and progress show in the right panel next to the chat. When it starts a website, the **Preview** panel opens on the right.
 
 ## Keep talking
 

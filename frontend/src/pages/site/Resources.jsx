@@ -53,7 +53,7 @@ export function Docs() {
           {DOC_GROUPS.map((group) => (
             <div key={group.title} style={{ marginBottom: 44 }}>
               <h2 className="display" style={{ fontSize: 22, marginBottom: 18 }}>{group.title}</h2>
-              <div className="feature-grid cols-3">
+              <div className="feature-grid cols-3 docs-grid">
                 {group.slugs.map((slug) => (
                   <Link key={slug} to={"/docs/" + slug} className="feature" style={{ textDecoration: "none" }}>
                     <h3>{DOCS[slug].title}</h3>
@@ -74,6 +74,19 @@ export function DocPage() {
   const { slug } = useParams()
   const doc = DOCS[slug]
   usePageTitle(doc ? doc.title + " — Docs" : "Docs", doc ? doc.summary : "")
+  const [active, setActive] = useState("")
+  useEffect(() => {
+    setActive("")
+    const nodes = Array.from(document.querySelectorAll(".docs-layout .prose h2"))
+    if (nodes.length === 0 || !("IntersectionObserver" in window)) return undefined
+    const watcher = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) setActive(entry.target.id)
+      })
+    }, { rootMargin: "-90px 0px -65% 0px" })
+    nodes.forEach((node) => watcher.observe(node))
+    return () => watcher.disconnect()
+  }, [slug])
   if (!doc) return <Navigate to="/docs" replace />
   const order = docOrder()
   const index = order.indexOf(slug)
@@ -93,7 +106,7 @@ export function DocPage() {
       </article>
       <aside className="docs-toc">
         {toc.length > 0 && <div className="docs-toc-title">On this page</div>}
-        {toc.map((item) => <a key={item.id} href={"#" + item.id}>{item.title}</a>)}
+        {toc.map((item) => <a key={item.id} href={"#" + item.id} className={active === item.id ? "on" : ""}>{item.title}</a>)}
       </aside>
     </div>
   )
@@ -108,7 +121,7 @@ export function Blog() {
       <section className="section tight">
         <div className="section-inner">
           <Link to={"/blog/" + first.slug} className="card" style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", marginBottom: 24 }}>
-            <div className="card-art" style={{ aspectRatio: "auto", minHeight: 300 }}><Cover seed={first.slug} colors={first.colors} /></div>
+            <div className="card-art" style={{ aspectRatio: "auto", minHeight: 300 }}><Cover seed={first.slug} art={first.art} /></div>
             <div className="card-body" style={{ padding: 36, justifyContent: "center" }}>
               <div className="card-meta"><span className="chip accent">{first.tag}</span>{first.date}</div>
               <h3 className="display" style={{ fontSize: 30, lineHeight: 1.1 }}>{first.title}</h3>
@@ -119,7 +132,7 @@ export function Blog() {
           <div className="card-grid">
             {rest.map((post) => (
               <Link key={post.slug} to={"/blog/" + post.slug} className="card">
-                <div className="card-art"><Cover seed={post.slug} colors={post.colors} /></div>
+                <div className="card-art"><Cover seed={post.slug} art={post.art} /></div>
                 <div className="card-body">
                   <div className="card-meta"><span className="chip">{post.tag}</span>{post.minutes} min read</div>
                   <h3>{post.title}</h3>
@@ -147,13 +160,13 @@ export function BlogPost() {
         <h1 className="display">{post.title}</h1>
         <p className="lead">{post.summary}</p>
       </header>
-      <div className="post-cover"><div className="card-art"><Cover seed={post.slug} colors={post.colors} /></div></div>
+      <div className="post-cover"><div className="card-art"><Cover seed={post.slug} art={post.art} /></div></div>
       <div className="post-body"><Prose text={post.body} /></div>
       <Section className="paper" title="Keep reading">
         <div className="card-grid">
           {POSTS.filter((item) => item.slug !== slug).slice(0, 3).map((item) => (
             <Link key={item.slug} to={"/blog/" + item.slug} className="card">
-              <div className="card-art"><Cover seed={item.slug} colors={item.colors} /></div>
+              <div className="card-art"><Cover seed={item.slug} art={item.art} /></div>
               <div className="card-body"><h3>{item.title}</h3></div>
             </Link>
           ))}

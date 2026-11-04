@@ -104,6 +104,11 @@ export function describe(name, args, meta) {
     if (a === "read_file") return { icon: FileText, verb: "Read from your computer", target: args.path }
     if (a === "write_file") return { icon: FilePlus, verb: "Wrote on your computer", target: args.path }
     if (a === "wallpaper") return { icon: ImageIcon, verb: "Changed the wallpaper", target: args.source || args.path }
+    if (a === "chrome") {
+      const words = { start: "Started the browser window", tabs: "Listed browser tabs", new_tab: "Opened a new tab", switch_tab: "Switched tab", close_tab: "Closed a tab", goto: "Opened", read: "Read the page", html: "Read the page source", elements: "Looked at the page controls", click: "Clicked on the page", type: "Typed on the page", press: "Pressed", scroll: "Scrolled the page", back: "Went back", forward: "Went forward", reload: "Reloaded", eval: "Ran a script in the page", screenshot: "Took a browser screenshot" }
+      return { icon: Laptop, verb: words[args.op] || "Browser on your computer", target: args.url || args.keys || (args.text || "").slice(0, 60) || (args.ref !== undefined ? "element " + args.ref : "") }
+    }
+    if (a === "ui_elements") return { icon: AppWindow, verb: "Read the controls of the window in front", target: args.target || "" }
     return { icon: Laptop, verb: "Your computer", target: a }
   }
   if (name === "github") {

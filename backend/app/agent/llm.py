@@ -60,7 +60,7 @@ def headers_for(model):
     }
 
 
-async def stream_single(model, messages, tools, on_delta, max_tokens, temperature, stop_flag, attempts):
+async def stream_single(model, messages, tools, on_delta, max_tokens, temperature, stop_flag, attempts, effort=""):
     body = {
         "model": model["id"],
         "messages": for_plain_models(with_cache(messages, model), model),
@@ -70,6 +70,11 @@ async def stream_single(model, messages, tools, on_delta, max_tokens, temperatur
     }
     if temperature is not None:
         body["temperature"] = temperature
+    if effort in ["low", "medium", "high"]:
+        if "openrouter" in model["url"]:
+            body["reasoning"] = {"effort": effort}
+        else:
+            body["reasoning_effort"] = effort
     if tools:
         body["tools"] = tools
         body["tool_choice"] = "auto"
@@ -84,6 +89,10 @@ async def stream_single(model, messages, tools, on_delta, max_tokens, temperatur
                 raise
             if last_problem.startswith("HTTP 400") and "stream_options" in last_problem and "stream_options" in body:
                 del body["stream_options"]
+                continue
+            if last_problem.startswith("HTTP 400") and "reasoning" in last_problem:
+                body.pop("reasoning", None)
+                body.pop("reasoning_effort", None)
                 continue
             if not retryable(last_problem):
                 raise
@@ -142,11 +151,11 @@ def candidates_for(model):
     return ready + waiting
 
 
-async def stream_chat(model, messages, tools=None, on_delta=None, max_tokens=16000, temperature=None, stop_flag=None):
+async def stream_chat(model, messages, tools=None, on_delta=None, max_tokens=16000, temperature=None, stop_flag=None, effort=""):
     if model is None:
         raise ModelError("No AI model is set up. Add LLM_API_KEY and LLM_MODELS to the .env file.")
     if not config.FAILOVER:
-        return await stream_single(model, messages, tools, on_delta, max_tokens, temperature, stop_flag, 5)
+        return await stream_single(model, messages, tools, on_delta, max_tokens, temperature, stop_flag, 5, effort)
     options = candidates_for(model)
     last = None
     for position in range(len(options)):
@@ -155,7 +164,7 @@ async def stream_chat(model, messages, tools=None, on_delta=None, max_tokens=160
         if cooling(item) and not last_one:
             continue
         try:
-            answer = await stream_single(item, messages, tools, on_delta, max_tokens, temperature, stop_flag, 5 if last_one else 2)
+            answer = await stream_single(item, messages, tools, on_delta, max_tokens, temperature, stop_flag, 5 if last_one else 2, effort)
             if item["key"] != model["key"]:
                 answer["switched_to"] = item["label"]
             return answer

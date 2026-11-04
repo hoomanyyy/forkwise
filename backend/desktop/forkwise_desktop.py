@@ -23,10 +23,11 @@ import time
 import urllib.request
 import webbrowser
 
-VERSION = "2.0.0"
+VERSION = "2.1.0"
 NEEDED = {"websockets": "websockets", "mss": "mss", "PIL": "pillow", "pyautogui": "pyautogui", "pyperclip": "pyperclip"}
 SYSTEM = platform.system()
 SCALE = {"value": 1.0}
+SERVER = {"base": ""}
 CONFIG_FOLDER = os.path.join(os.path.expanduser("~"), ".forkwise")
 CONFIG_FILE = os.path.join(CONFIG_FOLDER, "desktop.json")
 MAX_READ = 300000
@@ -70,6 +71,8 @@ def make_dpi_aware():
 
 
 def ensure_packages():
+    if getattr(sys, "frozen", False):
+        return
     missing = []
     for module, package in NEEDED.items():
         if importlib.util.find_spec(module) is None:
@@ -333,6 +336,102 @@ def set_wallpaper(source):
     return run_shell("gsettings set org.gnome.desktop.background picture-uri '" + uri + "'", timeout=20)
 
 
+UI_SCRIPT = r"""
+Add-Type -AssemblyName UIAutomationClient
+Add-Type -AssemblyName UIAutomationTypes
+Add-Type @'
+using System;
+using System.Runtime.InteropServices;
+public class FwWin { [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow(); }
+'@
+$handle = [FwWin]::GetForegroundWindow()
+$root = [System.Windows.Automation.AutomationElement]::FromHandle($handle)
+Write-Output ("WINDOW`t" + $root.Current.Name)
+$wanted = @('Button','Edit','MenuItem','TabItem','ListItem','CheckBox','RadioButton','ComboBox','Hyperlink','TreeItem','SplitButton','Document')
+$conditions = @()
+foreach ($name in $wanted) {
+  $type = [System.Windows.Automation.ControlType]::($name)
+  $conditions += New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ControlTypeProperty, $type)
+}
+$any = New-Object System.Windows.Automation.OrCondition($conditions)
+$found = $root.FindAll([System.Windows.Automation.TreeScope]::Descendants, $any)
+$count = 0
+foreach ($item in $found) {
+  if ($count -ge 300) { break }
+  try {
+    if ($item.Current.IsOffscreen) { continue }
+    $rect = $item.Current.BoundingRectangle
+    if ($rect.Width -lt 4 -or $rect.Height -lt 4) { continue }
+    $label = $item.Current.Name
+    if ([string]::IsNullOrWhiteSpace($label)) { $label = $item.Current.AutomationId }
+    if ([string]::IsNullOrWhiteSpace($label)) { continue }
+    $type = $item.Current.ControlType.ProgrammaticName.Replace('ControlType.', '')
+    $x = [int]($rect.X + $rect.Width / 2)
+    $y = [int]($rect.Y + $rect.Height / 2)
+    Write-Output ("ITEM`t" + $type + "`t" + $label.Replace("`t", " ").Replace("`n", " ") + "`t" + $x + "`t" + $y)
+    $count++
+  } catch { }
+}
+"""
+
+
+def refresh_scale():
+    image, monitor = grab_screen()
+    scale = 1.0
+    if image.width > 1366:
+        scale = image.width / 1366
+    SCALE["value"] = scale
+    SCALE["origin"] = (monitor["left"], monitor["top"])
+
+
+def ui_elements(filter_text):
+    if SYSTEM != "Windows":
+        return False, "Listing buttons and fields of other apps works on Windows. On this system use screenshot and click."
+    refresh_scale()
+    encoded = base64.b64encode(UI_SCRIPT.encode("utf-16-le")).decode()
+    try:
+        done = subprocess.run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-EncodedCommand", encoded], capture_output=True, timeout=90)
+    except subprocess.TimeoutExpired:
+        return False, "Reading the window took too long. Use a screenshot instead."
+    raw = done.stdout.decode(errors="replace")
+    left, top = SCALE.get("origin", (0, 0))
+    lines = []
+    title = ""
+    wanted = (filter_text or "").lower().strip()
+    for row in raw.splitlines():
+        parts = row.rstrip("\r").split("\t")
+        if parts[0] == "WINDOW" and len(parts) > 1:
+            title = parts[1]
+        if parts[0] == "ITEM" and len(parts) >= 5:
+            if wanted and wanted not in parts[2].lower():
+                continue
+            x = int((int(parts[3]) - left) / SCALE["value"])
+            y = int((int(parts[4]) - top) / SCALE["value"])
+            lines.append(parts[1] + " \"" + parts[2][:70] + "\" at " + str(x) + "," + str(y))
+    if len(lines) == 0:
+        return False, "No buttons or fields were found in the window in front" + (" (" + title + ")" if title else "") + ". Use screenshot and click."
+    return True, "Window in front: " + title + "\nClick positions are in screenshot pixels:\n" + "\n".join(lines[:200])
+
+
+def browser_module():
+    try:
+        import browser_cdp
+        return browser_cdp
+    except ImportError:
+        pass
+    os.makedirs(CONFIG_FOLDER, exist_ok=True)
+    path = os.path.join(CONFIG_FOLDER, "browser_cdp.py")
+    base = SERVER.get("base") or DEFAULT_SERVER
+    with urllib.request.urlopen(base + "/api/desktop/browser_cdp.py", timeout=20) as reply:
+        data = reply.read()
+    with open(path, "wb") as handle:
+        handle.write(data)
+    if CONFIG_FOLDER not in sys.path:
+        sys.path.insert(0, CONFIG_FOLDER)
+    import browser_cdp
+    return browser_cdp
+
+
 def handle(message):
     action = message.get("action")
     if action == "info":
@@ -426,6 +525,16 @@ def handle(message):
     if action == "wallpaper":
         ok, text = set_wallpaper(message.get("source") or message.get("path"))
         return {"ok": ok, "text": text}
+    if action == "chrome":
+        browser_cdp = browser_module()
+        ok, text, image = browser_cdp.run(message)
+        reply = {"ok": ok, "text": text}
+        if image:
+            reply["image"] = image
+        return reply
+    if action == "ui_elements":
+        ok, text = ui_elements(message.get("target"))
+        return {"ok": ok, "text": text}
     return {"ok": False, "text": "Unknown action " + str(action)}
 
 
@@ -445,6 +554,10 @@ def describe(message):
         return "change the wallpaper to " + str(message.get("source") or message.get("path"))
     if action == "focus":
         return "switch to the window: " + str(message.get("target"))
+    if action == "chrome":
+        return "browser " + str(message.get("op")) + (": " + str(message.get("url")) if message.get("url") else "")
+    if action == "ui_elements":
+        return "read the buttons and fields of the window in front"
     if action in ["click", "move", "drag", "scroll"]:
         return action + " at " + str(message.get("x")) + "," + str(message.get("y"))
     return str(action)
@@ -499,7 +612,7 @@ async def session(url, token):
             if STATE.paused:
                 await link.send(json.dumps({"id": message["id"], "ok": False, "text": "The user paused Forkwise Desktop. Ask them to press Resume."}))
                 continue
-            safe_action = message.get("action") in ["info", "screenshot", "wait"]
+            safe_action = message.get("action") in ["info", "screenshot", "wait", "ui_elements"] or (message.get("action") == "chrome" and message.get("op") in ["tabs", "read", "html", "elements", "screenshot"])
             if STATE.confirm and not safe_action:
                 allowed = await loop.run_in_executor(None, ask_here, what)
                 if not allowed:
@@ -511,6 +624,7 @@ async def session(url, token):
 
 
 def network_loop(base, token):
+    SERVER["base"] = base
     url = ("wss://" + base[8:] if base.startswith("https://") else "ws://" + base.replace("http://", "", 1)) + "/api/ws/desktop"
     delay = 2
     while not STATE.stop:

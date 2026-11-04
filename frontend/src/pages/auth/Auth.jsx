@@ -1,17 +1,11 @@
 import { useEffect, useRef, useState } from "react"
-import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom"
-import { ArrowLeft, ArrowRight, Brain, Building2, Check, Eye, EyeOff, History, MonitorPlay, User } from "lucide-react"
+import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom"
+import { ArrowLeft, ArrowRight, Building2, Check, Eye, EyeOff, User } from "lucide-react"
 import Select from "../../components/ui/Select"
 import { Wordmark } from "../../components/ui/Logo"
-import { BranchField, usePageTitle } from "../../components/site/parts"
+import { usePageTitle } from "../../components/site/parts"
 import { useStore } from "../../lib/store"
 import { api, apiUrl } from "../../lib/api"
-
-const FACTS = [
-  { icon: MonitorPlay, title: "A private computer in every chat", text: "It writes the code, runs it and shows you the live result." },
-  { icon: Brain, title: "It remembers what you tell it", text: "Preferences and facts carry over to every new chat." },
-  { icon: History, title: "Every message is a restore point", text: "Go back and the files go back with it." },
-]
 
 function GoogleButton({ label }) {
   const [enabled, setEnabled] = useState(false)
@@ -36,31 +30,22 @@ function GoogleButton({ label }) {
 }
 
 function Shell({ children }) {
-  useEffect(() => {
-    document.documentElement.dataset.theme = "dark"
-  }, [])
+  const { pathname } = useLocation()
+  const onLogin = pathname === "/login"
   return (
-    <div className="auth">
-      <div className="auth-side">
-        <Link to="/" className="wordmark"><Wordmark size={30} /></Link>
+    <div className="auth auth-center">
+      <header className="auth-top">
+        <Link to="/" className="wordmark"><Wordmark size={28} /></Link>
+        <div className="auth-top-links">
+          <Link to="/pricing">Pricing</Link>
+          <Link to="/docs">Docs</Link>
+          <Link className="btn btn-sm" to={onLogin ? "/register" : "/login"}>{onLogin ? "Sign up" : "Sign in"}</Link>
+        </div>
+      </header>
+      <main className="auth-main">
         {children}
         <div className="auth-foot">By continuing you agree to the <Link to="/terms">terms</Link> and <Link to="/privacy">privacy policy</Link>.</div>
-      </div>
-      <div className="auth-art band-dark" aria-hidden="true">
-        <BranchField quiet />
-        <div className="auth-facts">
-          {FACTS.map((fact) => {
-            const Icon = fact.icon
-            return (
-              <div className="auth-fact" key={fact.title}>
-                <span><Icon size={18} /></span>
-                <div><strong>{fact.title}</strong><small>{fact.text}</small></div>
-              </div>
-            )
-          })}
-        </div>
-        <img className="auth-shot" src="/images/shot-chat.webp" alt="" width="1440" height="880" />
-      </div>
+      </main>
     </div>
   )
 }
@@ -469,6 +454,11 @@ export function Welcome() {
       setUser(data.user)
       navigate(next, { replace: true })
     } catch (problem) {
+      if (String(problem.message).toLowerCase().indexOf("not found") >= 0) {
+        try { localStorage.setItem("fw-onboarded", "1") } catch (e) {}
+        navigate(next, { replace: true })
+        return
+      }
       setError(problem.message)
       setBusy(false)
     }

@@ -6,7 +6,7 @@ export const POSTS = [
     date: "November 1, 2026",
     tag: "Product",
     minutes: 5,
-    colors: ["#6e5cff", "#1fa2ec"],
+    art: "window",
     body: `Today we are releasing Forkwise 2.0. It is a new product, built from scratch.
 
 ## What changed
@@ -43,7 +43,7 @@ Forkwise is free to start. [Create an account](/register) and send one sentence.
     date: "November 1, 2026",
     tag: "Engineering",
     minutes: 4,
-    colors: ["#11132e", "#6e5cff"],
+    art: "decide",
     body: `Many coding agents treat every message as a task. Say hello and a workspace spins up, files appear, and a plan is written for nothing.
 
 ## Decide first, then act
@@ -69,7 +69,7 @@ For real tasks the opposite rule applies: keep going until the work is built and
     date: "November 1, 2026",
     tag: "Product",
     minutes: 4,
-    colors: ["#8b7bff", "#16a34a"],
+    art: "tools",
     body: `Every assistant has a fixed list of tools. Forkwise has a list that grows.
 
 ## How it works
@@ -95,7 +95,7 @@ Everything Forkwise makes appears under Abilities. Read the code, turn a tool of
     date: "November 1, 2026",
     tag: "Company",
     minutes: 3,
-    colors: ["#1fa2ec", "#11132e"],
+    art: "merge",
     body: `Forkwise began as a student project for A-ISPC 2026, built around one idea from research: give the same data to many analysts and they reach different answers.
 
 ## Version one

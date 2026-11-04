@@ -60,33 +60,60 @@ export function Product() {
   )
 }
 
+const RELEASES = "https://github.com/hoomanyyy/forkwise/releases"
+
+const DOWNLOADS = [
+  { os: "Windows", file: "forkwise-desktop-windows.exe", note: "Windows 10 or newer" },
+  { os: "macOS", file: "forkwise-desktop-macos", note: "macOS 12 or newer. Allow screen recording and accessibility when asked." },
+  { os: "Linux", file: "forkwise-desktop-linux", note: "A desktop session with X11" },
+]
+
 export function Download() {
-  usePageTitle("Download", "The Forkwise desktop app lets the agent use your own computer: terminal, apps, screen, mouse and keyboard.")
+  usePageTitle("Download", "The Forkwise desktop app lets the agent use your own computer: terminal, apps, browser tabs, screen, mouse and keyboard.")
   return (
     <>
       <PageHero
         kicker="Desktop app"
         title="Let it use your computer."
-        lead="A small app links your Windows, macOS or Linux machine to your Forkwise account. Then the agent can run a full terminal, open VS Code or Windows settings, search in your browser, change the wallpaper and use the mouse and keyboard while you step away."
+        lead="A small app links your Windows, macOS or Linux machine to your Forkwise account. Then the agent can run a full terminal, open VS Code or Windows settings, work in browser tabs, change the wallpaper and use the mouse and keyboard while you step away."
         actions={<Link to="/app/settings/computer" className="btn btn-primary btn-lg">Link a computer</Link>}
       />
+      <Section title="Download">
+        <div className="download-grid">
+          {DOWNLOADS.map((item) => (
+            <a key={item.os} className="download-card" href={RELEASES + "/latest/download/" + item.file}>
+              <strong>{item.os}</strong>
+              <span>{item.note}</span>
+              <span className="btn btn-primary btn-sm">Download</span>
+            </a>
+          ))}
+        </div>
+        <p className="muted small download-note">Open the app and paste your device token from Settings, Your computer. The builds are not code-signed yet, so Windows SmartScreen and macOS Gatekeeper may ask you to confirm. Other builds and older versions are on the <a href={RELEASES}>releases page</a>. Prefer to read the code first? Settings, Your computer also gives a one-line command that runs the same app from source with Python 3.</p>
+      </Section>
       <Section title="How it works">
         <FeatureGrid columns={3} items={[
-          { title: "1. Pair", text: "In Settings, choose Your computer and press Link a computer. You get a one-time command." },
-          { title: "2. Run", text: "Paste it in PowerShell or a terminal. The app opens a small window showing what the agent is doing." },
+          { title: "1. Pair", text: "In Settings, choose Your computer and press Link a computer. You get a one-time token." },
+          { title: "2. Run", text: "Open the app and paste the token. A small window shows everything the agent does and has a Pause button." },
           { title: "3. Ask", text: "In any chat, ask for something on your computer. Each action asks for your approval unless you allowed it." },
         ]} />
       </Section>
       <Section className="paper" title="What it can do">
         <FeatureGrid columns={4} items={[
           { title: "Terminal", text: "PowerShell on Windows, your login shell elsewhere." },
+          { title: "Browser tabs", text: "Opens its own browser window, creates and switches tabs, reads pages and clicks by element number." },
           { title: "Apps and settings", text: "Open VS Code, Notepad, folders, links and ms-settings pages." },
+          { title: "App controls", text: "On Windows it reads the buttons and fields of the window in front, then clicks them." },
           { title: "Screen", text: "Screenshots, window list, switching windows, clipboard." },
           { title: "Mouse and keyboard", text: "Click, drag, scroll, type and press shortcuts." },
           { title: "Files", text: "List, read and write files." },
           { title: "Wallpaper", text: "Set it from an image on your disk or a link." },
-          { title: "Approvals", text: "Terminal and input are approved separately." },
-          { title: "Stop button", text: "Close the app window or press Ctrl+C at any time." },
+        ]} />
+      </Section>
+      <Section title="You stay in control">
+        <FeatureGrid columns={3} items={[
+          { title: "Approvals", text: "Actions that change something ask you first. Reading a page or the screen does not." },
+          { title: "Pause and stop", text: "Pause from the app window, or move the mouse into a screen corner to stop at once." },
+          { title: "Separate browser", text: "The agent uses its own browser profile, not your everyday one, so your sign-ins stay private." },
         ]} />
       </Section>
       <CtaBand />

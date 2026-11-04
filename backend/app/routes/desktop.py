@@ -93,6 +93,11 @@ def agent_script():
     return PlainTextResponse(AGENT_FILE.read_text(encoding="utf-8"), media_type="text/x-python", headers={"Content-Disposition": "attachment; filename=forkwise_desktop.py"})
 
 
+def browser_script():
+    path = config.ROOT / "desktop" / "browser_cdp.py"
+    return PlainTextResponse(path.read_text(encoding="utf-8"), media_type="text/x-python", headers={"Content-Disposition": "attachment; filename=browser_cdp.py"})
+
+
 def pick(user_id, wanted):
     links = [link for link in ONLINE.values() if link.device["user_id"] == user_id]
     if len(links) == 0:
@@ -136,7 +141,9 @@ async def call(user_id, args):
 
 
 def must_confirm(user, args):
-    if args.get("action") in ["screenshot", "info", "windows", "wait"]:
+    if args.get("action") in ["screenshot", "info", "windows", "wait", "ui_elements"]:
+        return False
+    if args.get("action") == "chrome" and args.get("op") in ["tabs", "read", "html", "elements", "screenshot"]:
         return False
     settings = db.load_json(user.get("settings"), {})
     return not settings.get("desktop_auto")
@@ -189,5 +196,6 @@ def register_routes(app):
     app.add_api_route("/api/desktop", list_devices, methods=["GET"])
     app.add_api_route("/api/desktop/pair", pair, methods=["POST"])
     app.add_api_route("/api/desktop/agent.py", agent_script, methods=["GET"])
+    app.add_api_route("/api/desktop/browser_cdp.py", browser_script, methods=["GET"])
     app.add_api_route("/api/desktop/{device_id}", remove, methods=["DELETE"])
     app.add_api_websocket_route("/api/ws/desktop", desktop_socket)

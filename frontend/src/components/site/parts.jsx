@@ -14,8 +14,37 @@ export function usePageTitle(title, description) {
   }, [title, description])
 }
 
+const REVEAL = ".release, .release-items li, .card-grid .card, .feature-grid .feature, .prose > h2, .prose > p, .prose > ul, .prose > pre, .prose > table, .prose > blockquote, .docs-group, .post-hero > *, .price-card, .faq-item, .download-card"
+
+function useReveal(path) {
+  useEffect(() => {
+    if (!("IntersectionObserver" in window)) return undefined
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return undefined
+    const nodes = Array.from(document.querySelectorAll(REVEAL))
+    const seen = new Map()
+    nodes.forEach((node) => {
+      const parent = node.parentElement
+      const index = seen.get(parent) || 0
+      seen.set(parent, index + 1)
+      node.style.setProperty("--rv-i", String(Math.min(index, 8)))
+      node.setAttribute("data-rv", "0")
+    })
+    const watcher = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.setAttribute("data-rv", "1")
+          watcher.unobserve(entry.target)
+        }
+      })
+    }, { rootMargin: "0px 0px -8% 0px", threshold: 0.05 })
+    nodes.forEach((node) => watcher.observe(node))
+    return () => watcher.disconnect()
+  }, [path])
+}
+
 export function SiteLayout() {
   const location = useLocation()
+  useReveal(location.pathname)
   useEffect(() => {
     document.documentElement.dataset.theme = "dark"
   }, [])

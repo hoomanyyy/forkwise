@@ -6,6 +6,7 @@ export default function Select({ value, onChange, options, id, placeholder, clas
   const [focus, setFocus] = useState(-1)
   const [place, setPlace] = useState(null)
   const ref = useRef(null)
+  const menuRef = useRef(null)
   const selected = options.find((item) => item.value === value)
 
   useEffect(() => {
@@ -16,13 +17,17 @@ export default function Select({ value, onChange, options, id, placeholder, clas
     function close() {
       setOpen(false)
     }
+    function scrolled(event) {
+      if (menuRef.current && menuRef.current.contains(event.target)) return
+      setOpen(false)
+    }
     document.addEventListener("mousedown", click)
     window.addEventListener("resize", close)
-    window.addEventListener("scroll", close, true)
+    window.addEventListener("scroll", scrolled, true)
     return () => {
       document.removeEventListener("mousedown", click)
       window.removeEventListener("resize", close)
-      window.removeEventListener("scroll", close, true)
+      window.removeEventListener("scroll", scrolled, true)
     }
   }, [open])
 
@@ -73,7 +78,7 @@ export default function Select({ value, onChange, options, id, placeholder, clas
         <ChevronDown size={16} className="dd-chevron" />
       </button>
       {open && (
-        <div className="dd-menu" role="listbox" style={place ? { top: place.top, left: place.left, minWidth: place.width } : undefined}>
+        <div className="dd-menu" ref={menuRef} role="listbox" style={place ? { top: place.top, left: place.left, minWidth: place.width } : undefined}>
           {options.map((item, index) => (
             <button key={String(item.value)} type="button" role="option" aria-selected={item.value === value} className={"dd-opt" + (item.value === value ? " selected" : "") + (index === focus ? " focus" : "")} onMouseEnter={() => setFocus(index)} onClick={() => choose(item)}>
               <span>{item.label}</span>

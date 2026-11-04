@@ -16,7 +16,7 @@ forkwise/
     .env.example
   frontend/                React + Vite  ->  forkwiseai.com
     src/
-      pages/site/          صفحات سایت (۲۵ صفحه)
+      pages/site/          صفحات سایت (محصول، قیمت، داک، بلاگ، تغییرات، دانلود و ...)
       pages/auth/          ورود، ثبت‌نام، فراموشی و تغییر رمز
       pages/app/           اپلیکیشن: چت، پروژه‌ها، قالب‌ها، تنظیمات، پلن، ادمین
       components/          site / app / ui

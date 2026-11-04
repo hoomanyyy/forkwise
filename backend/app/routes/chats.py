@@ -26,11 +26,16 @@ class ChatChange(BaseModel):
     project_id: str = None
 
 
+EFFORTS = ["", "low", "medium", "high"]
+
+
 class NewMessage(BaseModel):
     content: str
     attachments: list = []
     model: str = ""
     mode: str = ""
+    effort: str = ""
+    skills: list = []
 
 
 class Rewind(BaseModel):
@@ -257,6 +262,15 @@ async def send_message(chat_id: str, body: NewMessage, request: Request):
     attachments = clean_attachments(chat["workspace_id"], body.attachments)
     if len(attachments) > 0:
         meta["attachments"] = attachments
+    effort = body.effort if body.effort in EFFORTS else ""
+    skill_names = []
+    for item in body.skills[:5]:
+        name = str(item)[:80]
+        if db.one_row("SELECT id FROM skills WHERE user_id = ? AND name = ?", (user["id"], name)):
+            skill_names.append(name)
+    if len(skill_names) > 0:
+        meta["skills"] = skill_names
+        text = text + "\n\n[The user attached these skills to this message. Load each one with use_skill before you start: " + ", ".join(skill_names) + "]"
     active = runs.ACTIVE.get(chat_id)
     if active and active in runs.RUNS and not runs.RUNS[active].done:
         run = runs.RUNS[active]
@@ -278,7 +292,7 @@ async def send_message(chat_id: str, body: NewMessage, request: Request):
     project = None
     if chat["project_id"]:
         project = db.one_row("SELECT * FROM projects WHERE id = ?", (chat["project_id"],))
-    run, message_id = runs.start(chat, user, project, text, meta)
+    run, message_id = runs.start(chat, user, project, text, meta, effort)
     return {"run_id": run.id, "message_id": message_id, "queued": False}
 
 
