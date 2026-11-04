@@ -34,6 +34,11 @@ def ensure_packages():
         print("Installing: " + ", ".join(missing))
         user_flag = [] if sys.prefix != sys.base_prefix else ["--user"]
         subprocess.call([sys.executable, "-m", "pip", "install", "--quiet"] + user_flag + missing)
+        import site
+        user_site = site.getusersitepackages()
+        if user_site not in sys.path:
+            sys.path.append(user_site)
+        importlib.invalidate_caches()
 
 
 def say(text):
