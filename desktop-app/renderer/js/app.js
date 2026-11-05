@@ -110,6 +110,36 @@
     booted = true
   }
 
+  // The sign-in screen is shown before start() runs, so its buttons and the
+  // "signed in" signal are wired at load time, not in wire().
+  function wireLogin() {
+    window.fw.auth.onReady(function () {
+      location.reload()
+    })
+    window.fw.auth.onLost(function () {
+      showLogin({ problem: "", login: true })
+    })
+    $("btnLogin").addEventListener("click", async function () {
+      $("btnLogin").disabled = true
+      try {
+        const data = await window.fw.boot()
+        if (data.user) {
+          location.reload()
+          return
+        }
+        await window.fw.auth.start()
+      } catch (problem) {
+        $("loginError").hidden = false
+        $("loginError").textContent = problem.message || "Could not open the browser."
+      } finally {
+        $("btnLogin").disabled = false
+      }
+    })
+    $("btnRetry").addEventListener("click", function () {
+      location.reload()
+    })
+  }
+
   function wire() {
     window.fw.onRunEvent(function (event) {
       if (event.type === "done" || event.type === "error") {
@@ -139,12 +169,6 @@
     })
     window.fw.device.onAsk(function (payload) {
       askDevice(payload)
-    })
-    window.fw.auth.onReady(function (boot) {
-      location.reload()
-    })
-    window.fw.auth.onLost(function () {
-      showLogin({ problem: "", login: true })
     })
     window.fw.onMenu(function (payload) {
       const action = payload && payload.action
@@ -189,25 +213,6 @@
       window.FW.composer.update()
     })
 
-    $("btnLogin").addEventListener("click", async function () {
-      $("btnLogin").disabled = true
-      try {
-        const data = await window.fw.boot()
-        if (data.user) {
-          location.reload()
-          return
-        }
-        await window.fw.auth.start()
-      } catch (problem) {
-        $("loginError").hidden = false
-        $("loginError").textContent = problem.message || "Could not open the browser."
-      } finally {
-        $("btnLogin").disabled = false
-      }
-    })
-    $("btnRetry").addEventListener("click", function () {
-      location.reload()
-    })
 
     document.addEventListener("keydown", onKey)
     document.addEventListener("click", function (event) {
@@ -436,6 +441,7 @@
         })
       }
     })
+    wireLogin()
     boot()
   })
 })()
