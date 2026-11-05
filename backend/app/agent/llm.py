@@ -81,8 +81,34 @@ def fixed_call(call):
     return result
 
 
+BAD_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\ud800-\udfff]")
+
+
+def scrub(text):
+    if BAD_CHARS.search(text) is None:
+        return text, False
+    return BAD_CHARS.sub("", text), True
+
+
+def tail_messages(messages, keep):
+    head = []
+    rest = messages
+    if len(messages) > 0 and messages[0].get("role") == "system":
+        head = messages[:1]
+        rest = messages[1:]
+    if len(rest) <= keep:
+        return None
+    cut = rest[len(rest) - keep:]
+    while len(cut) > 0 and cut[0].get("role") != "user":
+        cut = cut[1:]
+    if len(cut) == 0:
+        return None
+    return head + cut
+
+
 def clean_messages(messages):
     result = []
+    dirty = 0
     for message in messages:
         copy = dict(message)
         if copy.get("role") == "assistant" and copy.get("tool_calls"):
@@ -98,8 +124,13 @@ def clean_messages(messages):
                 elif part.get("type") == "image_url" and IMAGE_URL_PREFIX.match(str((part.get("image_url") or {}).get("url") or "")):
                     parts.append(part)
             content = parts if parts else None
-        elif isinstance(content, str) and content.strip() == "":
-            content = None
+        elif isinstance(content, str):
+            if content.strip() == "":
+                content = None
+            else:
+                content, changed = scrub(content)
+                if changed:
+                    dirty = dirty + 1
         copy["content"] = content
         if copy.get("role") == "assistant" and not copy.get("tool_calls") and content is None:
             continue
@@ -108,6 +139,8 @@ def clean_messages(messages):
         if copy.get("role") == "tool" and content is None:
             copy["content"] = "(no output)"
         result.append(copy)
+    if dirty > 0:
+        print("MODEL scrubbed bad characters from", dirty, "message(s)", flush=True)
     return result
 
 
@@ -265,7 +298,7 @@ def merge_turns(messages):
 
 
 def next_degrade(body, state):
-    while state["step"] < 9:
+    while state["step"] < 12:
         step = state["step"]
         state["step"] = step + 1
         if step == 0 and ("reasoning" in body or "reasoning_effort" in body):
@@ -307,6 +340,28 @@ def next_degrade(body, state):
             del body["tools"]
             body.pop("tool_choice", None)
             return "without any tools"
+        if step == 9:
+            short = tail_messages(body["messages"], 60)
+            if short is not None:
+                body["messages"] = short
+                return "with the last " + str(len(short)) + " messages only"
+        if step == 10:
+            short = tail_messages(body["messages"], 12)
+            if short is not None:
+                body["messages"] = short
+                return "with the last " + str(len(short)) + " messages only"
+        if step == 11:
+            keep = []
+            for message in body["messages"]:
+                if message.get("role") == "system":
+                    keep.append(message)
+            for message in reversed(body["messages"]):
+                if message.get("role") == "user" and isinstance(message.get("content"), str):
+                    keep.append(message)
+                    break
+            if len(keep) > 0 and len(keep) != len(body["messages"]):
+                body["messages"] = keep
+                return "with the system prompt and the last question only"
     return None
 
 
