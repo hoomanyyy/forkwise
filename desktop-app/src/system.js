@@ -209,7 +209,7 @@ function info(host, screen) {
   const lines = [
     "OS: " + os.type() + " " + os.release() + " (" + os.arch() + ")",
     "Machine: " + os.hostname(),
-    "User: " + os.userInfo().username,
+    "User: " + util.userName(),
     "Home: " + os.homedir(),
     "Screens: " + displays.map(function (d) {
       return d.width + "x" + d.height + (d.scale !== 1 ? " at " + d.scale + "x" : "") + (d.primary ? " (main)" : "")

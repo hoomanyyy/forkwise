@@ -1,5 +1,6 @@
 const os = require("os")
 const { WebSocket } = require("ws")
+const util = require("./util")
 
 function socketUrl(base) {
   const clean = base.replace(/\/+$/, "")
@@ -50,7 +51,7 @@ class Connection {
     const ws = new WebSocket(socketUrl(this.server), { headers: { Authorization: "Bearer " + this.token }, maxPayload: 32 * 1024 * 1024 })
     this.ws = ws
     ws.on("open", function () {
-      ws.send(JSON.stringify({ type: "hello", version: self.version, platform: os.type() + " " + os.release(), hostname: os.hostname(), user: os.userInfo().username }))
+      ws.send(JSON.stringify({ type: "hello", version: self.version, platform: os.type() + " " + os.release(), hostname: os.hostname(), user: util.userName() }))
     })
     ws.on("message", function (raw) {
       let message
