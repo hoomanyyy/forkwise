@@ -298,7 +298,7 @@ def merge_turns(messages):
 
 
 def next_degrade(body, state):
-    while state["step"] < 12:
+    while state["step"] < 9:
         step = state["step"]
         state["step"] = step + 1
         if step == 0 and ("reasoning" in body or "reasoning_effort" in body):
@@ -340,29 +340,77 @@ def next_degrade(body, state):
             del body["tools"]
             body.pop("tool_choice", None)
             return "without any tools"
-        if step == 9:
-            short = tail_messages(body["messages"], 60)
-            if short is not None:
-                body["messages"] = short
-                return "with the last " + str(len(short)) + " messages only"
-        if step == 10:
-            short = tail_messages(body["messages"], 12)
-            if short is not None:
-                body["messages"] = short
-                return "with the last " + str(len(short)) + " messages only"
-        if step == 11:
-            keep = []
-            for message in body["messages"]:
-                if message.get("role") == "system":
-                    keep.append(message)
-            for message in reversed(body["messages"]):
-                if message.get("role") == "user" and isinstance(message.get("content"), str):
-                    keep.append(message)
-                    break
-            if len(keep) > 0 and len(keep) != len(body["messages"]):
-                body["messages"] = keep
-                return "with the system prompt and the last question only"
     return None
+
+
+def start_points(messages):
+    found = []
+    for index in range(len(messages)):
+        message = messages[index]
+        if message.get("role") == "user":
+            found.append(index)
+        elif message.get("role") == "assistant" and not message.get("tool_calls"):
+            found.append(index)
+    return found
+
+
+def describe(message):
+    content = message.get("content")
+    if isinstance(content, list):
+        shown = "(" + str(len(content)) + " parts)"
+    elif content is None:
+        shown = "(none)"
+    else:
+        shown = str(content)[:160].replace("\n", " ")
+    calls = ""
+    if message.get("tool_calls"):
+        names = []
+        for call in message["tool_calls"]:
+            names.append(str((call.get("function") or {}).get("name")))
+        calls = " calls=" + ",".join(names)
+    return str(message.get("role")) + " len=" + str(len(str(content or ""))) + calls + " :: " + shown
+
+
+# Narrows a rejected request down to the message that the provider will not take.
+async def find_bad_message(model, body, stop_flag):
+    messages = body["messages"]
+    head = messages[:1] if len(messages) > 0 and messages[0].get("role") == "system" else []
+    points = start_points(messages)
+    if len(points) < 2:
+        return None
+
+    async def fails(start):
+        trial = dict(body)
+        trial["messages"] = head + messages[start:]
+        trial["max_tokens"] = 16
+        trial.pop("tools", None)
+        trial.pop("tool_choice", None)
+        trial.pop("stream_options", None)
+        try:
+            await stream_once(model, trial, None, {"any": False}, stop_flag)
+            return False
+        except ModelError as problem:
+            return str(problem).startswith("HTTP 400")
+        except Exception:
+            return False
+
+    low = 0
+    high = len(points) - 1
+    if not await fails(points[low]):
+        return None
+    if await fails(points[high]):
+        print("MODEL BISECT even the last turn alone is refused; the system prompt or the provider is at fault", flush=True)
+        return None
+    while high - low > 1:
+        middle = (low + high) // 2
+        if await fails(points[middle]):
+            low = middle
+        else:
+            high = middle
+    print("MODEL BISECT the provider refuses the history from message", points[low], "of", len(messages), flush=True)
+    for index in range(points[low], min(points[high] + 1, len(messages))):
+        print("MODEL BISECT  [" + str(index) + "]", describe(messages[index]), flush=True)
+    return points[low]
 
 
 async def stream_single(model, messages, tools, on_delta, max_tokens, temperature, stop_flag, attempts, effort=""):
@@ -408,6 +456,13 @@ async def stream_single(model, messages, tools, on_delta, max_tokens, temperatur
                 if label is not None:
                     print("MODEL 400 retrying", label, flush=True)
                     continue
+                if not state.get("bisected"):
+                    state["bisected"] = True
+                    try:
+                        await find_bad_message(model, body, stop_flag)
+                    except Exception as trouble:
+                        print("MODEL BISECT failed:", str(trouble)[:200], flush=True)
+                    raise ModelError("This chat has a message the AI provider will not accept, so it cannot continue. Start a new chat, or pick another model. (" + last_problem[:200] + ")")
             if not retryable(last_problem):
                 raise
         except (httpx.TransportError, httpx.TimeoutException) as problem:
