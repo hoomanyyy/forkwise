@@ -707,7 +707,15 @@ async def create_tool(run, args):
     run.tools_changed = True
     text = "Saved the tool my_" + name + ". It is available now and in every later chat."
     if args.get("test_input") is not None:
-        test = await run_custom(run, name, args.get("test_input") or {})
+        sample = args.get("test_input") or {}
+        if isinstance(sample, str):
+            try:
+                sample = json.loads(sample)
+            except ValueError:
+                sample = {}
+        if not isinstance(sample, dict):
+            sample = {}
+        test = await run_custom(run, name, sample)
         text = text + "\n\nTest run:\n" + test["text"]
         if not test["ok"]:
             text = text + "\n\nThe test failed. Fix the code and call create_tool again with the same name."

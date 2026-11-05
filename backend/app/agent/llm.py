@@ -160,6 +160,11 @@ def clean_schema(value, depth=0):
                 child = clean_schema(source[key], depth + 1)
                 if child is not None:
                     properties[str(key)[:64]] = child
+        if len(properties) == 0:
+            hint = node.get("description", "")
+            node = {"type": "string"}
+            node["description"] = (hint + " Give it as a JSON object in a string.").strip()
+            return node
         node["properties"] = properties
         required = []
         if isinstance(value.get("required"), list):
