@@ -1975,6 +1975,14 @@ a.chip:hover {
 
 .model-menu {
   min-width: 270px;
+  max-height: min(420px, calc(100vh - 150px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.composer.big .popover.up.model-menu {
+  max-height: min(420px, calc(100vh - 460px));
+  min-height: 160px;
 }
 
 .pop-sep {
@@ -2335,4 +2343,29 @@ a.pop-item:hover {
 .settings-card h3.settings-sub {
   margin-top: 20px;
   font-size: 14px;
+}
+
+.desktop-login {
+  min-height: 100vh;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 14px;
+  padding: 24px;
+  text-align: center;
+}
+
+.desktop-login h1 {
+  font-size: 22px;
+  margin: 8px 0 0;
+}
+
+.desktop-login p {
+  color: var(--text-2);
+  margin: 0;
+  max-width: 420px;
+}
+
+.desktop-login-error {
+  color: #b42318;
 }

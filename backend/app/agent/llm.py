@@ -60,10 +60,71 @@ def headers_for(model):
     }
 
 
+IMAGE_URL_PREFIX = re.compile(r"^data:image/(png|jpeg|jpg|webp|gif);base64,", re.IGNORECASE)
+
+
+def fixed_call(call):
+    function = dict(call.get("function") or {})
+    arguments = function.get("arguments", "")
+    if not isinstance(arguments, str):
+        arguments = json.dumps(arguments if arguments is not None else {})
+    try:
+        parsed = json.loads(arguments) if arguments.strip() else None
+    except ValueError:
+        parsed = None
+    if not isinstance(parsed, dict):
+        arguments = "{}"
+    function["arguments"] = arguments
+    result = dict(call)
+    result["type"] = "function"
+    result["function"] = function
+    return result
+
+
+def clean_messages(messages):
+    result = []
+    for message in messages:
+        copy = dict(message)
+        if copy.get("role") == "assistant" and copy.get("tool_calls"):
+            copy["tool_calls"] = [fixed_call(call) for call in copy["tool_calls"] if isinstance(call, dict)]
+        content = copy.get("content")
+        if isinstance(content, list):
+            parts = []
+            for part in content:
+                if not isinstance(part, dict):
+                    continue
+                if part.get("type") == "text" and (part.get("text") or "").strip():
+                    parts.append(part)
+                elif part.get("type") == "image_url" and IMAGE_URL_PREFIX.match(str((part.get("image_url") or {}).get("url") or "")):
+                    parts.append(part)
+            content = parts if parts else None
+        elif isinstance(content, str) and content.strip() == "":
+            content = None
+        copy["content"] = content
+        if copy.get("role") == "assistant" and not copy.get("tool_calls") and content is None:
+            continue
+        if copy.get("role") == "user" and content is None:
+            copy["content"] = "(empty message)"
+        if copy.get("role") == "tool" and content is None:
+            copy["content"] = "(no output)"
+        result.append(copy)
+    return result
+
+
+def text_only(messages):
+    result = []
+    for message in messages:
+        copy = dict(message)
+        if isinstance(copy.get("content"), list):
+            copy["content"] = flat_text(copy["content"]) or "(empty message)"
+        result.append(copy)
+    return clean_messages(result)
+
+
 async def stream_single(model, messages, tools, on_delta, max_tokens, temperature, stop_flag, attempts, effort=""):
     body = {
         "model": model["id"],
-        "messages": for_plain_models(with_cache(messages, model), model),
+        "messages": for_plain_models(with_cache(clean_messages(messages), model), model),
         "stream": True,
         "max_tokens": max_tokens,
         "stream_options": {"include_usage": True},
@@ -79,6 +140,7 @@ async def stream_single(model, messages, tools, on_delta, max_tokens, temperatur
         body["tools"] = tools
         body["tool_choice"] = "auto"
     last_problem = ""
+    text_mode = {"on": False}
     for attempt in range(attempts):
         streamed = {"any": False}
         try:
@@ -93,6 +155,10 @@ async def stream_single(model, messages, tools, on_delta, max_tokens, temperatur
             if last_problem.startswith("HTTP 400") and "reasoning" in last_problem:
                 body.pop("reasoning", None)
                 body.pop("reasoning_effort", None)
+                continue
+            if last_problem.startswith("HTTP 400") and "INVALID_ARGUMENT" in last_problem and not text_mode["on"]:
+                text_mode["on"] = True
+                body["messages"] = text_only(body["messages"])
                 continue
             if not retryable(last_problem):
                 raise
