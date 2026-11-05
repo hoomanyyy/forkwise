@@ -37,6 +37,7 @@
       "preload-app.js",
       "preload-browser.js",
       "src/**/*",
+      "shared/**/*",
       "renderer/**/*",
       "build/icon.png",
       "package.json"
