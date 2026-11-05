@@ -229,6 +229,66 @@ def message_shapes(messages):
     return " ".join(parts)
 
 
+def body_summary(body):
+    parts = []
+    for key in sorted(body.keys()):
+        if key == "messages":
+            parts.append("messages=" + str(len(body[key])))
+        elif key == "tools":
+            parts.append("tools=" + str(len(body[key])))
+        else:
+            parts.append(key + "=" + json.dumps(body[key])[:140])
+    return " ".join(parts)
+
+
+def merge_turns(messages):
+    result = []
+    for message in messages:
+        last = result[-1] if len(result) > 0 else None
+        same = last is not None and last.get("role") == message.get("role")
+        plain = message.get("role") in ["user", "assistant"] and not message.get("tool_calls")
+        if same and plain and not last.get("tool_calls"):
+            left = last.get("content")
+            right = message.get("content")
+            if isinstance(left, str) and isinstance(right, str):
+                joined = dict(last)
+                joined["content"] = left + "\n\n" + right
+                result[-1] = joined
+                continue
+        result.append(message)
+    return result
+
+
+def next_degrade(body, state):
+    while state["step"] < 6:
+        step = state["step"]
+        state["step"] = step + 1
+        if step == 0 and ("reasoning" in body or "reasoning_effort" in body):
+            body.pop("reasoning", None)
+            body.pop("reasoning_effort", None)
+            return "without reasoning"
+        if step == 1 and "stream_options" in body:
+            del body["stream_options"]
+            return "without stream_options"
+        if step == 2:
+            merged = merge_turns(body["messages"])
+            if len(merged) != len(body["messages"]):
+                body["messages"] = merged
+                return "with same-role turns merged"
+        if step == 3:
+            plain = merge_turns(text_only(body["messages"]))
+            if plain != body["messages"]:
+                body["messages"] = plain
+                return "with plain text messages"
+        if step == 4 and "temperature" in body:
+            del body["temperature"]
+            return "without temperature"
+        if step == 5 and "tool_choice" in body:
+            del body["tool_choice"]
+            return "without tool_choice"
+    return None
+
+
 async def stream_single(model, messages, tools, on_delta, max_tokens, temperature, stop_flag, attempts, effort=""):
     body = {
         "model": model["id"],
@@ -249,9 +309,10 @@ async def stream_single(model, messages, tools, on_delta, max_tokens, temperatur
         body["tools"] = safe_tools
         body["tool_choice"] = "auto"
     last_problem = ""
-    text_mode = {"on": False}
     told = {"on": False}
-    for attempt in range(attempts):
+    state = {"step": 0}
+    attempt = 0
+    while attempt < attempts:
         streamed = {"any": False}
         try:
             return await stream_once(model, body, on_delta, streamed, stop_flag)
@@ -259,20 +320,14 @@ async def stream_single(model, messages, tools, on_delta, max_tokens, temperatur
             last_problem = str(problem)
             if streamed["any"]:
                 raise
-            if last_problem.startswith("HTTP 400") and "stream_options" in last_problem and "stream_options" in body:
-                del body["stream_options"]
-                continue
-            if last_problem.startswith("HTTP 400") and "reasoning" in last_problem:
-                body.pop("reasoning", None)
-                body.pop("reasoning_effort", None)
-                continue
-            if last_problem.startswith("HTTP 400") and not told["on"]:
-                told["on"] = True
-                print("MODEL 400", model["key"], model["id"], "| tools:", ",".join(tool_names(body.get("tools"))), "| messages:", message_shapes(body.get("messages")), "| raw:", last_problem[:500], flush=True)
-            if last_problem.startswith("HTTP 400") and "INVALID_ARGUMENT" in last_problem.upper() and not text_mode["on"]:
-                text_mode["on"] = True
-                body["messages"] = text_only(body["messages"])
-                continue
+            if last_problem.startswith("HTTP 400"):
+                if not told["on"]:
+                    told["on"] = True
+                    print("MODEL 400", model["key"], model["id"], "|", body_summary(body), "| tools:", ",".join(tool_names(body.get("tools"))), "| messages:", message_shapes(body.get("messages")), "| raw:", last_problem[:400], flush=True)
+                label = next_degrade(body, state)
+                if label is not None:
+                    print("MODEL 400 retrying", label, flush=True)
+                    continue
             if not retryable(last_problem):
                 raise
         except (httpx.TransportError, httpx.TimeoutException) as problem:
@@ -280,6 +335,7 @@ async def stream_single(model, messages, tools, on_delta, max_tokens, temperatur
             if streamed["any"]:
                 raise ModelError(last_problem)
         await asyncio.sleep(min(30, 2 ** attempt * 1.5))
+        attempt = attempt + 1
     raise ModelError(last_problem or "The model did not answer.")
 
 
