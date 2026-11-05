@@ -121,6 +121,109 @@ def text_only(messages):
     return clean_messages(result)
 
 
+NAME_OK = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
+SCHEMA_TYPES = ["string", "number", "integer", "boolean", "array", "object"]
+
+
+def clean_schema(value, depth=0):
+    if not isinstance(value, dict) or depth > 6:
+        return None
+    kind = value.get("type")
+    if isinstance(kind, list):
+        picked = None
+        for item in kind:
+            if item in SCHEMA_TYPES:
+                picked = item
+                break
+        kind = picked
+    if kind not in SCHEMA_TYPES:
+        kind = "object" if isinstance(value.get("properties"), dict) else "string"
+    node = {"type": kind}
+    if isinstance(value.get("description"), str) and value["description"].strip():
+        node["description"] = value["description"][:1000]
+    if isinstance(value.get("enum"), list):
+        allowed = []
+        for item in value["enum"]:
+            if isinstance(item, (str, int, float, bool)):
+                allowed.append(str(item))
+        if len(allowed) > 0:
+            node["type"] = "string"
+            node["enum"] = allowed
+            return node
+    if kind == "array":
+        node["items"] = clean_schema(value.get("items"), depth + 1) or {"type": "string"}
+    if kind == "object":
+        properties = {}
+        source = value.get("properties")
+        if isinstance(source, dict):
+            for key in source:
+                child = clean_schema(source[key], depth + 1)
+                if child is not None:
+                    properties[str(key)[:64]] = child
+        node["properties"] = properties
+        required = []
+        if isinstance(value.get("required"), list):
+            for name in value["required"]:
+                if isinstance(name, str) and name in properties:
+                    required.append(name)
+        if len(required) > 0:
+            node["required"] = required
+    return node
+
+
+def clean_tools(tools):
+    if not tools:
+        return tools
+    result = []
+    for tool in tools:
+        if not isinstance(tool, dict):
+            continue
+        function = tool.get("function")
+        if not isinstance(function, dict):
+            continue
+        name = str(function.get("name") or "")
+        if not NAME_OK.match(name):
+            print("MODEL TOOL SKIPPED, bad name:", name[:80], flush=True)
+            continue
+        cleaned = {"name": name}
+        if isinstance(function.get("description"), str) and function["description"].strip():
+            cleaned["description"] = function["description"][:4000]
+        schema = clean_schema(function.get("parameters"))
+        if schema is not None and schema.get("type") == "object" and len(schema.get("properties") or {}) > 0:
+            cleaned["parameters"] = schema
+        result.append({"type": "function", "function": cleaned})
+    return result
+
+
+def tool_names(tools):
+    found = []
+    for tool in tools or []:
+        function = tool.get("function") or {}
+        found.append(str(function.get("name") or "?"))
+    return found
+
+
+def message_shapes(messages):
+    parts = []
+    for message in messages or []:
+        content = message.get("content")
+        if isinstance(content, list):
+            kinds = []
+            for part in content:
+                kinds.append(str((part or {}).get("type"))[:5] if isinstance(part, dict) else "?")
+            shape = "[" + "+".join(kinds) + "]"
+        elif content is None:
+            shape = "none"
+        else:
+            shape = str(len(str(content)))
+        if message.get("tool_calls"):
+            shape = shape + "+calls" + str(len(message["tool_calls"]))
+        if message.get("tool_call_id"):
+            shape = shape + "+id"
+        parts.append(str(message.get("role")) + ":" + shape)
+    return " ".join(parts)
+
+
 async def stream_single(model, messages, tools, on_delta, max_tokens, temperature, stop_flag, attempts, effort=""):
     body = {
         "model": model["id"],
@@ -136,11 +239,13 @@ async def stream_single(model, messages, tools, on_delta, max_tokens, temperatur
             body["reasoning"] = {"effort": effort}
         else:
             body["reasoning_effort"] = effort
-    if tools:
-        body["tools"] = tools
+    safe_tools = clean_tools(tools)
+    if safe_tools:
+        body["tools"] = safe_tools
         body["tool_choice"] = "auto"
     last_problem = ""
     text_mode = {"on": False}
+    told = {"on": False}
     for attempt in range(attempts):
         streamed = {"any": False}
         try:
@@ -156,7 +261,10 @@ async def stream_single(model, messages, tools, on_delta, max_tokens, temperatur
                 body.pop("reasoning", None)
                 body.pop("reasoning_effort", None)
                 continue
-            if last_problem.startswith("HTTP 400") and "INVALID_ARGUMENT" in last_problem and not text_mode["on"]:
+            if last_problem.startswith("HTTP 400") and not told["on"]:
+                told["on"] = True
+                print("MODEL 400", model["key"], model["id"], "| tools:", ",".join(tool_names(body.get("tools"))), "| messages:", message_shapes(body.get("messages")), "| raw:", last_problem[:500], flush=True)
+            if last_problem.startswith("HTTP 400") and "INVALID_ARGUMENT" in last_problem.upper() and not text_mode["on"]:
                 text_mode["on"] = True
                 body["messages"] = text_only(body["messages"])
                 continue
