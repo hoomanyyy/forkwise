@@ -106,6 +106,18 @@ def tail_messages(messages, keep):
     return head + cut
 
 
+def drop_noise(text):
+    if not isinstance(text, str) or len(text) < 400:
+        return text
+    sample = text[:2000]
+    counts = {}
+    for character in sample:
+        counts[character] = counts.get(character, 0) + 1
+    if max(counts.values()) >= 0.8 * len(sample):
+        return "[a broken reply of " + str(len(text)) + " repeated characters was removed]"
+    return text
+
+
 def clean_messages(messages):
     result = []
     dirty = 0
@@ -113,6 +125,8 @@ def clean_messages(messages):
         copy = dict(message)
         if copy.get("role") == "assistant" and copy.get("tool_calls"):
             copy["tool_calls"] = [fixed_call(call) for call in copy["tool_calls"] if isinstance(call, dict)]
+        if copy.get("role") == "assistant":
+            copy["content"] = drop_noise(copy.get("content"))
         content = copy.get("content")
         if isinstance(content, list):
             parts = []
@@ -410,7 +424,10 @@ async def find_bad_message(model, body, stop_flag):
     print("MODEL BISECT the provider refuses the history from message", points[low], "of", len(messages), flush=True)
     for index in range(points[low], min(points[high] + 1, len(messages))):
         print("MODEL BISECT  [" + str(index) + "]", describe(messages[index]), flush=True)
-    return points[low]
+    worked = estimate_tokens(head + messages[points[high]:])
+    refused = estimate_tokens(head + messages[points[low]:])
+    print("MODEL BISECT accepted about", worked, "tokens, refused about", refused, flush=True)
+    return {"start": points[low], "worked": worked, "refused": refused}
 
 
 async def stream_single(model, messages, tools, on_delta, max_tokens, temperature, stop_flag, attempts, effort=""):
@@ -458,10 +475,15 @@ async def stream_single(model, messages, tools, on_delta, max_tokens, temperatur
                     continue
                 if not state.get("bisected"):
                     state["bisected"] = True
+                    found = None
                     try:
-                        await find_bad_message(model, body, stop_flag)
+                        found = await find_bad_message(model, body, stop_flag)
                     except Exception as trouble:
                         print("MODEL BISECT failed:", str(trouble)[:200], flush=True)
+                    if found is not None and found["worked"] > 2000:
+                        LEARNED_CONTEXT[model["key"]] = int(found["worked"] * 0.9)
+                        print("MODEL LIMIT learned", model["key"], LEARNED_CONTEXT[model["key"]], flush=True)
+                        raise ModelError("Context window limit (" + str(LEARNED_CONTEXT[model["key"]]) + ") exceeded: this chat is longer than " + str(model.get("label") or model["key"]) + " accepts, so it will be compacted.")
                     raise ModelError("This chat has a message the AI provider will not accept, so it cannot continue. Start a new chat, or pick another model. (" + last_problem[:200] + ")")
             if not retryable(last_problem):
                 raise

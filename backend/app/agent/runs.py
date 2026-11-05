@@ -320,12 +320,14 @@ async def compact(run, forced=False):
         if row["role"] == "tool":
             text = text[:1200] + ("\n[...]\n" + text[-400:] if len(text) > 1800 else text[1200:])
         if row["role"] == "assistant":
+            text = llm.drop_noise(text)
             for call in db.load_json(row["tool_calls"], []):
                 text = text + "\n[called " + call["function"]["name"] + " " + call["function"].get("arguments", "")[:400] + "]"
         lines.append(row["role"].upper() + ": " + text[:6000])
     transcript = "\n\n".join(lines)
-    if len(transcript) > 300000:
-        transcript = transcript[-300000:]
+    room = min(300000, int(context_limit(run) * 3 * 0.5))
+    if len(transcript) > room:
+        transcript = transcript[-room:]
     todo_text = ""
     if len(run.todos) > 0:
         todo_text = "\n\nCURRENT TASK LIST:\n" + "\n".join("- [" + str(item.get("status")) + "] " + str(item.get("content") or item.get("title") or "") for item in run.todos)
