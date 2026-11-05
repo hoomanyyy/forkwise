@@ -10,6 +10,7 @@ import { StoreProvider, useStore } from "./lib/store"
 import { ConfirmProvider } from "./components/ui/Modal"
 import { SiteLayout } from "./components/site/parts"
 import { AppSkeleton, PageSkeleton } from "./components/ui/Skeleton"
+import 'katex/dist/katex.min.css';
 
 function named(loader, name) {
   return lazy(() => loader().then((module) => ({ default: module[name] })))

@@ -1,9 +1,12 @@
 import { memo, useState } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
+import remarkMath from "remark-math"
+import rehypeKatex from "rehype-katex"
 import rehypeHighlight from "rehype-highlight"
 import { Check, Copy } from "lucide-react"
 import "highlight.js/styles/github-dark.css"
+import "katex/dist/katex.min.css"
 
 function textOf(node) {
   if (node == null) return ""
@@ -53,7 +56,11 @@ const components = { pre: CodeBlock, a: Link, table: Table }
 function MarkdownView({ text }) {
   return (
     <div className="md" dir="auto">
-      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[[rehypeHighlight, { ignoreMissing: true, detect: false }]]} components={components}>
+      <ReactMarkdown 
+        remarkPlugins={[remarkGfm, remarkMath]} 
+        rehypePlugins={[rehypeKatex, [rehypeHighlight, { ignoreMissing: true, detect: false }]]} 
+        components={components}
+      >
         {text || ""}
       </ReactMarkdown>
     </div>
