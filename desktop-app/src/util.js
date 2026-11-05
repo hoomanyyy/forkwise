@@ -25,10 +25,19 @@ function toInt(value, fallback) {
   return n
 }
 
+// os.userInfo() throws when the uid has no passwd entry (containers, LDAP hiccups).
+function userName() {
+  try {
+    return os.userInfo().username
+  } catch (problem) {
+    return process.env.USER || process.env.USERNAME || "user"
+  }
+}
+
 function clamp(value, low, high) {
   if (value < low) return low
   if (value > high) return high
   return value
 }
 
-module.exports = { expand, tail, sleep, toInt, clamp }
+module.exports = { expand, tail, sleep, toInt, clamp, userName }
