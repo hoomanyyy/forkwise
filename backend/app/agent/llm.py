@@ -122,6 +122,7 @@ def text_only(messages):
 
 
 NAME_OK = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
+PROPERTY_OK = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,63}$")
 SCHEMA_TYPES = ["string", "number", "integer", "boolean", "array", "object"]
 
 
@@ -158,8 +159,12 @@ def clean_schema(value, depth=0):
         if isinstance(source, dict):
             for key in source:
                 child = clean_schema(source[key], depth + 1)
-                if child is not None:
-                    properties[str(key)[:64]] = child
+                if child is None:
+                    continue
+                if not PROPERTY_OK.match(str(key)):
+                    print("MODEL SCHEMA dropped bad property name:", str(key)[:60], flush=True)
+                    continue
+                properties[str(key)] = child
         if len(properties) == 0:
             hint = node.get("description", "")
             node = {"type": "string"}
@@ -260,7 +265,7 @@ def merge_turns(messages):
 
 
 def next_degrade(body, state):
-    while state["step"] < 6:
+    while state["step"] < 9:
         step = state["step"]
         state["step"] = step + 1
         if step == 0 and ("reasoning" in body or "reasoning_effort" in body):
@@ -286,6 +291,22 @@ def next_degrade(body, state):
         if step == 5 and "tool_choice" in body:
             del body["tool_choice"]
             return "without tool_choice"
+        if step == 6 and body.get("max_tokens", 0) > 8192:
+            body["max_tokens"] = 8192
+            return "with max_tokens 8192"
+        if step == 7 and body.get("tools"):
+            kept = []
+            for tool in body["tools"]:
+                name = (tool.get("function") or {}).get("name") or ""
+                if not name.startswith("my_") and not name.startswith("mcp__"):
+                    kept.append(tool)
+            if len(kept) != len(body["tools"]):
+                body["tools"] = kept
+                return "without custom and MCP tools"
+        if step == 8 and body.get("tools"):
+            del body["tools"]
+            body.pop("tool_choice", None)
+            return "without any tools"
     return None
 
 
@@ -324,6 +345,10 @@ async def stream_single(model, messages, tools, on_delta, max_tokens, temperatur
                 if not told["on"]:
                     told["on"] = True
                     print("MODEL 400", model["key"], model["id"], "|", body_summary(body), "| tools:", ",".join(tool_names(body.get("tools"))), "| messages:", message_shapes(body.get("messages")), "| raw:", last_problem[:400], flush=True)
+                    for tool in body.get("tools") or []:
+                        name = (tool.get("function") or {}).get("name") or ""
+                        if name.startswith("my_") or name.startswith("mcp__"):
+                            print("MODEL 400 user tool", name, json.dumps(tool.get("function", {}).get("parameters"), ensure_ascii=False)[:600], flush=True)
                 label = next_degrade(body, state)
                 if label is not None:
                     print("MODEL 400 retrying", label, flush=True)
