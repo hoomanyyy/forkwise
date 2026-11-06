@@ -29,6 +29,8 @@ const appsLib = require("./src/apps")
 const termLib = require("./src/terminal")
 const gitLib = require("./src/git")
 const wbLib = require("./src/workbench")
+const ptyLib = require("./src/pty")
+const wtLib = require("./src/worktree")
 
 if (process.env.FW_USERDATA) app.setPath("userData", process.env.FW_USERDATA)
 
@@ -591,12 +593,13 @@ function buildMenu() {
       { label: "Toggle sidebar", accelerator: "CmdOrCtrl+B", click: function () { send("fw:menu", { action: "sidebar" }) } },
       { label: "Toggle panel", accelerator: "CmdOrCtrl+J", click: function () { send("fw:menu", { action: "panel" }) } },
       { type: "separator" },
-      { role: "reload" },
+      // the page handles these keys itself (a terminal needs Ctrl+R, zoom is done in the page)
+      { role: "reload", registerAccelerator: false },
       { role: "toggleDevTools" },
       { type: "separator" },
-      { role: "resetZoom" },
-      { role: "zoomIn" },
-      { role: "zoomOut" },
+      { role: "resetZoom", registerAccelerator: false },
+      { role: "zoomIn", registerAccelerator: false },
+      { role: "zoomOut", registerAccelerator: false },
       { type: "separator" },
       { role: "togglefullscreen" }
     ]
@@ -716,8 +719,9 @@ function wire() {
       skills: payload.skills || []
     }
     const data = await api.call("/api/chats/" + encodeURIComponent(payload.chatId) + "/messages", { method: "POST", body: body })
-    // a queued message belongs to the run that is already being watched
-    if (data && data.run_id && !data.queued) watchRun(data.run_id)
+    // a queued message belongs to the run that is already being watched;
+    // agents started from the board run in the background (watch: false)
+    if (data && data.run_id && !data.queued && payload.watch !== false) watchRun(data.run_id)
     return data
   })
 
@@ -1101,6 +1105,60 @@ function wire() {
   })
   ipcMain.handle("fw:wb:open-outside", function (event, payload) {
     return shell.openPath(wbLib.inside(payload.root, payload.path))
+  })
+
+  /* real terminals */
+  const ptys = ptyLib.create({
+    onData: function (id, data) {
+      send("fw:pty:data", { id: id, data: data })
+    },
+    onExit: function (id, code) {
+      send("fw:pty:exit", { id: id, code: code })
+    }
+  })
+  app.on("before-quit", function () {
+    ptys.killAll()
+  })
+  ipcMain.handle("fw:pty:available", function () {
+    return ptys.available()
+  })
+  ipcMain.handle("fw:pty:start", function (event, payload) {
+    return ptys.start(String(payload.id), payload)
+  })
+  ipcMain.handle("fw:pty:write", function (event, payload) {
+    return ptys.write(String(payload.id), payload.data)
+  })
+  ipcMain.handle("fw:pty:resize", function (event, payload) {
+    return ptys.resize(String(payload.id), payload.cols, payload.rows)
+  })
+  ipcMain.handle("fw:pty:kill", function (event, payload) {
+    return ptys.kill(String(payload.id))
+  })
+
+  /* worktrees: an isolated copy of the project for one agent */
+  ipcMain.handle("fw:wt:create", async function (event, payload) {
+    const made = await wtLib.create(payload.folder, payload.name)
+    addRoot(made.path)
+    addRoot(made.folder)
+    return made
+  })
+  ipcMain.handle("fw:wt:list", function (event, payload) {
+    return wtLib.list(payload.folder)
+  })
+  ipcMain.handle("fw:wt:status", function (event, payload) {
+    return wtLib.status(payload.path)
+  })
+  ipcMain.handle("fw:wt:diff", function (event, payload) {
+    return wtLib.diff(payload.path)
+  })
+  ipcMain.handle("fw:wt:merge", function (event, payload) {
+    return wtLib.merge(payload.path, payload.message)
+  })
+  ipcMain.handle("fw:wt:remove", function (event, payload) {
+    return wtLib.remove(payload.path, payload.dropBranch !== false)
+  })
+  ipcMain.handle("fw:git:fulldiff", async function (event, payload) {
+    return wbLib.fullDiff(payload.folder)
   })
 }
 

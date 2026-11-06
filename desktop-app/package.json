@@ -1,7 +1,7 @@
 {
   "name": "forkwise-desktop",
   "productName": "Forkwise",
-  "version": "3.3.0",
+  "version": "3.4.0",
   "description": "Lets your Forkwise agent use this computer",
   "main": "main.js",
   "author": {
@@ -16,10 +16,21 @@
     "test:unit": "node test/workspace.test.js"
   },
   "dependencies": {
+    "@lydell/node-pty": "1.2.0-beta.18",
     "@nut-tree-fork/nut-js": "^4.2.6",
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/xterm": "^5.5.0",
     "electron-updater": "^6.3.9",
     "monaco-editor": "^0.52.2",
     "ws": "^8.18.0"
+  },
+  "optionalDependencies": {
+    "@lydell/node-pty-darwin-arm64": "1.2.0-beta.18",
+    "@lydell/node-pty-darwin-x64": "1.2.0-beta.18",
+    "@lydell/node-pty-linux-arm64": "1.2.0-beta.18",
+    "@lydell/node-pty-linux-x64": "1.2.0-beta.18",
+    "@lydell/node-pty-win32-arm64": "1.2.0-beta.18",
+    "@lydell/node-pty-win32-x64": "1.2.0-beta.18"
   },
   "devDependencies": {
     "electron": "^33.2.0",
@@ -46,7 +57,8 @@
       "!node_modules/monaco-editor/min/vs/nls.messages.*.js"
     ],
     "asarUnpack": [
-      "node_modules/@nut-tree-fork/**/*"
+      "node_modules/@nut-tree-fork/**/*",
+      "node_modules/@lydell/**/*"
     ],
     "protocols": [
       {

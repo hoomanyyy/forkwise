@@ -217,7 +217,14 @@
     register("agent.follow", "Follow the agent", function () { FW.panel.toggleFollow() }, { group: "Agent", icon: "eye" })
     register("agent.compact", "Compact the context", compactChat, { group: "Agent" })
     register("agent.rules", "Edit project rules (FORKWISE.md)", function () { FW.app.togglePanel(true); FW.panel.show("rules") }, { group: "Agent", icon: "book" })
-    register("agent.review", "Review the changes", function () { setView("git") }, { group: "Agent", icon: "branch" })
+    register("agent.board", "Agent command center", function () { FW.agents.toggle() }, { key: "Mod+Shift+A", group: "Agent", icon: "app" })
+    register("agent.new", "New background agent…", function () { FW.agents.newAgent() }, { key: "Mod+Shift+N", group: "Agent", icon: "plus" })
+    register("agent.review", "Review the changes with an agent", function () { FW.agents.review(null) }, { key: "Mod+Shift+R", group: "Agent", icon: "eye" })
+    register("agent.claude", "Run Claude Code in a terminal", function () { FW.terminals.runAgent("claude") }, { group: "Agent", icon: "spark" })
+    register("agent.codex", "Run Codex in a terminal", function () { FW.terminals.runAgent("codex") }, { group: "Agent", icon: "spark" })
+    register("agent.opencode", "Run OpenCode in a terminal", function () { FW.terminals.runAgent("opencode") }, { group: "Agent", icon: "spark" })
+    register("view.spaces", "Show spaces", function () { setView("spaces") }, { group: "View", icon: "layout" })
+    register("terminal.new", "New terminal", function () { FW.terminals.open({}) }, { key: "Mod+Shift+`", group: "View", icon: "terminal" })
     register("agent.commit", "Ask the agent to commit", function () { FW.composer.fill("Look at the current changes, then commit them with a clear message.") }, { group: "Agent" })
     register("agent.explain", "Explain this file", function () { FW.editor.explainActive() }, { group: "Agent" })
 
@@ -258,9 +265,9 @@
   const MENUS = [
     { label: "File", items: ["chat.new", "-", "file.new", "folder.new", "-", "file.open", "folder.open", "recent", "-", "file.save", "file.saveAs", "file.saveAll", "-", "file.reveal", "file.close", "file.closeAll", "-", "settings.open", "-", "app.quit"] },
     { label: "Edit", items: ["edit.undo", "edit.redo", "-", "edit.find", "edit.replace", "edit.findInFiles", "-", "edit.format", "edit.comment", "-", "edit.inline", "edit.toChat"] },
-    { label: "View", items: ["view.palette", "-", "view.chats", "view.explorer", "view.search", "view.git", "-", "view.sidebar", "view.panel", "view.chatToggle", "view.status", "-", "view.terminal", "view.browser", "view.plan", "view.timeline", "-", "view.theme", "view.compact", "view.zoomIn", "view.zoomOut", "view.zoomReset"] },
+    { label: "View", items: ["view.palette", "-", "agent.board", "view.chats", "view.explorer", "view.search", "view.git", "view.spaces", "-", "view.sidebar", "view.panel", "view.chatToggle", "view.status", "-", "view.terminal", "terminal.new", "view.browser", "view.plan", "view.timeline", "-", "view.theme", "view.compact", "view.zoomIn", "view.zoomOut", "view.zoomReset"] },
     { label: "Go", items: ["go.file", "go.line", "-", "go.next", "go.prev", "-", "go.chat"] },
-    { label: "Agent", items: ["chat.new", "agent.stop", "-", "agent.mode", "agent.model", "agent.follow", "-", "agent.rules", "agent.review", "agent.commit", "agent.explain", "-", "agent.compact"] },
+    { label: "Agent", items: ["agent.board", "agent.new", "chat.new", "agent.stop", "-", "agent.review", "agent.commit", "agent.explain", "-", "agent.mode", "agent.model", "agent.follow", "agent.rules", "-", "agent.claude", "agent.codex", "agent.opencode", "-", "agent.compact"] },
     { label: "Help", items: ["help.keys", "help.docs", "help.site", "-", "help.devtools", "help.about"] }
   ]
 
@@ -318,10 +325,12 @@
   /* -------------------------------------------------------- activity bar */
 
   const VIEWS = [
+    { id: "board", label: "Agents", icon: "app", command: "agent.board" },
     { id: "chats", label: "Chats", icon: "chat", command: "view.chats" },
     { id: "explorer", label: "Explorer", icon: "files", command: "view.explorer" },
     { id: "search", label: "Search", icon: "search", command: "edit.findInFiles" },
-    { id: "git", label: "Source control", icon: "branch", command: "view.git" }
+    { id: "git", label: "Source control", icon: "branch", command: "view.git" },
+    { id: "spaces", label: "Spaces", icon: "layout", command: "view.spaces" }
   ]
 
   function activity() {
@@ -330,9 +339,20 @@
     bar.innerHTML = ""
     VIEWS.forEach(function (view) {
       const shortcut = key(view.command)
-      const button = h("button", { class: "act-btn" + (S.sideView === view.id && S.sidebarOpen ? " on" : ""), type: "button", title: view.label + (shortcut ? " (" + shortcut + ")" : ""), html: icon(view.icon, 18) })
+      const boardOn = FW.agents && FW.agents.visible()
+      const on = view.id === "board" ? boardOn : S.sideView === view.id && S.sidebarOpen
+      const button = h("button", { class: "act-btn" + (on ? " on" : ""), type: "button", title: view.label + (shortcut ? " (" + shortcut + ")" : ""), html: icon(view.icon, 18) })
       if (view.id === "git" && branchInfo.changes) button.appendChild(h("span", { class: "act-badge", text: branchInfo.changes > 99 ? "99+" : String(branchInfo.changes) }))
+      if (view.id === "board") {
+        const busy = (S.chats || []).filter(function (chat) { return chat.running }).length
+        const needs = (S.chats || []).some(function (chat) { return chat.running && chat.waiting })
+        if (busy) button.appendChild(h("span", { class: "act-badge" + (needs ? " warn" : ""), text: String(busy) }))
+      }
       button.addEventListener("click", function () {
+        if (view.id === "board") {
+          FW.agents.toggle()
+          return
+        }
         if (S.sideView === view.id && S.sidebarOpen) FW.app.toggleSidebar()
         else setView(view.id)
       })
@@ -351,6 +371,10 @@
       node.hidden = node.dataset.view !== view
     })
     activity()
+    if (view === "spaces") {
+      if (FW.spaces) FW.spaces.render()
+      return
+    }
     if (view !== "chats" && FW.explorer) FW.explorer.show(view)
   }
 
@@ -376,6 +400,12 @@
       bar.appendChild(h("span", { class: "sb-item", text: "Spaces: " + (S.prefs.tabSize || 2) }))
       bar.appendChild(h("span", { class: "sb-item", text: (cursor.eol || "LF").toUpperCase() }))
       bar.appendChild(h("span", { class: "sb-item", text: cursor.language || "Plain text" }))
+    }
+    const probs = FW.editor && FW.editor.problems ? FW.editor.problems() : []
+    if (probs.length || S.intelFiles) {
+      const errors = probs.filter(function (item) { return item.severity === "error" }).length
+      const warnings = probs.length - errors
+      bar.appendChild(h("button", { class: "sb-item", type: "button", title: (S.intelFiles ? S.intelFiles + " files indexed for code intelligence. " : "") + "Problems", onclick: function () { FW.panel.show("problems") } }, [h("span", { html: icon("alert", 12) }), h("span", { text: errors + "  \u26a0 " + warnings })]))
     }
     if (S.context && S.context.tokens) {
       const used = S.context.limit ? Math.round((S.context.tokens / S.context.limit) * 100) : 0
@@ -671,6 +701,10 @@
     if (event.shiftKey && lower === "f") return take("edit.findInFiles")
     if (event.shiftKey && lower === "g") return take("view.git")
     if (event.shiftKey && lower === "c") return take("view.chats")
+    if (event.shiftKey && lower === "a") return take("agent.board")
+    if (event.shiftKey && lower === "n") return take("agent.new")
+    if (event.shiftKey && lower === "r") return take("agent.review")
+    if (event.shiftKey && (event.key === "`" || event.key === "~")) return take("terminal.new")
     if (event.shiftKey && lower === "s") return take("file.saveAs")
     if (event.shiftKey && lower === "l") return take("edit.toChat")
     if (event.altKey && lower === "o") return take("folder.open")
@@ -709,7 +743,8 @@
     Array.prototype.forEach.call(document.querySelectorAll("#sidebar .side-view"), function (node) {
       node.hidden = node.dataset.view !== S.sideView
     })
-    if (S.sideView !== "chats" && FW.explorer) FW.explorer.show(S.sideView)
+    if (S.sideView === "spaces") setTimeout(function () { if (FW.spaces) FW.spaces.render() }, 0)
+    else if (S.sideView !== "chats" && FW.explorer) FW.explorer.show(S.sideView)
     activity()
     status()
     FW.store.on("running", function () {

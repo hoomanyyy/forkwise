@@ -76,8 +76,54 @@ def own_project(user, project_id):
     return project
 
 
-def chat_summary(chat):
+def short_args(args):
+    if not isinstance(args, dict):
+        return ""
+    for key in ["command", "path", "url", "query", "pattern", "description", "action"]:
+        value = args.get(key)
+        if value:
+            return str(value)[:90]
+    return ""
+
+
+def live_info(chat_id):
+    run_id = runs.ACTIVE.get(chat_id)
+    run = runs.RUNS.get(run_id) if run_id else None
+    if run is None or run.done:
+        return {"waiting": False, "activity": "", "run_id": "", "started": 0, "todos_done": 0, "todos_total": 0}
+    activity = ""
+    started = 0
+    if len(run.events) > 0:
+        started = run.events[0].get("time", 0)
+    recent = run.events[-80:]
+    index = len(recent) - 1
+    while index >= 0:
+        event = recent[index]
+        if event["type"] == "tool_start":
+            activity = event.get("name", "") + " " + short_args(event.get("args"))
+            break
+        if event["type"] in ["text", "reasoning"]:
+            activity = "writing" if event["type"] == "text" else "thinking"
+            break
+        index = index - 1
+    todos = run.todos or []
+    done = 0
+    for todo in todos:
+        if isinstance(todo, dict) and todo.get("status") in ["completed", "done"]:
+            done = done + 1
+    return {"waiting": len(run.waiting) > 0, "activity": activity.strip()[:120], "run_id": run.id, "started": started, "todos_done": done, "todos_total": len(todos)}
+
+
+def chat_summary(chat, last_status=""):
+    info = live_info(chat["id"])
     return {
+        "waiting": info["waiting"],
+        "activity": info["activity"],
+        "run_id": info["run_id"],
+        "run_started": info["started"],
+        "todos_done": info["todos_done"],
+        "todos_total": info["todos_total"],
+        "last_status": last_status,
         "id": chat["id"],
         "title": chat["title"],
         "project_id": chat["project_id"],
@@ -98,9 +144,14 @@ def list_chats(request: Request, project_id: str = "", limit: int = 200):
         rows = db.all_rows("SELECT * FROM chats WHERE user_id = ? AND project_id = ? ORDER BY pinned DESC, updated_at DESC LIMIT ?", (user["id"], project_id, limit))
     else:
         rows = db.all_rows("SELECT * FROM chats WHERE user_id = ? ORDER BY pinned DESC, updated_at DESC LIMIT ?", (user["id"], limit))
+    statuses = {}
+    last_runs = db.all_rows("SELECT chat_id, status, started_at FROM runs WHERE user_id = ? ORDER BY started_at DESC LIMIT 600", (user["id"],))
+    for item in last_runs:
+        if item["chat_id"] not in statuses:
+            statuses[item["chat_id"]] = item["status"]
     result = []
     for row in rows:
-        result.append(chat_summary(row))
+        result.append(chat_summary(row, statuses.get(row["id"], "")))
     return {"chats": result}
 
 

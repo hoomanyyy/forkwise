@@ -37,7 +37,9 @@
         window.require(["vs/editor/editor.main"], function () {
           monaco = window.monaco
           defineThemes()
+          configureLanguages()
           resolve(monaco)
+          setTimeout(loadProject, 300)
         }, function (problem) {
           loading = null
           reject(problem)
@@ -201,6 +203,155 @@
     })
   }
 
+  /* ------------------------------------------------ project intelligence */
+
+  // JS and TS files of the open folder are loaded into the editor's language
+  // service, so go to definition, find references, rename and type errors
+  // work across the whole project, not just the open file.
+  const projectModels = new Set()
+  let projectRoot = ""
+  let projectLoading = false
+  const CODE = /\.(ts|tsx|js|jsx|mjs|cjs|mts|cts)$/i
+  const IGNORED_CODES = [2307, 2792, 7016, 2580, 2591, 2593, 2582, 2503, 2875, 1259, 2686]
+
+  function configureLanguages() {
+    const ts = monaco.languages.typescript
+    const options = {
+      target: ts.ScriptTarget.ESNext,
+      module: ts.ModuleKind.ESNext,
+      moduleResolution: ts.ModuleResolutionKind.NodeJs,
+      allowJs: true,
+      checkJs: false,
+      jsx: 4,
+      allowNonTsExtensions: true,
+      esModuleInterop: true,
+      allowSyntheticDefaultImports: true,
+      resolveJsonModule: true,
+      skipLibCheck: true,
+      noEmit: true,
+      strict: false
+    }
+    ts.typescriptDefaults.setCompilerOptions(options)
+    ts.javascriptDefaults.setCompilerOptions(options)
+    ts.typescriptDefaults.setEagerModelSync(true)
+    ts.javascriptDefaults.setEagerModelSync(true)
+    ts.typescriptDefaults.setDiagnosticsOptions({ noSemanticValidation: false, noSyntaxValidation: false, diagnosticCodesToIgnore: IGNORED_CODES })
+    ts.javascriptDefaults.setDiagnosticsOptions({ noSemanticValidation: true, noSyntaxValidation: false, diagnosticCodesToIgnore: IGNORED_CODES })
+    // Ctrl+click and F12 open the target file in a tab here
+    monaco.editor.registerEditorOpener({
+      openCodeEditor: function (source, resource, selection) {
+        const root = FW.wb.root()
+        const full = resource.path.replace(/^\/([a-zA-Z]:)/, "$1")
+        const rel = FW.wb.toRel(full)
+        if (!root || !rel) return false
+        let line = 1
+        let col = 1
+        if (selection && selection.startLineNumber) {
+          line = selection.startLineNumber
+          col = selection.startColumn
+        } else if (selection && selection.lineNumber) {
+          line = selection.lineNumber
+          col = selection.column
+        }
+        open(rel, { pin: true, line: line, col: col })
+        return true
+      }
+    })
+    monaco.editor.onDidChangeMarkers(function () {
+      clearTimeout(markerTimer)
+      markerTimer = setTimeout(function () {
+        FW.store.emit("problems", problems())
+        FW.wb.status()
+      }, 300)
+    })
+  }
+
+  let markerTimer = null
+
+  async function loadProject() {
+    const root = FW.wb.root()
+    if (!monaco || !root || projectLoading || projectRoot === root) return
+    projectLoading = true
+    projectRoot = root
+    // models of the last folder go away, unless a tab still uses them
+    projectModels.forEach(function (model) {
+      const used = tabs.some(function (tab) {
+        return tab.model === model
+      })
+      if (!used) model.dispose()
+    })
+    projectModels.clear()
+    try {
+      const files = (await FW.wb.allFiles(true)).filter(function (file) {
+        return CODE.test(file) && file.indexOf(".min.") < 0
+      }).slice(0, 700)
+      let total = 0
+      for (let index = 0; index < files.length; index += 16) {
+        if (projectRoot !== root) return
+        const batch = files.slice(index, index + 16)
+        const read = await Promise.all(batch.map(function (file) {
+          return window.fw.wb.read(root, file).then(function (data) {
+            return { file: file, data: data }
+          }).catch(function () {
+            return null
+          })
+        }))
+        read.forEach(function (item) {
+          if (!item || item.data.kind !== "text" || item.data.text.length > 400000) return
+          total += item.data.text.length
+          if (total > 14000000) return
+          const uri = monaco.Uri.file(String(root).replace(/[\\/]+$/, "") + "/" + item.file)
+          let model = monaco.editor.getModel(uri)
+          if (!model) model = monaco.editor.createModel(item.data.text, undefined, uri)
+          projectModels.add(model)
+        })
+      }
+      S.intelFiles = projectModels.size
+      FW.wb.status()
+      refreshDiagnostics()
+    } finally {
+      projectLoading = false
+    }
+  }
+
+  // The language service checks files when they change; this asks it to
+  // check everything that is loaded now.
+  let diagTimer = null
+  function refreshDiagnostics() {
+    if (!monaco) return
+    clearTimeout(diagTimer)
+    diagTimer = setTimeout(function () {
+      const ts = monaco.languages.typescript
+      ts.typescriptDefaults.setDiagnosticsOptions(ts.typescriptDefaults.getDiagnosticsOptions())
+      ts.javascriptDefaults.setDiagnosticsOptions(ts.javascriptDefaults.getDiagnosticsOptions())
+    }, 900)
+  }
+
+  async function reloadProjectModel(tab) {
+    try {
+      const data = await window.fw.wb.read(tab.root, tab.path)
+      if (data.kind === "text" && tab.model && !tab.model.isDisposed()) tab.model.setValue(data.text)
+    } catch (problem) {}
+  }
+
+  function problems() {
+    if (!monaco) return []
+    const root = FW.wb.root()
+    const list = []
+    monaco.editor.getModelMarkers({}).forEach(function (marker) {
+      if (marker.severity < 4) return
+      const full = marker.resource.path.replace(/^\/([a-zA-Z]:)/, "$1")
+      const rel = root ? FW.wb.toRel(full) : ""
+      if (!rel) return
+      list.push({ path: rel, line: marker.startLineNumber, col: marker.startColumn, message: marker.message, severity: marker.severity === 8 ? "error" : "warning", code: marker.code && marker.code.value ? marker.code.value : marker.code, source: marker.source || "" })
+    })
+    list.sort(function (a, b) {
+      if (a.severity !== b.severity) return a.severity === "error" ? -1 : 1
+      return a.path.localeCompare(b.path) || a.line - b.line
+    })
+    return list
+  }
+
   /* --------------------------------------------------------------- tabs */
 
   function keyOf(root, rel, kind) {
@@ -249,8 +400,14 @@
       if (data.kind === "text") {
         const uri = monaco.Uri.file(fullPath(tab))
         const existing = monaco.editor.getModel(uri)
-        if (existing) existing.dispose()
-        tab.model = monaco.editor.createModel(data.text, undefined, uri)
+        if (existing && projectModels.has(existing)) {
+          // the file was loaded for code intelligence; edit that same model
+          if (existing.getValue() !== data.text) existing.setValue(data.text)
+          tab.model = existing
+        } else {
+          if (existing) existing.dispose()
+          tab.model = monaco.editor.createModel(data.text, undefined, uri)
+        }
         tab.model.updateOptions({ tabSize: options().tabSize, insertSpaces: options().insertSpaces })
         tab.saved = tab.model.getAlternativeVersionId()
         tab.eol = data.eol
@@ -268,6 +425,7 @@
     activate(tab)
     if (settings.line) reveal(settings.line, settings.col || 1, settings.length || 0)
     FW.explorer.reveal(rel)
+    if (CODE.test(rel)) refreshDiagnostics()
     return tab
   }
 
@@ -589,7 +747,8 @@
     tabs.splice(index, 1)
     if (tab.kind === "text" && editor && editor.getModel() === tab.model) editor.setModel(null)
     if (tab.kind === "diff" && diffEditor) diffEditor.setModel(null)
-    if (tab.model) tab.model.dispose()
+    if (tab.model && !projectModels.has(tab.model)) tab.model.dispose()
+    if (tab.model && projectModels.has(tab.model) && tab.dirty) reloadProjectModel(tab)
     if (tab.original) tab.original.dispose()
     if (active === tab) {
       active = null
@@ -690,6 +849,32 @@
     ;(paths || []).forEach(function (rel) {
       set[rel] = true
     })
+    // files the language service knows but no tab shows: keep them current
+    if (monaco && projectRoot) {
+      Object.keys(set).forEach(function (rel) {
+        if (!CODE.test(rel)) return
+        const uri = monaco.Uri.file(String(projectRoot).replace(/[\\/]+$/, "") + "/" + rel)
+        const model = monaco.editor.getModel(uri)
+        const inTab = tabs.some(function (tab) {
+          return tab.model === model
+        })
+        if (model && projectModels.has(model) && !inTab) {
+          window.fw.wb.read(projectRoot, rel).then(function (data) {
+            if (data.kind === "text" && !model.isDisposed() && model.getValue() !== data.text) model.setValue(data.text)
+          }).catch(function () {
+            if (!model.isDisposed()) {
+              projectModels.delete(model)
+              model.dispose()
+            }
+          })
+        } else if (!model && projectModels.size < 700) {
+          window.fw.wb.read(projectRoot, rel).then(function (data) {
+            if (data.kind !== "text" || data.text.length > 400000 || monaco.editor.getModel(uri)) return
+            projectModels.add(monaco.editor.createModel(data.text, undefined, uri))
+          }).catch(function () {})
+        }
+      })
+    }
     tabs.forEach(function (tab) {
       if (!set[tab.path]) return
       if (tab.kind === "diff") {
@@ -971,7 +1156,14 @@
   }
 
   function init() {
+    // the editor cancels work it no longer needs; that is not an error
+    window.addEventListener("unhandledrejection", function (event) {
+      if (event.reason && (event.reason.name === "Canceled" || event.reason.message === "Canceled")) event.preventDefault()
+    })
     FW.store.on("theme", applyTheme)
+    FW.store.on("root", function () {
+      if (monaco) setTimeout(loadProject, 200)
+    })
   }
 
   window.FW = window.FW || {}
@@ -1000,6 +1192,8 @@
     explainActive: explainActive,
     follow: follow,
     dirtyCount: dirtyCount,
+    problems: problems,
+    loadProject: loadProject,
     active: function () {
       return active
     }

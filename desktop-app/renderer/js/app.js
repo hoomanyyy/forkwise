@@ -99,7 +99,10 @@
     window.FW.panel.init()
     window.FW.explorer.init()
     window.FW.editor.init()
+    window.FW.spaces.init()
+    window.FW.terminals.init()
     window.FW.wb.init()
+    window.FW.agents.init()
     window.FW.sidebar.account()
     window.FW.sidebar.device()
     applyLayout()
@@ -298,6 +301,9 @@
     const mod = event.metaKey || event.ctrlKey
     if (!mod) return
     if (U.overlayOpen() && !event.target.closest(".palette")) return
+    // a terminal gets its own keys (Ctrl+C, Ctrl+L, Ctrl+R...); Ctrl+Shift combos still reach the app
+    // (like VS Code, a few workbench keys still pass: settings, quick open, panel, sidebar)
+    if (event.target.closest && event.target.closest(".xterm") && !event.shiftKey && [",", "p", "b", "\\", "`"].indexOf(event.key.toLowerCase()) < 0) return
     if (window.FW.wb && window.FW.wb.onKey(event)) return
     const key = event.key.toLowerCase()
     // inside the code editor these keys belong to the editor
@@ -497,6 +503,7 @@
     },
     applyTheme: applyTheme,
     applyLayout: applyLayout,
+    notify: notify,
     signOut: signOut,
     reloadSession: reloadSession,
     showLogin: showLogin

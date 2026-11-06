@@ -99,6 +99,7 @@
       if (event.key !== "Escape") return
       if (event.defaultPrevented || U.overlayOpen()) return
       if (event.target && event.target.id === "chatSearch") return
+      if (event.target && event.target.closest && event.target.closest(".xterm, .monaco-editor")) return
       if (S.running) {
         event.preventDefault()
         stop()
@@ -224,6 +225,11 @@
         ])
       )
     }
+    const spaceId = (S.chat && S.chat.project_id) || (!S.chat ? S.space : "")
+    const space = spaceId && (S.spaces || []).find(function (item) { return item.id === spaceId })
+    if (space) {
+      chips.appendChild(h("span", { class: "chip", title: "Space: everything here shares its instructions" }, [h("span", { html: icon("layout", 11) }), h("b", { text: space.name }), !S.chat ? h("button", { class: "x", html: icon("close", 10), title: "Leave the space for this chat", onclick: function () { FW.spaces.select("") } }) : null]))
+    }
     S.attachments.forEach(function (file, index) {
       const kind = String(file.kind || "")
       chips.appendChild(
@@ -276,7 +282,7 @@
 
   async function ensureChat() {
     if (S.chat && S.chat.id) return S.chat.id
-    const body = { local_path: S.folder || "", model: currentModel || "", mode: currentMode || "auto" }
+    const body = { local_path: S.folder || "", model: currentModel || "", mode: currentMode || "auto", project_id: S.space || "" }
     const created = await window.fw.chats.create(body)
     const chat = created.chat
     // what was typed into the new chat stays in the box

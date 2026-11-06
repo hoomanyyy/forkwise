@@ -324,4 +324,44 @@ function home() {
   return os.homedir()
 }
 
-module.exports = { list, read, write, create, rename, remove, files, search, replaceAll, original, branch, revert, createWatcher, inside, home }
+// New files are shown as added, without touching the git index.
+async function untrackedDiff(repo) {
+  const listed = await git(repo, ["ls-files", "--others", "--exclude-standard"])
+  let text = ""
+  const files = listed.out.split("\n").filter(Boolean).slice(0, 200)
+  for (let index = 0; index < files.length; index += 1) {
+    const full = path.join(repo, files[index])
+    try {
+      const info = await fs.promises.stat(full)
+      if (info.size > 200000) {
+        text += "diff --git a/" + files[index] + " b/" + files[index] + "\nnew file (too big to show, " + info.size + " bytes)\n"
+        continue
+      }
+      const data = await fs.promises.readFile(full)
+      if (looksBinary(data)) {
+        text += "diff --git a/" + files[index] + " b/" + files[index] + "\nnew binary file\n"
+        continue
+      }
+      const lines = data.toString("utf8").split("\n")
+      text += "diff --git a/" + files[index] + " b/" + files[index] + "\nnew file mode 100644\n--- /dev/null\n+++ b/" + files[index] + "\n@@ -0,0 +1," + lines.length + " @@\n" + lines.map(function (line) { return "+" + line }).join("\n") + "\n"
+    } catch (problem) {}
+  }
+  return { text: text, files: files }
+}
+
+// Everything uncommitted in the folder's repository, for a review.
+async function fullDiff(folder) {
+  const base = checkRoot(folder)
+  const top = await git(base, ["rev-parse", "--show-toplevel"])
+  if (!top.ok) return { ok: false, text: "", reason: "This folder is not a git repository." }
+  const repo = top.out.trim()
+  const shown = await git(repo, ["diff", "--no-color", "HEAD"])
+  const names = await git(repo, ["diff", "--name-status", "HEAD"])
+  const added = await untrackedDiff(repo)
+  const files = names.out.split("\n").filter(Boolean).concat(added.files.map(function (file) { return "A\t" + file }))
+  return { ok: true, text: shown.out + added.text, files: files, repo: repo }
+}
+
+module.exports = {
+  fullDiff,
+  untrackedDiff, list, read, write, create, rename, remove, files, search, replaceAll, original, branch, revert, createWatcher, inside, home }

@@ -449,6 +449,8 @@
 
   let toastHost = null
   function toast(text, kind, ms) {
+    // messages from the main process arrive wrapped in Electron's IPC wording
+    text = String(text == null ? "" : text).replace(/^Error invoking remote method '[^']+': (Error: )?/, "")
     if (!toastHost) {
       toastHost = h("div", { class: "toasts" })
       document.body.appendChild(toastHost)

@@ -175,11 +175,15 @@
       { value: "pin", label: chat.pinned ? "Unpin" : "Pin to the top", icon: "pin" }
     ]
     if (chat.local_path) items.push({ value: "folder", label: "Open the folder", icon: "folder" })
+    items.push({ value: "space", label: "Move to a space", icon: "layout" })
+    items.push({ value: "review", label: "Review its changes", icon: "eye" })
     items.push({ value: "delete", label: "Delete", icon: "trash", danger: true })
     U.menu(anchor.querySelector(".chat-more") || anchor, items, function (value) {
       if (value === "rename") rename(chat)
       if (value === "pin") pin(chat)
       if (value === "folder") window.fw.openPath(chat.local_path)
+      if (value === "space") FW.spaces.moveChat(chat)
+      if (value === "review") FW.agents.review(chat)
       if (value === "delete") remove(chat)
     }, { alignRight: true, className: "chat-menu" })
   }

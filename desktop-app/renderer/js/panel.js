@@ -33,11 +33,13 @@
     { id: "browser", label: "Browser", icon: "globe", hint: "Preview pages and sites" },
     { id: "plan", label: "Plan", icon: "list", hint: "The agent's plan and to-do list" },
     { id: "timeline", label: "Timeline", icon: "clock", hint: "Every step of this chat" },
-    { id: "rules", label: "Rules", icon: "book", hint: "FORKWISE.md: what the agent should know" }
+    { id: "rules", label: "Rules", icon: "book", hint: "FORKWISE.md: what the agent should know" },
+    { id: "problems", label: "Problems", icon: "alert", hint: "Errors and warnings in the project's code" }
   ]
   const DEFAULT_TABS = ["changes", "terminal", "computer", "browser", "plan"]
 
   let following = false
+  let problemTimer = null
   let browserUrl = ""
   const browserBack = []
   const browserForward = []
@@ -71,6 +73,12 @@
     body = document.getElementById("panelBody")
     following = !!S.prefs.follow
     FW.store.on("timeline", timelineChanged)
+    FW.store.on("problems", function () {
+      if (S.panelOpen && S.panel === "problems") {
+        clearTimeout(problemTimer)
+        problemTimer = setTimeout(render, 400)
+      }
+    })
     FW.store.on("plan", function () {
       if (S.panelOpen && S.panel === "plan") render()
     })
@@ -267,6 +275,40 @@
     if (S.panel === "plan") renderPlan()
     if (S.panel === "timeline") renderTimeline()
     if (S.panel === "rules") renderRules()
+    if (S.panel === "problems") renderProblems()
+  }
+
+  function renderProblems() {
+    const list = FW.editor && FW.editor.problems ? FW.editor.problems() : []
+    const wrap = h("div")
+    if (!list.length) {
+      wrap.appendChild(h("div", { class: "panel-empty" }, [h("div", { html: icon("check", 18) }), h("div", { text: S.intelFiles ? "No problems found in " + S.intelFiles + " files. JS and TS files are checked as you edit." : "Open a JS or TS file to check the project for errors." })]))
+      body.appendChild(wrap)
+      return
+    }
+    const errors = list.filter(function (item) { return item.severity === "error" }).length
+    wrap.appendChild(h("div", { class: "panel-section-title", text: errors + " errors \u00b7 " + (list.length - errors) + " warnings" }))
+    let last = ""
+    list.slice(0, 500).forEach(function (item) {
+      if (item.path !== last) {
+        last = item.path
+        wrap.appendChild(h("div", { class: "hit-file", style: "padding:0 2px", title: item.path }, [h("span", { class: "file-ico", html: FW.explorer.fileIcon(item.path.split("/").pop()) }), h("span", { text: item.path.split("/").pop() }), h("span", { class: "dim", text: item.path })]))
+      }
+      const row = h("button", { class: "problem-row " + item.severity, type: "button", title: item.message }, [
+        h("span", { class: "problem-ico", html: icon("alert", 11) }),
+        h("span", { class: "problem-text", text: item.message }),
+        h("span", { class: "problem-pos", text: item.line + ":" + item.col })
+      ])
+      row.addEventListener("click", function () {
+        FW.editor.open(item.path, { pin: true, line: item.line, col: item.col })
+      })
+      wrap.appendChild(row)
+    })
+    wrap.appendChild(h("div", { style: "margin-top:10px" }, [h("button", { class: "btn sm", text: "Ask the agent to fix these", onclick: function () {
+      const text = list.slice(0, 40).map(function (item) { return "- @" + item.path + ":" + item.line + " " + item.message }).join("\n")
+      FW.composer.fill("Fix these problems in the project, then check that they are gone:\n" + text)
+    } })]))
+    body.appendChild(wrap)
   }
 
   function addMenu(anchor) {
@@ -662,7 +704,24 @@
 
   /* ----------------------------------------------------------- terminal */
 
+  // A real terminal when this computer supports it, else the simple one.
   function renderTerminal() {
+    const holder = h("div", { class: "terms-holder" })
+    body.appendChild(holder)
+    FW.terminals.mount(holder).then(function (ok) {
+      if (!ok && holder.isConnected) {
+        holder.remove()
+        renderLineTerminal()
+      }
+    }).catch(function () {
+      if (holder.isConnected) {
+        holder.remove()
+        renderLineTerminal()
+      }
+    })
+  }
+
+  function renderLineTerminal() {
     const folder = (S.chat && S.chat.local_path) || (FW.wb && FW.wb.root()) || S.folder || S.prefs.folder || ""
     const shown = termCwd || folder || "Home folder"
     const wrap = h("div", { class: "term" })

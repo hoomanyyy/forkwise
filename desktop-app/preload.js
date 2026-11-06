@@ -191,6 +191,52 @@ contextBridge.exposeInMainWorld("fw", {
       return listen("fw:term:exit", handler)
     }
   },
+  pty: {
+    available: function () {
+      return ipcRenderer.invoke("fw:pty:available")
+    },
+    start: function (id, options) {
+      return ipcRenderer.invoke("fw:pty:start", Object.assign({ id: id }, options))
+    },
+    write: function (id, data) {
+      return ipcRenderer.invoke("fw:pty:write", { id: id, data: data })
+    },
+    resize: function (id, cols, rows) {
+      return ipcRenderer.invoke("fw:pty:resize", { id: id, cols: cols, rows: rows })
+    },
+    kill: function (id) {
+      return ipcRenderer.invoke("fw:pty:kill", { id: id })
+    },
+    onData: function (handler) {
+      return listen("fw:pty:data", handler)
+    },
+    onExit: function (handler) {
+      return listen("fw:pty:exit", handler)
+    }
+  },
+  wt: {
+    create: function (folder, name) {
+      return ipcRenderer.invoke("fw:wt:create", { folder: folder, name: name })
+    },
+    list: function (folder) {
+      return ipcRenderer.invoke("fw:wt:list", { folder: folder })
+    },
+    status: function (target) {
+      return ipcRenderer.invoke("fw:wt:status", { path: target })
+    },
+    diff: function (target) {
+      return ipcRenderer.invoke("fw:wt:diff", { path: target })
+    },
+    merge: function (target, message) {
+      return ipcRenderer.invoke("fw:wt:merge", { path: target, message: message })
+    },
+    remove: function (target, dropBranch) {
+      return ipcRenderer.invoke("fw:wt:remove", { path: target, dropBranch: dropBranch })
+    }
+  },
+  fullDiff: function (folder) {
+    return ipcRenderer.invoke("fw:git:fulldiff", { folder: folder })
+  },
   wb: {
     openFolder: function () {
       return ipcRenderer.invoke("fw:wb:open-folder")
