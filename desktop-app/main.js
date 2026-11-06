@@ -28,6 +28,7 @@ const apiLib = require("./src/api")
 const appsLib = require("./src/apps")
 const termLib = require("./src/terminal")
 const gitLib = require("./src/git")
+const { registerAdvancedFeatures } = require("./src/advanced")
 
 if (process.env.FW_USERDATA) app.setPath("userData", process.env.FW_USERDATA)
 
@@ -297,6 +298,7 @@ function openLogin() {
         loginWin.close()
         const boot = await bootPayload()
         send("fw:auth:ready", boot)
+        registerAdvancedFeatures(win, prefs)
         await ensureDevice().catch(function () {})
       }
     } catch (problem) {}
