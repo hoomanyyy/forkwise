@@ -23,7 +23,8 @@ const utilLib = require("./src/util")
 const configLib = require("./src/config")
 const { Agent } = require("./src/agent")
 const { BuiltinDriver } = require("./src/builtinBrowser")
-const { ChromeDriver } = require("./src/chromeDriver")
+const { ChromeDriver, findChrome } = require("./src/chromeDriver")
+const { ExtensionDriver } = require("./src/extensionDriver")
 const apiLib = require("./src/api")
 const appsLib = require("./src/apps")
 const termLib = require("./src/terminal")
@@ -59,6 +60,13 @@ let askCounter = 0
 
 const builtin = new BuiltinDriver()
 const chrome = new ChromeDriver()
+let chromeState = { connected: false, browser: "" }
+const mine = new ExtensionDriver(function (state) {
+  chromeState = state
+  send("fw:chrome:state", state)
+  if (agent) agent.setExtra({ chrome: state.connected, chrome_name: state.browser || "" })
+  if (state.asking) deviceActivity({ type: "notice", text: "Forkwise is asking in your browser for " + state.asking + ". Answer there." })
+})
 
 if (!app.requestSingleInstanceLock()) {
   app.quit()
@@ -182,6 +190,7 @@ const host = {
     return { base64: image.toPNG().toString("base64"), width: finalSize.width, height: finalSize.height }
   },
   driver: function (name) {
+    if (name === "mine") return mine
     return name === "chrome" ? chrome : builtin
   },
   isTrustedRoot: isTrustedRoot,
@@ -334,6 +343,87 @@ async function pairDevice() {
   config.set("token", data.token)
   config.set("deviceId", data.device ? data.device.id : data.id)
   return data
+}
+
+/* ------------------------------------------------------- your own Chrome */
+
+function extensionSource() {
+  const packed = path.join(process.resourcesPath || "", "chrome-extension")
+  if (app.isPackaged && fs.existsSync(packed)) return packed
+  return path.join(__dirname, "chrome-extension")
+}
+
+function extensionFolder() {
+  return path.join(os.homedir(), ".forkwise", "chrome-extension")
+}
+
+function copyExtension() {
+  try {
+    const source = extensionSource()
+    if (!fs.existsSync(source)) return ""
+    const target = extensionFolder()
+    fs.mkdirSync(target, { recursive: true })
+    fs.cpSync(source, target, { recursive: true, force: true })
+    return target
+  } catch (problem) {
+    return ""
+  }
+}
+
+function openExtensionsPage() {
+  const exe = findChrome()
+  if (!exe) return false
+  try {
+    const { spawn } = require("child_process")
+    const child = spawn(exe, ["chrome://extensions/"], { stdio: "ignore", detached: true })
+    child.on("error", function () {})
+    child.unref()
+    return true
+  } catch (problem) {
+    return false
+  }
+}
+
+/* ------------------------------------------------ folders named in a message */
+
+function expandHome(text) {
+  if (text === "~") return os.homedir()
+  if (text.startsWith("~/") || text.startsWith("~\\")) return path.join(os.homedir(), text.slice(2))
+  return text
+}
+
+function folderFor(text) {
+  let candidate = text.trim().replace(/[.,;:!?)\]}]+$/, "")
+  for (let step = 0; step < 12 && candidate.length > 2; step++) {
+    const full = expandHome(candidate)
+    try {
+      const info = fs.statSync(full)
+      if (info.isDirectory()) return path.resolve(full)
+      if (info.isFile()) return path.dirname(path.resolve(full))
+    } catch (problem) {}
+    const cut = candidate.replace(/\s+\S*$/, "")
+    if (cut === candidate) break
+    candidate = cut.replace(/[.,;:!?)\]}]+$/, "")
+  }
+  return ""
+}
+
+function findFolderIn(text) {
+  const found = []
+  const quoted = text.match(/["'`\u201c\u00ab]([^"'`\u201d\u00bb\n]{3,300})["'`\u201d\u00bb]/g) || []
+  for (let i = 0; i < quoted.length; i++) found.push(quoted[i].slice(1, -1))
+  const windows = text.match(/[A-Za-z]:[\\/][^\n\r"'`<>|?*\u060c]*/g) || []
+  for (let i = 0; i < windows.length; i++) found.push(windows[i])
+  const unix = text.match(/(?:^|[\s(])(~?\/[^\n\r"'`<>|\u060c]+)/g) || []
+  for (let i = 0; i < unix.length; i++) found.push(unix[i].replace(/^[\s(]/, ""))
+  for (let i = 0; i < found.length; i++) {
+    const value = found[i].trim()
+    if (value === "/" || value.length < 3) continue
+    if (!/^([A-Za-z]:[\\/]|~|\/)/.test(value)) continue
+    const folder = folderFor(value)
+    if (folder && folder !== path.parse(folder).root) return folder
+  }
+  return ""
 }
 
 /* ------------------------------------------------------------------ agent */
@@ -549,6 +639,7 @@ function showWindow() {
 
 function emergencyStop() {
   if (agent) agent.panic()
+  mine.release()
   send("fw:device:panic", {})
 }
 
@@ -693,8 +784,38 @@ function wire() {
     return data
   })
 
-  ipcMain.handle("fw:chats:create", function (event, body) {
-    return api.call("/api/chats", { method: "POST", body: body || {} })
+  ipcMain.handle("fw:chats:create", async function (event, body) {
+    const data = Object.assign({}, body || {})
+    if (!data.local_path) return api.call("/api/chats", { method: "POST", body: data })
+    // the person chose this folder in the app, so the agent may work in it
+    addRoot(data.local_path)
+    if (!config.get("deviceId")) await ensureDevice().catch(function () {})
+    data.local_device = config.get("deviceId") || ""
+    data.keep_mode = true
+    try {
+      return await api.call("/api/chats", { method: "POST", body: data })
+    } catch (problem) {
+      if (!/Link this computer/i.test(String(problem.message || ""))) throw problem
+      await pairDevice()
+      if (agent) agent.connect()
+      data.local_device = config.get("deviceId") || ""
+      return api.call("/api/chats", { method: "POST", body: data })
+    }
+  })
+
+  ipcMain.handle("fw:folders:find", function (event, text) {
+    const folder = findFolderIn(String(text || ""))
+    return { folder: folder, trusted: folder ? isTrustedRoot(folder) : false }
+  })
+
+  ipcMain.handle("fw:folders:default", function () {
+    const folder = path.join(os.homedir(), "Forkwise")
+    try {
+      fs.mkdirSync(folder, { recursive: true })
+      return folder
+    } catch (problem) {
+      return ""
+    }
   })
 
   ipcMain.handle("fw:chats:patch", function (event, payload) {
@@ -871,6 +992,18 @@ function wire() {
     const data = await pairDevice()
     if (agent) agent.connect()
     return { ok: true, id: config.get("deviceId") }
+  })
+
+  ipcMain.handle("fw:chrome:state", function () {
+    return Object.assign({ folder: extensionFolder() }, chromeState)
+  })
+
+  ipcMain.handle("fw:chrome:install", function () {
+    const folder = copyExtension() || extensionFolder()
+    clipboard.writeText(folder)
+    const opened = openExtensionsPage()
+    shell.openPath(folder)
+    return { folder: folder, opened: opened }
   })
 
   ipcMain.handle("fw:device:pause", function (event, value) {
@@ -1122,6 +1255,11 @@ function wire() {
   ipcMain.handle("fw:pty:available", function () {
     return ptys.available()
   })
+  ipcMain.handle("fw:pty:shells", function () {
+    return ptyLib.shellChoices().map(function (item) {
+      return { id: item.id, label: item.label }
+    })
+  })
   ipcMain.handle("fw:pty:start", function (event, payload) {
     return ptys.start(String(payload.id), payload)
   })
@@ -1185,8 +1323,44 @@ function buildTray() {
 
 /* ------------------------------------------------------------------- life */
 
-app.on("second-instance", function () {
+// forkwise:// links from the website: open focuses the app, pair links it.
+function openLink(link) {
+  const text = String(link || "")
+  if (text.indexOf("forkwise://") !== 0) return
   showWindow()
+  try {
+    const parsed = new URL(text)
+    if (parsed.hostname === "pair") {
+      const token = parsed.searchParams.get("token") || ""
+      if (token) {
+        config.set("token", token)
+        if (agent) agent.connect()
+      }
+    }
+  } catch (problem) {}
+}
+
+function linkIn(argv) {
+  for (let i = 0; i < (argv || []).length; i++) {
+    if (String(argv[i]).indexOf("forkwise://") === 0) return argv[i]
+  }
+  return ""
+}
+
+try {
+  if (process.defaultApp && process.argv.length >= 2) app.setAsDefaultProtocolClient("forkwise", process.execPath, [path.resolve(process.argv[1])])
+  else app.setAsDefaultProtocolClient("forkwise")
+} catch (problem) {}
+
+app.on("open-url", function (event, link) {
+  event.preventDefault()
+  if (app.isReady()) openLink(link)
+  else app.whenReady().then(function () { setTimeout(function () { openLink(link) }, 1500) })
+})
+
+app.on("second-instance", function (event, argv) {
+  showWindow()
+  openLink(linkIn(argv))
 })
 
 app.on("window-all-closed", function () {
@@ -1221,6 +1395,10 @@ app.whenReady().then(async function () {
     send("fw:theme", { theme: themeNow() })
   })
   buildAgent()
+  const firstLink = linkIn(process.argv)
+  if (firstLink) setTimeout(function () { openLink(firstLink) }, 2500)
+  mine.start()
+  copyExtension()
   wire()
   buildMenu()
   buildTray()

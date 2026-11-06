@@ -1,0 +1,19 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><link rel="stylesheet" href="style.css"><style>body { width: 320px; }</style></head>
+<body>
+<div class="wrap">
+  <div class="head"><img src="icons/icon48.png" alt=""><div><h1>Forkwise</h1><small id="version"></small></div></div>
+  <div class="status"><span class="dot" id="dot"></span><span id="state">Checking...</span></div>
+  <button class="full primary" id="share">Let Forkwise use this tab</button>
+  <div class="row">
+    <button id="pause">Pause</button>
+    <button id="stop" class="danger">Stop now</button>
+  </div>
+  <h2>Always allowed sites</h2>
+  <div id="sites"><div class="muted small">None yet. Forkwise asks before it works on a new site.</div></div>
+  <div class="note">Forkwise only works in tabs of the purple <b>Forkwise</b> tab group. Chrome shows a bar while it controls a tab; press Cancel on that bar to stop it at once.</div>
+</div>
+<script src="popup.js"></script>
+</body>
+</html>

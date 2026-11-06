@@ -34,7 +34,7 @@ const KEYS = {
 }
 
 function create(getDriver) {
-  const current = { builtin: "", chrome: "" }
+  const current = { builtin: "", chrome: "", mine: "" }
 
   async function evaluate(driver, tab, expression, timeout) {
     const result = await driver.send(tab.id, "Runtime.evaluate", { expression: expression, returnByValue: true, awaitPromise: true }, timeout || 25000)
@@ -145,7 +145,7 @@ function create(getDriver) {
   }
 
   async function runOp(message) {
-    const driver = getDriver(message.browser === "chrome" ? "chrome" : "builtin")
+    const driver = getDriver(message.browser === "chrome" || message.browser === "mine" ? message.browser : "builtin")
     const op = String(message.op || "tabs").trim()
     if (op === "start") {
       const started = await driver.ensure(message.url || "about:blank")

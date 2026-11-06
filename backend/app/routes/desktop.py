@@ -20,6 +20,8 @@ class Link:
         self.device = device
         self.pending = {}
         self.lock = asyncio.Lock()
+        self.status = {}
+        self.streams = {}
 
 
 class PairBody(BaseModel):
@@ -40,13 +42,22 @@ def public_device(row):
         "user": info.get("user", ""),
         "version": info.get("version", ""),
         "online": row["id"] in ONLINE,
+        "chrome": bool(ONLINE[row["id"]].status.get("chrome")) if row["id"] in ONLINE else False,
+        "chrome_name": str(ONLINE[row["id"]].status.get("chrome_name") or "") if row["id"] in ONLINE else "",
         "last_seen": row.get("last_seen") or 0,
         "created_at": row["created_at"],
     }
 
 
 def online_devices(user_id):
-    return [link.device for link in ONLINE.values() if link.device["user_id"] == user_id]
+    result = []
+    for link in ONLINE.values():
+        if link.device["user_id"] == user_id:
+            item = dict(link.device)
+            item["chrome"] = bool(link.status.get("chrome"))
+            item["chrome_name"] = link.status.get("chrome_name") or ""
+            result.append(item)
+    return result
 
 
 def list_devices(request: Request):
@@ -114,7 +125,7 @@ def pick(user_id, wanted, exact=False):
     return links[0]
 
 
-async def call(user_id, args):
+async def call(user_id, args, on_output=None):
     exact = bool(args.get("exact"))
     link = pick(user_id, args.get("device"), exact)
     if link is None and exact:
@@ -125,6 +136,8 @@ async def call(user_id, args):
     message["id"] = next(COUNTER)
     future = asyncio.get_running_loop().create_future()
     link.pending[message["id"]] = future
+    if on_output is not None:
+        link.streams[message["id"]] = on_output
     timeout = 60
     if args.get("action") in ["wallpaper", "download"]:
         timeout = 120
@@ -146,6 +159,7 @@ async def call(user_id, args):
         return {"ok": False, "text": "The computer disconnected: " + str(problem)[:200], "device": link.device["name"]}
     finally:
         link.pending.pop(message["id"], None)
+        link.streams.pop(message["id"], None)
     answer["device"] = link.device["name"]
     return answer
 
@@ -187,6 +201,17 @@ async def desktop_socket(websocket: WebSocket):
                 db.update("devices", "id", device["id"], {"platform": str(message.get("platform", ""))[:60], "info": db.dump_json(info), "last_seen": db.now()})
                 device["platform"] = str(message.get("platform", ""))[:60]
                 await websocket.send_text(json.dumps({"type": "welcome", "name": device["name"]}))
+                continue
+            if message.get("type") == "output":
+                handler = link.streams.get(message.get("id"))
+                if handler is not None:
+                    try:
+                        await handler(str(message.get("text") or "")[:20000])
+                    except Exception:
+                        pass
+                continue
+            if message.get("type") == "status":
+                link.status = {"chrome": bool(message.get("chrome")), "chrome_name": str(message.get("chrome_name") or "")[:60]}
                 continue
             future = link.pending.get(message.get("id"))
             if future is not None and not future.done():

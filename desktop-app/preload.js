@@ -124,6 +124,25 @@ contextBridge.exposeInMainWorld("fw", {
   openPath: function (target) {
     return ipcRenderer.invoke("fw:open:path", target)
   },
+  folders: {
+    find: function (text) {
+      return ipcRenderer.invoke("fw:folders:find", text)
+    },
+    fallback: function () {
+      return ipcRenderer.invoke("fw:folders:default")
+    }
+  },
+  chrome: {
+    state: function () {
+      return ipcRenderer.invoke("fw:chrome:state")
+    },
+    install: function () {
+      return ipcRenderer.invoke("fw:chrome:install")
+    },
+    onState: function (handler) {
+      return listen("fw:chrome:state", handler)
+    }
+  },
   device: {
     state: function () {
       return ipcRenderer.invoke("fw:device:state")
@@ -194,6 +213,9 @@ contextBridge.exposeInMainWorld("fw", {
   pty: {
     available: function () {
       return ipcRenderer.invoke("fw:pty:available")
+    },
+    shells: function () {
+      return ipcRenderer.invoke("fw:pty:shells")
     },
     start: function (id, options) {
       return ipcRenderer.invoke("fw:pty:start", Object.assign({ id: id }, options))

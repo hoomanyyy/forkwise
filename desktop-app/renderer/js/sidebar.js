@@ -131,33 +131,87 @@
     } catch (problem) {}
   }
 
+  function ago(chat) {
+    const stamp = U.stampMs(chat.updated_at || chat.created_at)
+    if (!stamp) return ""
+    const seconds = Math.max(0, (Date.now() - stamp) / 1000)
+    if (seconds < 60) return "now"
+    if (seconds < 3600) return Math.floor(seconds / 60) + "m"
+    if (seconds < 86400) return Math.floor(seconds / 3600) + "h"
+    if (seconds < 7 * 86400) return Math.floor(seconds / 86400) + "d"
+    const date = new Date(stamp)
+    return date.toLocaleDateString(undefined, { month: "short", day: "numeric" })
+  }
+
+  function where(chat) {
+    if (chat.local_path) return chat.local_path.split(/[\\/]/).filter(Boolean).pop() || chat.local_path
+    return "Cloud"
+  }
+
+  function drawFilter() {
+    let bar = document.getElementById("chatFilter")
+    if (!bar) {
+      bar = h("div", { class: "chat-filter", id: "chatFilter", role: "tablist" })
+      listEl.parentNode.insertBefore(bar, listEl)
+    }
+    bar.innerHTML = ""
+    const current = S.prefs.chatFilter || "all"
+    ;[
+      { value: "all", label: "All" },
+      { value: "local", label: "This computer" },
+      { value: "cloud", label: "Cloud" }
+    ].forEach(function (item) {
+      bar.appendChild(h("button", { class: "cf-btn" + (current === item.value ? " on" : ""), type: "button", role: "tab", text: item.label, onclick: function () {
+        S.prefs.chatFilter = item.value
+        FW.store.savePrefs({ chatFilter: item.value })
+        render()
+      } }))
+    })
+  }
+
   function render() {
     if (!listEl) return
+    drawFilter()
+    const filter = S.prefs.chatFilter || "all"
     const chats = (S.chats || []).filter(function (chat) {
+      if (filter === "local" && !chat.local_path) return false
+      if (filter === "cloud" && chat.local_path) return false
       if (!S.search) return true
       if (String(chat.title || "").toLowerCase().indexOf(S.search) >= 0) return true
       return !!serverHits && serverHits.indexOf(chat.id) >= 0
     })
     listEl.innerHTML = ""
     if (!chats.length) {
-      listEl.appendChild(h("div", { class: "side-empty", text: S.search ? (serverHits || S.search.length < 2 ? "No chats match that." : "Searching\u2026") : "No chats yet. Start one above." }))
+      listEl.appendChild(h("div", { class: "side-empty", text: S.search ? (serverHits || S.search.length < 2 ? "No chats match that." : "Searching\u2026") : filter !== "all" ? "No chats here yet." : "No chats yet. Start one above." }))
       return
     }
     group(chats).forEach(function (bucket) {
       listEl.appendChild(h("div", { class: "side-label", text: bucket.name }))
       bucket.items.forEach(function (chat) {
         const active = S.chat && S.chat.id === chat.id
+        let state = null
+        if (chat.waiting) state = h("span", { class: "chat-state waiting", title: "Needs you" })
+        else if (chat.running) state = h("span", { class: "chat-state running", title: "Working" })
+        const meta = [h("span", { class: "chat-where", html: icon(chat.local_path ? "monitor" : "cloud", 10) }), h("span", { text: where(chat) })]
+        if (chat.running && chat.todos_total) meta.push(h("span", { class: "chat-dotsep", text: "\u00b7" }), h("span", { text: chat.todos_done + "/" + chat.todos_total }))
+        else if (chat.waiting) meta.push(h("span", { class: "chat-dotsep", text: "\u00b7" }), h("span", { class: "chat-needs", text: "needs you" }))
         const row = h("div", {
-          class: "chat-row" + (active ? " active" : ""),
+          class: "chat-row two" + (active ? " active" : "") + (chat.running ? " is-running" : ""),
           dataset: { id: chat.id },
-          title: chat.title || "New chat",
+          title: (chat.title || "New chat") + (chat.local_path ? "\n" + chat.local_path : "\nCloud sandbox"),
           tabindex: "0",
           role: "button",
           "aria-current": active ? "true" : null
         }, [
-          chat.pinned ? h("span", { html: icon("pin", 11) }) : null,
-          h("span", { class: "chat-title", text: chat.title || "New chat" }),
-          chat.running ? h("span", { class: "chat-flag", title: "Running" }) : null,
+          h("div", { class: "chat-lines" }, [
+            h("div", { class: "chat-line1" }, [
+              state,
+              chat.pinned ? h("span", { class: "chat-pin", html: icon("pin", 10) }) : null,
+              h("span", { class: "chat-title", text: chat.title || "New chat" }),
+              h("span", { class: "chat-ago", text: ago(chat) })
+            ]),
+            h("div", { class: "chat-line2" }, meta)
+          ]),
           h("button", { class: "chat-more", dataset: { more: chat.id }, html: icon("more", 13), title: "Chat actions" })
         ])
         listEl.appendChild(row)
@@ -177,6 +231,8 @@
     if (chat.local_path) items.push({ value: "folder", label: "Open the folder", icon: "folder" })
     items.push({ value: "space", label: "Move to a space", icon: "layout" })
     items.push({ value: "review", label: "Review its changes", icon: "eye" })
+    items.push({ value: "copyid", label: "Copy the chat link", icon: "copy" })
+    items.push({ separator: true })
     items.push({ value: "delete", label: "Delete", icon: "trash", danger: true })
     U.menu(anchor.querySelector(".chat-more") || anchor, items, function (value) {
       if (value === "rename") rename(chat)
@@ -185,6 +241,10 @@
       if (value === "space") FW.spaces.moveChat(chat)
       if (value === "review") FW.agents.review(chat)
       if (value === "delete") remove(chat)
+      if (value === "copyid") {
+        U.copy("https://forkwiseai.com/app/c/" + chat.id)
+        U.toast("Link copied")
+      }
     }, { alignRight: true, className: "chat-menu" })
   }
 

@@ -152,10 +152,43 @@ def small_model():
     return find_model("")
 
 
+VENDORS = [
+    ["anthropic", "Claude", ["claude", "anthropic/"]],
+    ["openai", "OpenAI", ["gpt", "openai/", "chatgpt", "codex", "davinci"]],
+    ["google", "Gemini", ["gemini", "gemma", "google/", "palm"]],
+    ["deepseek", "DeepSeek", ["deepseek"]],
+    ["xai", "Grok", ["grok", "x-ai/", "xai/"]],
+    ["qwen", "Qwen", ["qwen", "qwq", "alibaba/"]],
+    ["meta", "Llama", ["llama", "meta-llama/", "meta/"]],
+    ["mistral", "Mistral", ["mistral", "mixtral", "codestral", "devstral", "magistral", "ministral", "pixtral"]],
+    ["moonshot", "Kimi", ["kimi", "moonshot"]],
+    ["zhipu", "GLM", ["glm", "z-ai/", "zhipu", "thudm/"]],
+    ["minimax", "MiniMax", ["minimax"]],
+    ["nvidia", "NVIDIA", ["nemotron", "nvidia/"]],
+    ["microsoft", "Phi", ["phi-", "microsoft/"]],
+    ["cohere", "Cohere", ["command-r", "command-a", "cohere/"]],
+    ["amazon", "Amazon Nova", ["nova-", "amazon/"]],
+]
+
+
+def vendor_of(model_id):
+    name = str(model_id).lower()
+    base = name.split("/")[-1]
+    for start in ["o1", "o3", "o4"]:
+        if base == start or base.startswith(start + "-"):
+            return "openai", "OpenAI"
+    for item in VENDORS:
+        for word in item[2]:
+            if word in name:
+                return item[0], item[1]
+    return "other", "Other models"
+
+
 def public_models():
     result = []
     for model in MODELS:
-        result.append({"key": model["key"], "label": model["label"], "vision": model["vision"], "context": model["context"]})
+        vendor, vendor_label = vendor_of(model["id"])
+        result.append({"key": model["key"], "label": model["label"], "vision": model["vision"], "context": model["context"], "vendor": vendor, "vendor_label": vendor_label})
     return result
 
 

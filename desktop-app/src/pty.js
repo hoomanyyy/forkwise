@@ -21,6 +21,37 @@ function defaultShell() {
   return process.env.SHELL || (fs.existsSync("/bin/zsh") && process.platform === "darwin" ? "/bin/zsh" : "/bin/bash")
 }
 
+function firstFound(list) {
+  for (let i = 0; i < list.length; i++) {
+    try {
+      if (list[i] && fs.existsSync(list[i])) return list[i]
+    } catch (problem) {}
+  }
+  return ""
+}
+
+function shellChoices() {
+  const list = []
+  if (process.platform === "win32") {
+    const root = process.env.SystemRoot || "C:\\Windows"
+    const files = process.env.ProgramFiles || "C:\\Program Files"
+    list.push({ id: "powershell", label: "Windows PowerShell", path: path.join(root, "System32", "WindowsPowerShell", "v1.0", "powershell.exe"), args: [] })
+    list.push({ id: "pwsh", label: "PowerShell 7", path: firstFound([path.join(files, "PowerShell", "7", "pwsh.exe"), path.join(files, "PowerShell", "7-preview", "pwsh.exe")]), args: [] })
+    list.push({ id: "cmd", label: "Command Prompt", path: process.env.ComSpec || path.join(root, "System32", "cmd.exe"), args: [] })
+    list.push({ id: "gitbash", label: "Git Bash", path: firstFound([path.join(files, "Git", "bin", "bash.exe"), path.join(process.env["ProgramFiles(x86)"] || "", "Git", "bin", "bash.exe")]), args: ["--login", "-i"] })
+    list.push({ id: "wsl", label: "WSL", path: path.join(root, "System32", "wsl.exe"), args: [] })
+  } else {
+    list.push({ id: "zsh", label: "zsh", path: firstFound(["/bin/zsh", "/usr/bin/zsh", "/opt/homebrew/bin/zsh"]), args: ["-l"] })
+    list.push({ id: "bash", label: "bash", path: firstFound(["/bin/bash", "/usr/bin/bash", "/opt/homebrew/bin/bash"]), args: ["-l"] })
+    list.push({ id: "fish", label: "fish", path: firstFound(["/usr/bin/fish", "/opt/homebrew/bin/fish", "/usr/local/bin/fish"]), args: ["-l"] })
+  }
+  const found = []
+  for (let i = 0; i < list.length; i++) {
+    if (list[i].path && fs.existsSync(list[i].path)) found.push(list[i])
+  }
+  return found
+}
+
 function realFolder(folder) {
   let value = String(folder || "").trim()
   if (value === "~") value = os.homedir()
@@ -42,8 +73,15 @@ function create(options) {
   function start(id, settings) {
     if (!ptyLib) throw new Error("Real terminals are not available on this computer: " + loadError)
     kill(id)
-    const shell = settings.shell || defaultShell()
-    const args = settings.args || (process.platform === "win32" ? [] : ["-l"])
+    let shell = defaultShell()
+    let args = process.platform === "win32" ? [] : ["-l"]
+    const choices = shellChoices()
+    for (let i = 0; i < choices.length; i++) {
+      if (choices[i].id === settings.shell) {
+        shell = choices[i].path
+        args = choices[i].args
+      }
+    }
     const cwd = realFolder(settings.cwd)
     const env = Object.assign({}, process.env, { TERM: "xterm-256color", COLORTERM: "truecolor", TERM_PROGRAM: "Forkwise" })
     const term = ptyLib.spawn(shell, args, {
@@ -97,4 +135,4 @@ function create(options) {
   return { available: available, start: start, write: write, resize: resize, kill: kill, killAll: killAll }
 }
 
-module.exports = { create: create }
+module.exports = { create: create, shellChoices: shellChoices }

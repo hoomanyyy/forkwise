@@ -31,7 +31,7 @@ function describe(message) {
   if (a === "focus") return "switch to the window: " + message.target
   if (a === "kill") return "stop the process " + message.target
   if (a === "notify") return "show a notification"
-  if (a === "chrome") return (message.browser === "chrome" ? "Chrome " : "browser ") + message.op + (message.url ? ": " + message.url : "")
+  if (a === "chrome") return (message.browser === "mine" ? "your Chrome " : message.browser === "chrome" ? "Chrome " : "browser ") + message.op + (message.url ? ": " + message.url : "")
   if (a === "ui_elements") return "read the buttons and fields of the window in front"
   if (a === "click" || a === "move" || a === "drag" || a === "scroll") return a + " at " + message.x + "," + message.y
   return String(a)

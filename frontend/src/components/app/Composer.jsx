@@ -1,7 +1,132 @@
 import { useEffect, useRef, useState } from "react"
 import { Link } from "react-router-dom"
-import { ArrowUp, ChevronDown, ChevronRight, Hand, Loader2, Paperclip, Plus, Square, X, Zap, Map as MapIcon, FileText, Check, Sparkles, Github, Mail, Monitor, Brain } from "lucide-react"
+import { ArrowUp, ChevronDown, ChevronRight, Hand, Loader2, Paperclip, Plus, Square, X, Zap, Map as MapIcon, FileText, Check, Sparkles, Github, Mail, Monitor, Brain, Search, ChevronLeft } from "lucide-react"
 import { api, upload, rawUrl } from "../../lib/api"
+import { groupModels, readRecent, rememberModel, vendorInfo, vendorOf } from "../../lib/vendors"
+
+let skillCache = null
+
+export function loadSkills(force) {
+  if (skillCache && !force) return Promise.resolve(skillCache)
+  return api.get("/api/skills").then((data) => {
+    const list = []
+    for (const item of data.skills || []) {
+      if (item.enabled) list.push({ name: item.name, title: item.name, description: item.description || "", category: "Your skills" })
+    }
+    for (const item of data.builtin || []) list.push(item)
+    skillCache = list
+    return list
+  }).catch(() => [])
+}
+
+function VendorBadge({ vendor }) {
+  const info = vendorInfo(vendor)
+  return <span className="vendor-badge" style={{ "--vendor": info.color }}>{info.label.charAt(0)}</span>
+}
+
+function modelMeta(item) {
+  const parts = []
+  if (item.context) parts.push(item.context >= 1000000 ? Math.round(item.context / 100000) / 10 + "M context" : Math.round(item.context / 1000) + "k context")
+  if (item.vision) parts.push("sees images")
+  return parts.join(" · ")
+}
+
+function ModelMenu({ models, current, onPick, effort, chooseEffort }) {
+  const [query, setQuery] = useState("")
+  const [vendor, setVendor] = useState("all")
+  const groups = groupModels(models)
+  const needle = query.trim().toLowerCase()
+  const recent = readRecent().map((key) => models.find((item) => item.key === key)).filter(Boolean)
+  function matches(item) {
+    if (vendor !== "all" && vendorOf(item) !== vendor) return false
+    if (!needle) return true
+    return (item.label + " " + item.key + " " + vendorInfo(vendorOf(item)).label).toLowerCase().includes(needle)
+  }
+  function row(item, keyPrefix) {
+    const on = current && item.key === current.key
+    return (
+      <button key={keyPrefix + item.key} type="button" className={"pop-item model-item" + (on ? " active" : "")} onClick={() => onPick(item.key)}>
+        <VendorBadge vendor={vendorOf(item)} />
+        <span><strong>{item.label}</strong><small>{modelMeta(item)}</small></span>
+        {on && <Check size={14} />}
+      </button>
+    )
+  }
+  const shown = groups.map((group) => ({ vendor: group.vendor, items: group.items.filter(matches) })).filter((group) => group.items.length > 0)
+  return (
+    <>
+      {models.length > 4 && (
+        <label className="pop-search"><Search size={13} /><input autoFocus placeholder="Search models" value={query} onChange={(e) => setQuery(e.target.value)} /></label>
+      )}
+      {groups.length > 1 && (
+        <div className="vendor-tabs">
+          <button type="button" className={vendor === "all" ? "on" : ""} onClick={() => setVendor("all")}>All</button>
+          {groups.map((group) => (
+            <button key={group.vendor.key} type="button" className={vendor === group.vendor.key ? "on" : ""} onClick={() => setVendor(group.vendor.key)}>
+              <VendorBadge vendor={group.vendor.key} />{group.vendor.label}
+            </button>
+          ))}
+        </div>
+      )}
+      <div className="model-scroll">
+        {!needle && vendor === "all" && recent.length > 0 && models.length > 4 && (
+          <>
+            <div className="pop-label">Recent</div>
+            {recent.map((item) => row(item, "r-"))}
+          </>
+        )}
+        {shown.map((group) => (
+          <div key={group.vendor.key}>
+            {groups.length > 1 && <div className="pop-label">{group.vendor.label}</div>}
+            {group.items.map((item) => row(item, ""))}
+          </div>
+        ))}
+        {shown.length === 0 && <div className="pop-empty">No model matches.</div>}
+      </div>
+      <div className="pop-sep" />
+      <div className="pop-label"><Brain size={12} /> Thinking level</div>
+      <div className="effort-row">
+        {EFFORTS.map((item) => (
+          <button key={item.key || "auto"} type="button" className={"effort-opt" + (effort === item.key ? " on" : "")} title={item.hint} onClick={() => chooseEffort(item.key)}>{item.label}</button>
+        ))}
+      </div>
+      <div className="pop-note">{(EFFORTS.find((item) => item.key === effort) || EFFORTS[0]).hint}. Not every model supports it.</div>
+    </>
+  )
+}
+
+function SkillMenu({ skills, picked, onToggle, onBack }) {
+  const [query, setQuery] = useState("")
+  const needle = query.trim().toLowerCase()
+  const list = skills.filter((item) => !needle || (item.name + " " + (item.title || "") + " " + item.description + " " + item.category).toLowerCase().includes(needle))
+  let category = ""
+  return (
+    <>
+      <div className="pop-head">
+        <button type="button" className="icon-btn" onClick={onBack} aria-label="Back"><ChevronLeft size={15} /></button>
+        <strong>Add a skill</strong>
+      </div>
+      <label className="pop-search"><Search size={13} /><input autoFocus placeholder="Search skills" value={query} onChange={(e) => setQuery(e.target.value)} /></label>
+      <div className="skill-scroll">
+        {list.length === 0 && <div className="pop-empty">{skills.length === 0 ? "Loading skills…" : "No skill matches."}</div>}
+        {list.map((item) => {
+          const head = item.category !== category ? item.category : ""
+          category = item.category
+          const on = picked.includes(item.name)
+          return (
+            <div key={item.name}>
+              {head && <div className="pop-label">{head}</div>}
+              <button type="button" className={"pop-item" + (on ? " active" : "")} onClick={() => onToggle(item.name)}>
+                <Sparkles size={15} /><span><strong>{item.title || item.name}</strong><small>{item.description}</small></span>
+                {on && <Check size={14} />}
+              </button>
+            </div>
+          )
+        })}
+      </div>
+    </>
+  )
+}
 
 export const MODES = [
   { key: "auto", label: "Auto", icon: Zap, hint: "Works on its own from start to finish" },
@@ -71,6 +196,7 @@ export default function Composer({ onSend, onStop, running, mode, onMode, model,
   const [modelOpen, setModelOpen] = useState(false)
   const [wid, setWid] = useState(null)
   const [plusOpen, setPlusOpen] = useState(false)
+  const [plusView, setPlusView] = useState("main")
   const [skillList, setSkillList] = useState([])
   const [picked, setPicked] = useState([])
   const [effort, setEffort] = useState(() => {
@@ -96,8 +222,12 @@ export default function Composer({ onSend, onStop, running, mode, onMode, model,
   }, [text])
 
   useEffect(() => {
-    if (!plusOpen) return
-    api.get("/api/skills").then((data) => setSkillList(Array.isArray(data) ? data : data.skills || [])).catch(() => setSkillList([]))
+    loadSkills().then(setSkillList)
+  }, [])
+
+  useEffect(() => {
+    if (plusOpen) loadSkills(true).then(setSkillList)
+    else setPlusView("main")
   }, [plusOpen])
 
   function chooseEffort(value) {
@@ -109,7 +239,25 @@ export default function Composer({ onSend, onStop, running, mode, onMode, model,
     setPicked((old) => (old.includes(name) ? old.filter((item) => item !== name) : [...old, name].slice(0, 5)))
   }
 
-  const commands = text.startsWith("/") && !text.includes(" ") ? COMMANDS.filter((item) => item.cmd.startsWith(text.toLowerCase())) : []
+  const slashing = text.startsWith("/") && !text.includes(" ")
+  const commands = slashing ? COMMANDS.filter((item) => item.cmd.startsWith(text.toLowerCase())) : []
+  const slashSkills = slashing ? skillList.filter((item) => ("/" + item.name).startsWith(text.toLowerCase()) || (text.length > 2 && (item.title || "").toLowerCase().includes(text.slice(1).toLowerCase()))).slice(0, 8) : []
+  const slashItems = [...commands.map((item) => ({ kind: "cmd", key: item.cmd, item: item })), ...slashSkills.map((item) => ({ kind: "skill", key: "s-" + item.name, item: item }))]
+
+  function pickSlash(entry) {
+    if (entry.kind === "cmd") {
+      runCommand(entry.item.cmd)
+      return
+    }
+    setText("")
+    if (!picked.includes(entry.item.name)) togglePicked(entry.item.name)
+    setTimeout(() => area.current && area.current.focus(), 10)
+  }
+
+  function skillTitle(name) {
+    const found = skillList.find((item) => item.name === name)
+    return found ? found.title || found.name : name
+  }
 
   async function addFiles(list) {
     if (!list || list.length === 0) return
@@ -133,8 +281,8 @@ export default function Composer({ onSend, onStop, running, mode, onMode, model,
 
   function submit() {
     const value = text.trim()
-    if (commands.length > 0 && value.startsWith("/")) {
-      runCommand(commands[Math.min(commandIndex, commands.length - 1)].cmd)
+    if (slashItems.length > 0 && value.startsWith("/")) {
+      pickSlash(slashItems[Math.min(commandIndex, slashItems.length - 1)])
       return
     }
     if (!value && files.length === 0) return
@@ -146,10 +294,10 @@ export default function Composer({ onSend, onStop, running, mode, onMode, model,
   }
 
   function onKey(event) {
-    if (commands.length > 0) {
-      if (event.key === "ArrowDown") { event.preventDefault(); setCommandIndex((commandIndex + 1) % commands.length); return }
-      if (event.key === "ArrowUp") { event.preventDefault(); setCommandIndex((commandIndex - 1 + commands.length) % commands.length); return }
-      if (event.key === "Tab") { event.preventDefault(); setText(commands[commandIndex % commands.length].cmd); return }
+    if (slashItems.length > 0) {
+      if (event.key === "ArrowDown") { event.preventDefault(); setCommandIndex((commandIndex + 1) % slashItems.length); return }
+      if (event.key === "ArrowUp") { event.preventDefault(); setCommandIndex((commandIndex - 1 + slashItems.length) % slashItems.length); return }
+      if (event.key === "Tab") { event.preventDefault(); pickSlash(slashItems[commandIndex % slashItems.length]); return }
     }
     if (event.key === "Tab" && event.shiftKey) {
       event.preventDefault()
@@ -189,12 +337,29 @@ export default function Composer({ onSend, onStop, running, mode, onMode, model,
 
   return (
     <div className={"composer" + (big ? " big" : "") + (mode === "plan" ? " plan" : "")} onDragOver={(e) => e.preventDefault()} onDrop={onDrop}>
-      {commands.length > 0 && (
+      {slashItems.length > 0 && (
         <div className="command-menu">
-          {commands.map((item, index) => (
-            <button key={item.cmd} type="button" className={index === commandIndex % commands.length ? "active" : ""} onMouseDown={(e) => { e.preventDefault(); runCommand(item.cmd) }}>
-              <span className="mono">{item.cmd}</span><span className="faint">{item.desc}</span>
-            </button>
+          {slashItems.map((entry, index) => {
+            const head = index === 0 || slashItems[index - 1].kind !== entry.kind ? (entry.kind === "cmd" ? "Commands" : "Skills") : ""
+            return (
+              <div key={entry.key}>
+                {head && <div className="command-head">{head}</div>}
+                <button type="button" className={index === commandIndex % slashItems.length ? "active" : ""} onMouseDown={(e) => { e.preventDefault(); pickSlash(entry) }}>
+                  {entry.kind === "cmd" ? <span className="mono">{entry.item.cmd}</span> : <span className="command-skill"><Sparkles size={13} />{entry.item.title || entry.item.name}</span>}
+                  <span className="faint">{entry.kind === "cmd" ? entry.item.desc : entry.item.description}</span>
+                </button>
+              </div>
+            )
+          })}
+        </div>
+      )}
+      {picked.length > 0 && (
+        <div className="composer-skills">
+          {picked.map((name) => (
+            <span key={name} className="composer-skill" title="The agent loads this skill first">
+              <Sparkles size={12} /><span>{skillTitle(name)}</span>
+              <button type="button" aria-label="Remove skill" onClick={() => togglePicked(name)}><X size={11} /></button>
+            </span>
           ))}
         </div>
       )}
@@ -226,19 +391,16 @@ export default function Composer({ onSend, onStop, running, mode, onMode, model,
           <button type="button" className={"icon-btn plus-btn" + (plusOpen ? " on" : "")} title="Add files, skills and connectors" onClick={() => setPlusOpen(!plusOpen)}>
             {uploading ? <Loader2 size={17} className="spin" /> : <Plus size={18} />}
           </button>
-          <Popover open={plusOpen} onClose={() => setPlusOpen(false)} className="up plus-menu">
+          <Popover open={plusOpen} onClose={() => setPlusOpen(false)} className={"up plus-menu" + (plusView === "skills" ? " skills-view" : "")}>
+            {plusView === "skills" ? (
+              <SkillMenu skills={skillList} picked={picked} onToggle={togglePicked} onBack={() => setPlusView("main")} />
+            ) : (<>
             <button type="button" className="pop-item" onClick={() => { setPlusOpen(false); picker.current.click() }}>
               <Paperclip size={16} /><span><strong>Add files or photos</strong></span>
             </button>
-            <div className="pop-sep" />
-            <div className="pop-label">Skills</div>
-            {skillList.length === 0 && <div className="pop-empty">No skills yet. Ask Forkwise to save one, or write your own.</div>}
-            {skillList.slice(0, 8).map((item) => (
-              <button key={item.id} type="button" className={"pop-item" + (picked.includes(item.name) ? " active" : "")} onClick={() => togglePicked(item.name)}>
-                <Sparkles size={16} /><span><strong>{item.name}</strong><small>{item.description}</small></span>
-                {picked.includes(item.name) && <Check size={14} />}
-              </button>
-            ))}
+            <button type="button" className="pop-item" onClick={() => setPlusView("skills")}>
+              <Sparkles size={16} /><span><strong>Add a skill</strong><small>{skillList.length ? skillList.length + " expert playbooks, or type /" : "Expert playbooks for the task"}</small></span><ChevronRight size={14} />
+            </button>
             <Link to="/app/settings/abilities" className="pop-item" onClick={() => setPlusOpen(false)}>
               <Plus size={16} /><span><strong>Manage skills</strong></span><ChevronRight size={14} />
             </Link>
@@ -258,6 +420,7 @@ export default function Composer({ onSend, onStop, running, mode, onMode, model,
                 </button>
               )
             })}
+            </>)}
           </Popover>
         </div>
         <input ref={picker} type="file" multiple hidden onChange={(e) => { addFiles(Array.from(e.target.files)); e.target.value = "" }} />
@@ -266,34 +429,15 @@ export default function Composer({ onSend, onStop, running, mode, onMode, model,
             <ModeIcon size={14} />{current.label}<X size={12} />
           </button>
         )}
-        {picked.map((name) => (
-          <button key={name} type="button" className="mode-pill skill-pill" onClick={() => togglePicked(name)} title="Remove skill">
-            <Sparkles size={13} />{name}<X size={12} />
-          </button>
-        ))}
         <span className="composer-spacer" />
         <ContextRing context={context} />
         {models.length > 0 && (
           <div className="pop-anchor">
             <button type="button" className="model-pill" onClick={() => setModelOpen(!modelOpen)}>
-              {currentModel ? currentModel.label : "Model"}{effort ? <span className="model-effort">{effort.charAt(0).toUpperCase() + effort.slice(1)}</span> : null}<ChevronDown size={13} />
+              {currentModel && <VendorBadge vendor={vendorOf(currentModel)} />}{currentModel ? currentModel.label : "Model"}{effort ? <span className="model-effort">{effort.charAt(0).toUpperCase() + effort.slice(1)}</span> : null}<ChevronDown size={13} />
             </button>
             <Popover open={modelOpen} onClose={() => setModelOpen(false)} className="up right model-menu">
-              <div className="pop-label">Model</div>
-              {models.map((item) => (
-                <button key={item.key} type="button" className={"pop-item" + (item.key === (currentModel && currentModel.key) ? " active" : "")} onClick={() => { onModel(item.key); setModelOpen(false) }}>
-                  <span><strong>{item.label}</strong><small>{Math.round(item.context / 1000)}k context{item.vision ? ", sees images" : ""}</small></span>
-                  {currentModel && item.key === currentModel.key && <Check size={14} />}
-                </button>
-              ))}
-              <div className="pop-sep" />
-              <div className="pop-label"><Brain size={12} /> Thinking level</div>
-              <div className="effort-row">
-                {EFFORTS.map((item) => (
-                  <button key={item.key || "auto"} type="button" className={"effort-opt" + (effort === item.key ? " on" : "")} title={item.hint} onClick={() => chooseEffort(item.key)}>{item.label}</button>
-                ))}
-              </div>
-              <div className="pop-note">{(EFFORTS.find((item) => item.key === effort) || EFFORTS[0]).hint}. Not every model supports it.</div>
+              <ModelMenu models={models} current={currentModel} effort={effort} chooseEffort={chooseEffort} onPick={(key) => { rememberModel(key); onModel(key); setModelOpen(false) }} />
             </Popover>
           </div>
         )}

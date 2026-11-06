@@ -32,10 +32,9 @@ function CodeBlock({ children }) {
   return (
     <div className="code-block" dir="ltr">
       <div className="code-head">
-        <span>{language}</span>
-        <button type="button" onClick={copy} aria-label="Copy code">
+        <span className="code-lang">{language}</span>
+        <button type="button" className={"code-copy" + (copied ? " done" : "")} onClick={copy} aria-label="Copy code" title={copied ? "Copied" : "Copy"}>
           {copied ? <Check size={14} /> : <Copy size={14} />}
-          {copied ? "Copied" : "Copy"}
         </button>
       </div>
       <pre>{children}</pre>

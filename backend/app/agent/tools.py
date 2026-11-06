@@ -7,6 +7,7 @@ import re
 import time
 from pathlib import Path
 import httpx
+from app.agent import library
 from app import db, config
 from app.agent import sandbox, web, specs, mcp, integrations
 
@@ -749,6 +750,10 @@ async def use_skill(run, args):
         path = sandbox.host_root(run.wid) / ".forkwise" / "skills" / (name + ".md")
         if path.exists():
             return result(path.read_text(encoding="utf-8", errors="replace"))
+        found = library.find(name)
+        if found:
+            run.emit("capability", {"kind": "skill_used", "name": name})
+            return result(found["body"], meta={"skill": name})
         return result("No skill named " + name + ".", ok=False)
     return result(row["body"])
 

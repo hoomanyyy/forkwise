@@ -21,6 +21,16 @@ class Connection {
     this.server = ""
     this.token = ""
     this.name = ""
+    this.extra = {}
+  }
+
+  setExtra(data) {
+    this.extra = Object.assign({}, this.extra, data)
+    this.sendStatus()
+  }
+
+  sendStatus() {
+    if (this.ws && this.ws.readyState === 1) this.ws.send(JSON.stringify(Object.assign({ type: "status" }, this.extra)))
   }
 
   start(server, token) {
@@ -64,6 +74,7 @@ class Connection {
         self.delay = 2
         self.name = message.name || ""
         self.onStatus({ state: "online", name: self.name, note: "" })
+        self.sendStatus()
         return
       }
       if (message.id === undefined) return

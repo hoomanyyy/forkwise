@@ -1167,7 +1167,39 @@
   }
 
   window.FW = window.FW || {}
+  /* ----------------------------------------------- colors for chat code */
+
+  const CHAT_LANGS = { js: "javascript", jsx: "javascript", mjs: "javascript", cjs: "javascript", javascript: "javascript", node: "javascript", ts: "typescript", tsx: "typescript", typescript: "typescript", py: "python", python: "python", sh: "shell", bash: "shell", zsh: "shell", shell: "shell", console: "shell", ps1: "powershell", powershell: "powershell", pwsh: "powershell", bat: "bat", cmd: "bat", json: "json", jsonc: "json", html: "html", vue: "html", xml: "xml", svg: "xml", css: "css", scss: "scss", less: "less", sql: "sql", go: "go", rust: "rust", rs: "rust", java: "java", cs: "csharp", csharp: "csharp", c: "cpp", cpp: "cpp", h: "cpp", hpp: "cpp", yaml: "yaml", yml: "yaml", md: "markdown", markdown: "markdown", php: "php", rb: "ruby", ruby: "ruby", kt: "kotlin", kotlin: "kotlin", swift: "swift", dockerfile: "dockerfile", docker: "dockerfile", ini: "ini", toml: "ini", lua: "lua", r: "r", dart: "dart", graphql: "graphql", scala: "scala", perl: "perl" }
+
+  async function colorize(root) {
+    if (!root) return
+    const blocks = Array.prototype.filter.call(root.querySelectorAll(".md-code code"), function (code) {
+      return !code.dataset.colored && CHAT_LANGS[code.dataset.lang || ""]
+    })
+    if (!blocks.length) return
+    let editorLib = null
+    try {
+      editorLib = await loadMonaco()
+      editorLib.editor.setTheme(themeName())
+    } catch (problem) {
+      return
+    }
+    for (let i = 0; i < blocks.length; i++) {
+      const code = blocks[i]
+      if (code.dataset.colored || !code.isConnected) continue
+      const text = code.textContent
+      const box = code.closest(".md-code")
+      if (box) box.dataset.raw = text
+      code.dataset.colored = "1"
+      try {
+        const html = await editorLib.editor.colorize(text, CHAT_LANGS[code.dataset.lang], { tabSize: 2 })
+        if (code.isConnected && code.textContent === text) code.innerHTML = html
+      } catch (problem) {}
+    }
+  }
+
   window.FW.editor = {
+    colorize: colorize,
     init: init,
     open: open,
     openDiff: openDiff,

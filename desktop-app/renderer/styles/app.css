@@ -1309,11 +1309,11 @@ kbd {
   transition: transform 160ms var(--ease), background 140ms var(--ease);
 }
 .switch.on {
-  background: var(--ok-bg);
+  background: var(--text);
 }
 .switch.on::after {
   transform: translateX(14px);
-  background: var(--ok);
+  background: var(--bg);
 }
 .account-card {
   display: flex;

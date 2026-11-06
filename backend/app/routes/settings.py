@@ -1,5 +1,6 @@
 from fastapi import Request, HTTPException
 from pydantic import BaseModel
+from app.agent import library
 from app import db, config, plans
 from app.routes.auth import current_user, admin_user
 from app.agent import mcp, sandbox
@@ -74,7 +75,7 @@ def delete_tool(tool_id: str, request: Request):
 
 def list_skills(request: Request):
     user = current_user(request)
-    return {"skills": db.all_rows("SELECT * FROM skills WHERE user_id = ? ORDER BY name", (user["id"],))}
+    return {"skills": db.all_rows("SELECT * FROM skills WHERE user_id = ? ORDER BY name", (user["id"],)), "builtin": library.public()}
 
 
 def save_skill(body: SkillBody, request: Request):

@@ -67,7 +67,13 @@
     logout: '<path d="M15 4.5h3.5A1.5 1.5 0 0 1 20 6v12a1.5 1.5 0 0 1-1.5 1.5H15"/><path d="M10 8l-4 4 4 4M6 12h9"/>',
     user: '<circle cx="12" cy="8.5" r="3.8"/><path d="M4.5 20.5a7.5 7.5 0 0 1 15 0"/>',
     shield: '<path d="M12 3l7.5 3v6c0 4.4-3.1 7.9-7.5 9-4.4-1.1-7.5-4.6-7.5-9V6z"/>',
-    zap: '<path d="M13 3L5 14h6l-1 7 8-11h-6z"/>'
+    zap: '<path d="M13 3L5 14h6l-1 7 8-11h-6z"/>',
+    cloud: '<path d="M17.5 19H8a5.5 5.5 0 1 1 1.2-10.87A6 6 0 0 1 20.6 10.6 4.25 4.25 0 0 1 17.5 19z"/>',
+    sparkles: '<path d="M10 3.5l1.6 4.4 4.4 1.6-4.4 1.6L10 15.5l-1.6-4.4L4 9.5l4.4-1.6zM18 14l.8 2.2 2.2.8-2.2.8L18 20l-.8-2.2-2.2-.8 2.2-.8z"/>',
+    thumbUp: '<path d="M7 10.5v10M7 10.5l4-7.5a2.2 2.2 0 0 1 2.5 2.6L13 9h5.3a2 2 0 0 1 2 2.3l-1.2 7.5a2 2 0 0 1-2 1.7H7m0-10H4.5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1H7"/>',
+    thumbDown: '<path d="M17 13.5v-10M17 13.5l-4 7.5a2.2 2.2 0 0 1-2.5-2.6L11 15H5.7a2 2 0 0 1-2-2.3l1.2-7.5a2 2 0 0 1 2-1.7H17m0 10h2.5a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1H17"/>',
+    retry: '<path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1M3.5 4v4.5H8"/>',
+    archive: '<rect x="3" y="4" width="18" height="4.5" rx="1"/><path d="M5 8.5V19a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 19 19V8.5M10 12.5h4"/>'
   }
 
   function icon(name, size, extraClass) {
@@ -210,7 +216,7 @@
       buttons = []
       const needle = String(query || "").trim().toLowerCase()
       const withIcons = items.some(function (item) {
-        return !!item.icon
+        return !!item.icon || !!item.color
       })
       items.forEach(function (item) {
         if (item.header) {
@@ -221,10 +227,10 @@
           if (!needle && list.lastChild && !list.lastChild.classList.contains("menu-sep")) list.appendChild(h("div", { class: "menu-sep" }))
           return
         }
-        const words = (String(item.label || "") + " " + String(item.hint || "")).toLowerCase()
+        const words = (String(item.label || "") + " " + String(item.hint || "") + " " + String(item.words || "")).toLowerCase()
         if (needle && words.indexOf(needle) < 0) return
         const button = h("button", { class: "pop-item menu-item" + (item.checked ? " checked" : "") + (item.danger ? " danger" : ""), type: "button", role: "menuitemradio", "aria-checked": item.checked ? "true" : "false", title: item.title || "" }, [
-          item.icon ? h("span", { class: "menu-icon", html: icon(item.icon, 13) }) : withIcons ? h("span", { class: "menu-icon", style: "width:13px" }) : null,
+          item.color ? h("span", { class: "menu-icon menu-dot", style: "--vendor:" + item.color, text: item.letter || "" }) : item.icon ? h("span", { class: "menu-icon", html: icon(item.icon, 13) }) : withIcons ? h("span", { class: "menu-icon", style: "width:13px" }) : null,
           h("span", { class: "menu-text" }, [h("span", { class: "menu-label", text: item.label }), item.hint ? h("span", { class: "menu-hint", text: item.hint }) : null]),
           item.key ? h("span", { class: "menu-key", text: item.key }) : h("span", { class: "menu-check", html: item.checked ? icon("check", 12) : "" })
         ])

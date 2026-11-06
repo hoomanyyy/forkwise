@@ -1,7 +1,7 @@
 {
   "name": "forkwise-desktop",
   "productName": "Forkwise",
-  "version": "3.4.0",
+  "version": "3.5.0",
   "description": "Lets your Forkwise agent use this computer",
   "main": "main.js",
   "author": {
@@ -55,6 +55,20 @@
       "package.json",
       "!node_modules/monaco-editor/{esm,dev,min-maps}/**",
       "!node_modules/monaco-editor/min/vs/nls.messages.*.js"
+    ],
+    "protocols": [
+      {
+        "name": "Forkwise",
+        "schemes": [
+          "forkwise"
+        ]
+      }
+    ],
+    "extraResources": [
+      {
+        "from": "chrome-extension",
+        "to": "chrome-extension"
+      }
     ],
     "asarUnpack": [
       "node_modules/@nut-tree-fork/**/*",

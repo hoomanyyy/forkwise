@@ -20,11 +20,11 @@ def hide_sandbox_tools(found):
     return kept
 
 
-async def ask_device(run, action, **fields):
+async def ask_device(run, action, on_output=None, **fields):
     message = {"action": action, "root": run.local, "device": run.local_device, "exact": True}
     for key in fields:
         message[key] = fields[key]
-    return await desktop.call(run.user["id"], message)
+    return await desktop.call(run.user["id"], message, on_output=on_output)
 
 
 def failed(answer):
@@ -156,7 +156,10 @@ async def bash(run, args, call_id):
         return tools.result(text, meta={"job": job})
     timeout = int(args.get("timeout") or 180)
     timeout = max(5, min(timeout, MAX_COMMAND_SECONDS))
-    answer = await ask_device(run, "shell", command=command, cwd=run.local, timeout=timeout)
+    async def on_output(piece):
+        run.emit("tool_output", {"id": call_id, "text": piece})
+
+    answer = await ask_device(run, "shell", on_output=on_output, command=command, cwd=run.local, timeout=timeout)
     text = (answer.get("text") or "").strip() or "(no output)"
     run.changed = True
     return tools.result(tools.short(text), ok=bool(answer.get("ok")))

@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Brain, Check, ChevronDown, Copy, FileText, History, Info, AlertTriangle } from "lucide-react"
+import { Brain, Check, ChevronDown, Copy, FileText, History, Info, AlertTriangle, Sparkles, ThumbsUp, ThumbsDown } from "lucide-react"
 import Markdown from "./Markdown"
 import { DraftCall } from "./ToolCall"
 import Flow, { buildFlow } from "./Flow"
@@ -21,17 +21,32 @@ function Reasoning({ text, live }) {
   )
 }
 
+const SKILL_NOTE = /\n*\[The user attached these skills to this message[^\]]*\]\s*$/
+
 function CopyButton({ text }) {
   const [done, setDone] = useState(false)
   return (
-    <button type="button" className="icon-btn tiny" title="Copy" onClick={() => { navigator.clipboard.writeText(text); setDone(true); setTimeout(() => setDone(false), 1400) }}>
+    <button type="button" className={"icon-btn tiny copy-btn" + (done ? " done" : "")} title={done ? "Copied" : "Copy"} aria-label="Copy" onClick={() => { navigator.clipboard.writeText(text); setDone(true); setTimeout(() => setDone(false), 1400) }}>
       {done ? <Check size={14} /> : <Copy size={14} />}
     </button>
   )
 }
 
+function RateButtons() {
+  const [rate, setRate] = useState("")
+  return (
+    <>
+      <span className="msg-sep" />
+      <button type="button" className={"icon-btn tiny" + (rate === "up" ? " on" : "")} title="Good answer" aria-label="Good answer" onClick={() => setRate(rate === "up" ? "" : "up")}><ThumbsUp size={14} /></button>
+      <button type="button" className={"icon-btn tiny" + (rate === "down" ? " on" : "")} title="Bad answer" aria-label="Bad answer" onClick={() => setRate(rate === "down" ? "" : "down")}><ThumbsDown size={14} /></button>
+    </>
+  )
+}
+
 function UserMessage({ message, wid, onRewind, canRewind }) {
   const attachments = (message.meta && message.meta.attachments) || []
+  const skills = (message.meta && message.meta.skills) || []
+  const content = String(message.content || "").replace(SKILL_NOTE, "")
   return (
     <div className="msg-user">
       <div className="msg-user-bubble">
@@ -44,10 +59,15 @@ function UserMessage({ message, wid, onRewind, canRewind }) {
             ))}
           </div>
         )}
-        {message.content && <div className="msg-user-text" dir="auto">{message.content}</div>}
+        {skills.length > 0 && (
+          <div className="msg-attachments">
+            {skills.map((name) => <span key={name} className="chip skill-chip"><Sparkles size={12} />{name}</span>)}
+          </div>
+        )}
+        {content && <div className="msg-user-text" dir="auto">{content}</div>}
       </div>
       <div className="msg-actions">
-        <CopyButton text={message.content} />
+        <CopyButton text={content} />
         {canRewind && !message.temp && (
           <button type="button" className="icon-btn tiny" title="Go back to this message and undo the changes after it" onClick={() => onRewind(message)}>
             <History size={14} />
@@ -115,6 +135,7 @@ export default function MessageList({ state, wid, respond, onPreview, onRewind, 
               {lastTurn && !live.running && lastText(turn.items) && (
                 <div className="msg-actions left">
                   <CopyButton text={lastText(turn.items)} />
+                  <RateButtons />
                 </div>
               )}
             </div>

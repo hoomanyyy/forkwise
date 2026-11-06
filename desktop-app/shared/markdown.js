@@ -4,6 +4,9 @@
   if (typeof module === "object" && module.exports) module.exports = factory()
   else root.FWMarkdown = factory()
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
+  const COPY_ICON = '<svg class="i-copy" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11.5" height="11.5" rx="2"/><path d="M6.5 15H5a1.5 1.5 0 0 1-1.5-1.5V5A1.5 1.5 0 0 1 5 3.5h8.5A1.5 1.5 0 0 1 15 5v1.5"/></svg>'
+  const CHECK_ICON = '<svg class="i-done" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>'
+  const RUN_ICON = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 5l11 7-11 7z"/></svg>'
   function escapeHtml(text) {
     return String(text)
       .replace(/&/g, "&amp;")
@@ -189,10 +192,21 @@
           index += 1
         }
         index += 1
+        const name = (lang || "text").split(/[\s{:]/)[0].toLowerCase()
+        const shell = ["sh", "bash", "zsh", "shell", "console", "powershell", "ps1", "pwsh", "cmd", "bat"].indexOf(name) >= 0
         html.push(
-          '<div class="md-code" dir="ltr"><div class="md-code-head"><span>' +
-            escapeHtml(lang || "text") +
-            '</span><button class="md-copy" data-copy="1" type="button">Copy</button></div><pre><code>' +
+          '<div class="md-code" dir="ltr" data-lang="' +
+            escapeHtml(name) +
+            '"><div class="md-code-head"><span class="md-lang">' +
+            escapeHtml(name) +
+            '</span><span class="md-code-tools">' +
+            (shell ? '<button class="md-tool" data-run="1" type="button" title="Run in a terminal" aria-label="Run in a terminal">' + RUN_ICON + "<span>Run</span></button>" : "") +
+            '<button class="md-tool md-copy" data-copy="1" type="button" title="Copy" aria-label="Copy code">' +
+            COPY_ICON +
+            CHECK_ICON +
+            '</button></span></div><pre><code data-lang="' +
+            escapeHtml(name) +
+            '">' +
             escapeHtml(body.join("\n")) +
             "</code></pre></div>"
         )

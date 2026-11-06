@@ -3,6 +3,7 @@ import json
 from fastapi import Request, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+from app.agent import library
 from app import db, config, plans
 from app.routes.auth import current_user
 from app.agent import runs, checkpoints, sandbox, tools
@@ -18,6 +19,7 @@ class NewChat(BaseModel):
     kind: str = "chat"
     local_path: str = ""
     local_device: str = ""
+    keep_mode: bool = False
 
 
 class ChatChange(BaseModel):
@@ -184,7 +186,7 @@ def create_chat(body: NewChat, request: Request):
             raise HTTPException(status_code=400, detail="Link this computer first, then choose the folder again.")
         project_id = None
         workspace_id = db.new_id("w")
-        if body.mode in ["", "auto"]:
+        if body.mode == "" or (body.mode == "auto" and not body.keep_mode):
             mode = "ask"
     else:
         local_device = ""
@@ -333,7 +335,7 @@ async def send_message(chat_id: str, body: NewMessage, request: Request):
     skill_names = []
     for item in body.skills[:5]:
         name = str(item)[:80]
-        if db.one_row("SELECT id FROM skills WHERE user_id = ? AND name = ?", (user["id"], name)):
+        if db.one_row("SELECT id FROM skills WHERE user_id = ? AND name = ?", (user["id"], name)) or library.find(name):
             skill_names.append(name)
     if len(skill_names) > 0:
         meta["skills"] = skill_names

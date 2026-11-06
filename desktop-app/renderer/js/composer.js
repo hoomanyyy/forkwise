@@ -30,13 +30,14 @@
     chips = h("div", { class: "chips", id: "chips" })
     modeBtn = h("button", { class: "pick", id: "modePick", type: "button", title: "How the agent should act", "aria-haspopup": "menu", "aria-expanded": "false" })
     modelBtn = h("button", { class: "pick", id: "modelPick", type: "button", title: "Model", "aria-haspopup": "menu", "aria-expanded": "false" })
+    const plusBtn = h("button", { class: "icon-btn plus-btn", id: "btnPlus", title: "Add files, a skill, a folder\u2026", "aria-label": "Add", html: icon("plus", 16) })
     const folderBtn = h("button", { class: "icon-btn", id: "btnFolder", title: "Work in a folder", html: icon("folderPlus", 15) })
     const attachBtn = h("button", { class: "icon-btn", id: "btnAttach", title: "Attach files", html: icon("clip", 15) })
     hint = h("span", { class: "hint", id: "composerHint" })
     sendBtn = h("button", { class: "send", id: "btnSend", title: "Send", html: icon("arrowUp", 15) })
 
     const bar = h("div", { class: "composer-bar" }, [
-      h("div", { class: "composer-left" }, [modeBtn, modelBtn, folderBtn, attachBtn]),
+      h("div", { class: "composer-left" }, [plusBtn, modeBtn, modelBtn, attachBtn]),
       h("div", { class: "composer-right" }, [hint, sendBtn])
     ])
     box = h("div", { class: "composer", id: "composer" }, [chips, textarea, bar])
@@ -86,13 +87,21 @@
         U.toast("The server has no models set up yet")
         return
       }
-      U.menu(modelBtn, models.map(function (model) {
-        return { value: model.key, label: model.label || model.key, hint: modelHint(model), checked: model.key === currentModel }
-      }), function (value) {
+      const shown = FW.vendors.visible(models, S.prefs)
+      const groups = FW.vendors.group(shown)
+      const items = []
+      groups.forEach(function (group) {
+        if (groups.length > 1) items.push({ header: group.vendor.label })
+        group.items.forEach(function (model) {
+          items.push({ value: model.key, label: model.label || model.key, hint: modelHint(model), checked: model.key === currentModel, color: group.vendor.color, letter: group.vendor.label.charAt(0), words: group.vendor.label + " " + model.key })
+        })
+      })
+      U.menu(modelBtn, items, function (value) {
         setModel(value, true)
         focus()
-      }, { up: true, search: models.length > 7 ? "Search models" : "", className: "pick-menu model-menu", onClose: focus })
+      }, { up: true, search: shown.length > 4 ? "Search models" : "", className: "pick-menu model-menu", onClose: focus })
     })
+    plusBtn.addEventListener("click", openPlus)
     folderBtn.addEventListener("click", chooseFolder)
     attachBtn.addEventListener("click", pickAttachments)
     document.addEventListener("keydown", function (event) {
@@ -111,6 +120,95 @@
     syncMode()
     renderChips()
     updateSend()
+  }
+
+  /* ------------------------------------------------------------ + menu */
+
+  function openPlus() {
+    const plusBtn = document.getElementById("btnPlus")
+    const locked = S.chat && S.chat.local_path
+    U.menu(plusBtn, [
+      { value: "files", label: "Attach files", hint: "Images, documents, code", icon: "clip" },
+      { value: "skill", label: "Add a skill", hint: "An expert playbook for this task", icon: "sparkles", key: "/" },
+      { value: "mention", label: "Mention a file", hint: "From the open folder", icon: "file", key: "@" },
+      { separator: true },
+      { value: "folder", label: locked ? "Folder: " + S.chat.local_path.split(/[\\/]/).pop() : "Work in a folder", hint: locked ? "Start a new chat to change it" : "On this computer", icon: "folderPlus" },
+      { value: "terminal", label: "Open a terminal", hint: "In this chat's folder", icon: "terminal" }
+    ], function (value) {
+      if (value === "files") pickAttachments()
+      if (value === "skill") pickSkill(plusBtn)
+      if (value === "mention") insertText("@")
+      if (value === "folder") chooseFolder()
+      if (value === "terminal") {
+        FW.app.togglePanel(true)
+        FW.terminals.open({})
+      }
+    }, { up: true, className: "pick-menu plus-menu", onClose: focus })
+  }
+
+  let skillList = null
+
+  async function loadSkills(force) {
+    if (skillList && !force) return skillList
+    try {
+      const data = await window.fw.api("/api/skills", "GET")
+      const list = []
+      ;(data.skills || []).forEach(function (item) {
+        if (item.enabled) list.push({ name: item.name, title: item.name, description: item.description || "", category: "Your skills" })
+      })
+      ;(data.builtin || []).forEach(function (item) {
+        list.push(item)
+      })
+      skillList = list
+    } catch (problem) {
+      skillList = []
+    }
+    return skillList
+  }
+
+  function skillItems(list) {
+    const items = []
+    let category = ""
+    list.forEach(function (skill) {
+      if (skill.category !== category) {
+        category = skill.category
+        items.push({ header: category })
+      }
+      items.push({ value: skill.name, label: skill.title || skill.name, hint: skill.description, icon: "sparkles", checked: S.skillNames.indexOf(skill.name) >= 0, words: skill.name + " " + skill.category })
+    })
+    return items
+  }
+
+  async function pickSkill(anchor) {
+    const list = await loadSkills()
+    if (!list.length) {
+      U.toast("No skills are available yet")
+      return
+    }
+    U.menu(anchor || document.getElementById("btnPlus"), skillItems(list), function (value) {
+      addSkill(value)
+    }, { up: true, search: "Search skills", className: "pick-menu skill-menu", onClose: focus })
+  }
+
+  function addSkill(name) {
+    if (!name) return
+    if (S.skillNames.indexOf(name) < 0) {
+      if (S.skillNames.length >= 5) {
+        U.toast("Up to five skills per message")
+        return
+      }
+      S.skillNames.push(name)
+    }
+    if (document.body.classList.contains("chat-hidden")) FW.wb.toggleChat()
+    renderChips()
+    focus()
+  }
+
+  function skillTitle(name) {
+    const found = (skillList || []).find(function (item) {
+      return item.name === name
+    })
+    return found ? found.title || found.name : name
   }
 
   function autoGrow() {
@@ -216,10 +314,14 @@
   function renderChips() {
     chips.innerHTML = ""
     const folder = (S.chat && S.chat.local_path) || S.folder
-    if (folder) {
+    const cloudChat = S.chat && S.chat.id && !S.chat.local_path && (S.messages.length > 0 || S.running)
+    if (cloudChat) {
+      chips.appendChild(h("span", { class: "chip where cloud", title: "This chat runs in the Forkwise cloud sandbox, not on this computer. Start a new chat to work on this computer." }, [h("span", { html: icon("cloud", 12) }), h("b", { text: "Cloud sandbox" })]))
+    } else if (folder) {
       const name = folder.split(/[\\/]/).filter(Boolean).pop() || folder
       chips.appendChild(
-        h("span", { class: "chip", title: folder }, [
+        h("span", { class: "chip where", title: "Runs on this computer in " + folder }, [
+          h("span", { html: icon("monitor", 12) }),
           h("b", { text: name }),
           h("button", { class: "x", html: icon("close", 10), title: "Stop using this folder", onclick: clearFolder })
         ])
@@ -230,6 +332,13 @@
     if (space) {
       chips.appendChild(h("span", { class: "chip", title: "Space: everything here shares its instructions" }, [h("span", { html: icon("layout", 11) }), h("b", { text: space.name }), !S.chat ? h("button", { class: "x", html: icon("close", 10), title: "Leave the space for this chat", onclick: function () { FW.spaces.select("") } }) : null]))
     }
+    S.skillNames.forEach(function (name, index) {
+      chips.appendChild(h("span", { class: "chip skill", title: "Skill: the agent loads this playbook first" }, [
+        h("span", { html: icon("sparkles", 11) }),
+        h("b", { text: skillTitle(name) }),
+        h("button", { class: "x", html: icon("close", 10), title: "Remove", onclick: function () { S.skillNames.splice(index, 1); renderChips() } })
+      ]))
+    })
     S.attachments.forEach(function (file, index) {
       const kind = String(file.kind || "")
       chips.appendChild(
@@ -241,8 +350,9 @@
         ])
       )
     })
-    if (!folder) {
-      chips.appendChild(h("button", { class: "chip action", onclick: chooseFolder, title: "Let the agent work in a folder on this computer" }, [h("span", { html: icon("folderPlus", 12) }), h("span", { text: "Work in a folder" })]))
+    if (!folder && !cloudChat) {
+      const cloud = S.prefs.runWhere === "cloud"
+      chips.appendChild(h("button", { class: "chip action", onclick: chooseFolder, title: cloud ? "New chats run in the cloud sandbox. Choose a folder to work on this computer." : "Choose a folder. Without one the agent works in ~/Forkwise on this computer, or in a folder you name in the message." }, [h("span", { html: icon(cloud ? "cloud" : "folderPlus", 12) }), h("span", { text: cloud ? "Cloud sandbox \u00b7 choose a folder" : "This computer \u00b7 choose a folder" })]))
     }
     updateSend()
   }
@@ -280,9 +390,38 @@
     focus()
   }
 
-  async function ensureChat() {
+  // The desktop app works on this computer: a folder named in the message
+  // wins, then the chosen folder, then the open folder, then ~/Forkwise.
+  async function chatFolder(text) {
+    let named = null
+    try {
+      named = await window.fw.folders.find(text || "")
+    } catch (problem) {}
+    if (named && named.folder) {
+      if (named.trusted) return named.folder
+      const sure = await U.dialog({ title: "Work in this folder?", text: "Your message names " + named.folder + ". The agent will read, change and run things in it on this computer.", ok: "Work there", cancel: "No" })
+      if (sure) return named.folder
+    }
+    if (S.folder) return S.folder
+    const root = FW.wb && FW.wb.root ? FW.wb.root() : ""
+    if (root) return root
+    if (S.prefs.runWhere === "cloud") return ""
+    try {
+      return await window.fw.folders.fallback()
+    } catch (problem) {
+      return ""
+    }
+  }
+
+  async function ensureChat(typed) {
     if (S.chat && S.chat.id) return S.chat.id
-    const body = { local_path: S.folder || "", model: currentModel || "", mode: currentMode || "auto", project_id: S.space || "" }
+    const folder = await chatFolder(typed !== undefined ? typed : textarea.value)
+    if (folder && folder !== S.folder) {
+      S.folder = folder
+      renderChips()
+      U.toast("Working on this computer in " + folder)
+    }
+    const body = { local_path: folder || "", model: currentModel || "", mode: currentMode || "auto", project_id: folder ? "" : S.space || "" }
     const created = await window.fw.chats.create(body)
     const chat = created.chat
     // what was typed into the new chat stays in the box
@@ -409,6 +548,8 @@
     if (!text && S.attachments.length === 0) return
     if (text) lastSent = text
     const attachments = S.attachments.slice()
+    const skills = S.skillNames.slice()
+    S.skillNames = []
     const draftKey = draftOwner
     textarea.value = ""
     autoGrow()
@@ -419,10 +560,10 @@
 
     const queued = S.running
     try {
-      const chatId = await ensureChat()
+      const chatId = await ensureChat(text)
       // a message sent while the agent works is shown when the agent picks it up
       if (!queued) {
-        FW.chat.appendUser(text, { attachments: attachments })
+        FW.chat.appendUser(text, { attachments: attachments, skills: skills })
         U.el("#stage").classList.remove("is-empty")
       }
       const data = await window.fw.send({
@@ -431,7 +572,8 @@
         model: currentModel || "",
         mode: currentMode || "",
         attachments: attachments,
-        skills: []
+        effort: S.prefs.effort || "",
+        skills: skills
       })
       if (data && data.queued) {
         updateSend()
@@ -498,7 +640,38 @@
     return { start: at - found[2].length - 1, end: at, query: found[2] }
   }
 
+  function slashQuery() {
+    const at = textarea.selectionStart
+    const before = textarea.value.slice(0, at)
+    const found = before.match(/(^|\s)\/([a-z0-9-]{0,40})$/i)
+    if (!found) return null
+    return { start: at - found[2].length - 1, end: at, query: found[2].toLowerCase(), slash: true }
+  }
+
+  async function updateSlash(query) {
+    const mine = ++mentionToken
+    const list = await loadSkills()
+    if (mine !== mentionToken) return
+    const items = list.filter(function (skill) {
+      return !query.query || (skill.name + " " + (skill.title || "")).toLowerCase().indexOf(query.query) >= 0
+    }).slice(0, 14)
+    if (!items.length) {
+      closeMention()
+      return
+    }
+    if (!mention) {
+      mention = { box: h("div", { class: "mention-box" }), items: [], active: 0, query: query }
+      box.appendChild(mention.box)
+    }
+    mention.items = items
+    mention.query = query
+    mention.active = Math.min(mention.active, items.length - 1)
+    drawMention()
+  }
+
   async function updateMention() {
+    const slash = slashQuery()
+    if (slash) return updateSlash(slash)
     const query = mentionQuery()
     if (!query || !FW.wb || !FW.wb.root()) {
       closeMention()
@@ -534,6 +707,24 @@
 
   function drawMention() {
     mention.box.innerHTML = ""
+    if (mention.query && mention.query.slash) {
+      mention.box.appendChild(h("div", { class: "mention-head", text: "Skills" }))
+      mention.items.forEach(function (skill, index) {
+        const row = h("button", { class: "mention-item skill-item" + (index === mention.active ? " active" : ""), type: "button" }, [
+          h("span", { class: "file-ico", html: icon("sparkles", 13) }),
+          h("span", { text: skill.title || skill.name }),
+          h("span", { class: "dim", text: skill.description || "" })
+        ])
+        row.addEventListener("mousedown", function (event) {
+          event.preventDefault()
+          pickMention(skill)
+        })
+        mention.box.appendChild(row)
+      })
+      const active = mention.box.querySelectorAll(".mention-item")[mention.active]
+      if (active) active.scrollIntoView({ block: "nearest" })
+      return
+    }
     mention.items.forEach(function (file, index) {
       const name = file.split("/").pop()
       const row = h("button", { class: "mention-item" + (index === mention.active ? " active" : ""), type: "button" }, [
@@ -560,6 +751,13 @@
   function pickMention(file) {
     const query = mention ? mention.query : mentionQuery()
     if (!query) return
+    if (query.slash) {
+      textarea.setRangeText("", query.start, query.end, "end")
+      closeMention()
+      addSkill(file.name)
+      textarea.dispatchEvent(new Event("input", { bubbles: true }))
+      return
+    }
     const text = "@" + file + " "
     textarea.setRangeText(text, query.start, query.end, "end")
     closeMention()
@@ -656,5 +854,5 @@
   }
 
   window.FW = window.FW || {}
-  window.FW.composer = { init: init, fill: fill, focus: focus, refresh: refresh, setChat: setChat, update: updateSend, renderChips: renderChips, attachPaths: attachPaths, resend: resend, approvePlan: approvePlan, sendText: sendText, insertText: insertText, insertMention: insertMention, stopNow: function () { if (S.running) stop() }, model: function () { return currentModel }, mode: function () { return currentMode } }
+  window.FW.composer = { addSkill: addSkill, pickSkill: pickSkill, init: init, fill: fill, focus: focus, refresh: refresh, setChat: setChat, update: updateSend, renderChips: renderChips, attachPaths: attachPaths, resend: resend, approvePlan: approvePlan, sendText: sendText, insertText: insertText, insertMention: insertMention, stopNow: function () { if (S.running) stop() }, model: function () { return currentModel }, mode: function () { return currentMode } }
 })()

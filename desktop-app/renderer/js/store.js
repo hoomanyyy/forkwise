@@ -21,6 +21,7 @@
     folder: "",
     draft: {},
     attachments: [],
+    skillNames: [],
     search: "",
     context: { tokens: 0, limit: 0 },
     offline: false,

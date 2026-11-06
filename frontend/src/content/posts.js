@@ -114,6 +114,24 @@ So Forkwise became an engineer. It still checks its own work, now by running the
 
 export const RELEASES = [
   {
+    version: "2.1",
+    date: "November 6, 2026",
+    title: "Your own browser, your own computer",
+    items: [
+      ["new", "Forkwise for Chrome: the agent works in your own Chrome, Edge or Brave with your sign-ins, in its own tab group, and asks before every new site"],
+      ["new", "24 built-in expert skills, from frontend design and debugging to security audits, deploys and research. Add them with + or by typing /"],
+      ["new", "Models grouped by maker (Claude, OpenAI, DeepSeek, Gemini, Qwen and more) with search and recent models"],
+      ["new", "Workspace tabs you add with +, close and reorder"],
+      ["new", "Desktop: full-page settings with search, plus Models, Skills, Terminal and About sections"],
+      ["better", "Desktop chats run on your computer by default, in the folder you name in the message, the folder you open, or ~/Forkwise"],
+      ["better", "Live command output from your computer while a command runs"],
+      ["better", "Code blocks with syntax colors, an icon copy button that turns into a check, and Run in a terminal"],
+      ["better", "A clearer chat list with where each chat runs, its progress and time"],
+      ["fixed", "Desktop: choosing a folder no longer fails with \u201cLink this computer first\u201d"],
+      ["fixed", "Desktop: forkwise:// links from the website now open the app"],
+    ],
+  },
+  {
     version: "2.0",
     date: "November 1, 2026",
     title: "A new Forkwise",

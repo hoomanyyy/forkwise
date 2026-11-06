@@ -16,9 +16,13 @@ class Agent {
     this.counter = 0
     this.chains = { shell: Promise.resolve(), gui: Promise.resolve(), files: Promise.resolve() }
     const self = this
+    this.shellId = null
+    this.shellBuffer = ""
+    this.shellTimer = null
     this.ops = opsLib.create(options.host, {
       onShellData: function (text) {
         self.emit({ type: "shell-data", text: text })
+        self.streamShell(text)
       }
     })
     this.connection = new Connection({
@@ -45,6 +49,10 @@ class Agent {
 
   disconnect() {
     this.connection.stop()
+  }
+
+  setExtra(data) {
+    this.connection.setExtra(data)
   }
 
   setPaused(value) {
@@ -120,7 +128,15 @@ class Agent {
       if (generation !== self.generation) {
         return { ok: false, text: "Stopped by the user (emergency stop)." }
       }
-      return self.ops.handle(message)
+      if (message.action === "shell") self.shellId = message.id
+      try {
+        return await self.ops.handle(message)
+      } finally {
+        if (message.action === "shell") {
+          self.flushShell()
+          self.shellId = null
+        }
+      }
     })
     this.chains[lane] = job.catch(function () {})
     const reply = await job
@@ -132,6 +148,30 @@ class Agent {
     if (reply.data) out.data = reply.data
     this.connection.reply(out)
   }
+}
+
+// Live command output goes to the server in small batches, so the chat shows
+// it while the command runs, like in the cloud sandbox.
+Agent.prototype.streamShell = function (text) {
+  if (this.shellId === null) return
+  this.shellBuffer += text
+  if (this.shellBuffer.length > 16000) this.shellBuffer = this.shellBuffer.slice(-16000)
+  if (this.shellTimer) return
+  const self = this
+  this.shellTimer = setTimeout(function () {
+    self.flushShell()
+  }, 150)
+}
+
+Agent.prototype.flushShell = function () {
+  clearTimeout(this.shellTimer)
+  this.shellTimer = null
+  if (!this.shellBuffer || this.shellId === null) {
+    this.shellBuffer = ""
+    return
+  }
+  this.connection.reply({ type: "output", id: this.shellId, text: this.shellBuffer })
+  this.shellBuffer = ""
 }
 
 module.exports = { Agent }

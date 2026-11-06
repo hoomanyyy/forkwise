@@ -370,10 +370,18 @@
   /* --------------------------------------------------------------- turns */
 
   function addUser(content, meta, id, enter) {
-    const text = content || ""
+    const text = String(content || "").replace(/\n*\[The user attached these skills to this message[^\]]*\]\s*$/, "")
     const bubble = h("div", { class: "bubble" })
     const body = h("div", { class: "bubble-text", dir: "auto", text: text })
     bubble.appendChild(body)
+    const skills = (meta && meta.skills) || []
+    if (skills.length) {
+      const row = h("div", { class: "files" })
+      skills.forEach(function (name) {
+        row.appendChild(h("span", { class: "file-pill skill-pill", title: "Skill" }, [h("span", { html: icon("sparkles", 11) }), h("span", { text: name })]))
+      })
+      bubble.appendChild(row)
+    }
     const files = (meta && meta.attachments) || []
     if (files.length) {
       const box = h("div", { class: "files" })
@@ -393,8 +401,8 @@
       bubble.appendChild(more)
     }
     const actions = h("div", { class: "msg-actions" }, [
-      h("button", { class: "msg-btn", type: "button", title: "Copy", html: icon("copy", 12), dataset: { act: "copy-user" } }),
-      id ? h("button", { class: "msg-btn", type: "button", title: "Edit and send again from here", html: icon("edit", 12), dataset: { act: "edit" } }) : null
+      h("button", { class: "msg-btn icon-only copy-btn", type: "button", title: "Copy", "aria-label": "Copy", html: icon("copy", 13) + icon("check", 13, "i-done"), dataset: { act: "copy-user" } }),
+      id ? h("button", { class: "msg-btn icon-only", type: "button", title: "Edit and send again from here", "aria-label": "Edit", html: icon("edit", 13), dataset: { act: "edit" } }) : null
     ])
     const turn = h("div", { class: "turn turn-user" + (enter ? " enter" : ""), dataset: { id: id || "" } }, [bubble, actions])
     turn.dataset.raw = text
@@ -460,6 +468,7 @@
     node.dataset.raw = text || ""
     node.innerHTML = md.render(text || "")
     flow.appendChild(node)
+    if (text) paint(node)
     return node
   }
 
@@ -523,6 +532,11 @@
       info.drawnLength = raw.length
     }
     el.innerHTML = md.render(raw)
+    paint(el)
+  }
+
+  function paint(el) {
+    if (FW.editor && FW.editor.colorize && el.querySelector(".md-code")) FW.editor.colorize(el)
   }
 
   /* ------------------------------------------------------ activity lines */
@@ -668,10 +682,22 @@
     if (!last || last.nextElementSibling) return
     if (!last.querySelector(".md, .act, .think, .plan-card, .turn-error")) return
     const bar = h("div", { class: "turn-actions" }, [
-      h("button", { class: "msg-btn", type: "button", dataset: { act: "copy-turn" }, title: "Copy the answer" }, [h("span", { html: icon("copy", 12) }), h("span", { text: "Copy" })]),
-      lastUser() ? h("button", { class: "msg-btn", type: "button", dataset: { act: "retry" }, title: "Ask the same thing again" }, [h("span", { html: icon("refresh", 12) }), h("span", { text: "Retry" })]) : null
+      h("button", { class: "msg-btn icon-only copy-btn", type: "button", dataset: { act: "copy-turn" }, title: "Copy", "aria-label": "Copy the answer", html: icon("copy", 14) + icon("check", 14, "i-done") }),
+      lastUser() ? h("button", { class: "msg-btn icon-only", type: "button", dataset: { act: "retry" }, title: "Retry", "aria-label": "Ask the same thing again", html: icon("retry", 14) }) : null,
+      h("span", { class: "turn-sep" }),
+      h("button", { class: "msg-btn icon-only", type: "button", dataset: { act: "rate", rate: "up" }, title: "Good answer", "aria-label": "Good answer", html: icon("thumbUp", 14) }),
+      h("button", { class: "msg-btn icon-only", type: "button", dataset: { act: "rate", rate: "down" }, title: "Bad answer", "aria-label": "Bad answer", html: icon("thumbDown", 14) }),
+      h("span", { class: "turn-meta", text: turnMeta() })
     ])
     last.appendChild(bar)
+  }
+
+  function turnMeta() {
+    const chat = S.chat || {}
+    const model = (S.models || []).find(function (item) {
+      return item.key === chat.model
+    })
+    return model ? model.label || model.key : ""
   }
 
   function lastUser() {
@@ -1159,6 +1185,32 @@
 
   /* -------------------------------------------------------------- clicks */
 
+  // A copy button turns into a check mark for a moment, like Codex and Claude.
+  function flashDone(button, label) {
+    const old = button.getAttribute("title") || ""
+    button.classList.add("done")
+    button.setAttribute("title", label)
+    clearTimeout(button._doneTimer)
+    button._doneTimer = setTimeout(function () {
+      button.classList.remove("done")
+      button.setAttribute("title", old === label ? "Copy" : old)
+    }, 1400)
+  }
+
+  async function runInTerminal(command) {
+    const text = String(command || "").trim()
+    if (!text) return
+    const folder = (S.chat && S.chat.local_path) || (FW.wb && FW.wb.root && FW.wb.root()) || S.folder || ""
+    if (!S.chat || !S.chat.local_path) {
+      const sure = await U.dialog({ title: "Run this on your computer?", text: "This runs in a terminal on this computer" + (folder ? " in " + folder : "") + ":\n\n" + text.slice(0, 400), ok: "Run" })
+      if (!sure) return
+    }
+    FW.app.togglePanel(true)
+    FW.panel.show("terminal")
+    const term = await FW.terminals.open({ title: text.split("\n")[0].slice(0, 24), cwd: folder, command: text })
+    if (!term) U.toast("Could not open a terminal here", "bad")
+  }
+
   function onClick(event) {
     const link = event.target.closest("a[data-external]")
     if (link) {
@@ -1171,12 +1223,16 @@
       const box = copy.closest(".md-code")
       const code = box ? box.querySelector("code") : null
       if (code) {
-        U.copy(code.textContent)
-        copy.textContent = "Copied"
-        setTimeout(function () {
-          copy.textContent = "Copy"
-        }, 1200)
+        U.copy(box.dataset.raw || code.innerText)
+        flashDone(copy, "Copied")
       }
+      return
+    }
+    const runCode = event.target.closest("[data-run]")
+    if (runCode) {
+      const box = runCode.closest(".md-code")
+      const code = box ? box.querySelector("code") : null
+      if (code) runInTerminal(box.dataset.raw || code.innerText)
       return
     }
     const action = event.target.closest("[data-act]")
@@ -1184,12 +1240,23 @@
       const kind = action.dataset.act
       if (kind === "copy-user") {
         const turn = action.closest(".turn-user")
-        if (turn) U.copy(turn.dataset.raw || "")
+        if (turn) {
+          U.copy(turn.dataset.raw || "")
+          flashDone(action, "Copied")
+        }
       } else if (kind === "copy-turn") {
         const turn = action.closest(".turn-agent")
         const text = turn ? turnText(turn) : ""
-        if (text) U.copy(text)
-        else U.toast("There is no text to copy in this answer")
+        if (text) {
+          U.copy(text)
+          flashDone(action, "Copied")
+        } else U.toast("There is no text to copy in this answer")
+      } else if (kind === "rate") {
+        const bar = action.closest(".turn-actions")
+        Array.prototype.forEach.call(bar.querySelectorAll("[data-act=rate]"), function (button) {
+          button.classList.toggle("on", button === action && !action.classList.contains("on"))
+        })
+        if (action.classList.contains("on")) U.toast(action.dataset.rate === "up" ? "Thanks, glad it helped" : "Thanks. Retry or say what was wrong and the agent will fix it")
       } else if (kind === "retry") {
         retry()
       } else if (kind === "edit") {

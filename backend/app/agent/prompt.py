@@ -1,4 +1,5 @@
 import time
+from app.agent import library
 from app import db, config
 from app.agent import sandbox
 
@@ -94,11 +95,15 @@ def memory_text(user_id, project_id):
 
 def skills_text(user_id):
     rows = db.all_rows("SELECT name, description FROM skills WHERE user_id = ? AND enabled = 1 ORDER BY name", (user_id,))
-    if len(rows) == 0:
-        return ""
-    lines = ["Your saved skills (load with use_skill):"]
-    for row in rows:
-        lines.append("- " + row["name"] + ": " + row["description"])
+    lines = []
+    if len(rows) > 0:
+        lines.append("Your saved skills (load with use_skill):")
+        for row in rows:
+            lines.append("- " + row["name"] + ": " + row["description"])
+    builtin = library.prompt_lines()
+    if len(builtin) > 0:
+        lines.append("Forkwise skills: expert playbooks. When a task matches one, load it with use_skill before you start and follow it:")
+        lines = lines + builtin
     return "\n".join(lines)
 
 

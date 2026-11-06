@@ -1769,3 +1769,327 @@ body.compact .chat-row {
   font-size: 10.5px;
   color: var(--text-3);
 }
+
+/* your own Chrome */
+.chrome-steps {
+  margin: 4px 0 10px;
+  padding-left: 18px;
+  font-size: 11.5px;
+  line-height: 1.7;
+  color: var(--text-2);
+}
+.chrome-steps li {
+  padding: 1px 0;
+}
+
+/* ------------------------------------------------------- settings page */
+.settings-page {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 450;
+  display: flex;
+  background: var(--bg);
+  border-top: 1px solid var(--line);
+  animation: fadeIn 120ms ease;
+}
+.sp-side {
+  width: 240px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px 12px 12px;
+  background: var(--bg-side);
+  border-right: 1px solid var(--line);
+}
+.sp-title {
+  padding: 0 8px;
+  font-size: 15px;
+}
+.sp-title b {
+  font-weight: 600;
+}
+.sp-search {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text-3);
+}
+.sp-search:focus-within {
+  border-color: var(--line-2);
+}
+.sp-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+}
+.sp-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overflow-y: auto;
+}
+.sp-nav .nav-item {
+  height: 32px;
+}
+.sp-foot {
+  margin-top: auto;
+  padding: 0 8px;
+  font-size: 11px;
+  color: var(--text-3);
+}
+.sp-main {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+}
+.sp-inner {
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 34px 40px 60px;
+}
+.sp-inner h1 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.sp-lead {
+  margin: 6px 0 8px;
+  color: var(--text-3);
+  font-size: 13px;
+}
+.sp-pane.modal-pane {
+  overflow: visible;
+  padding: 0;
+}
+.sp-pane h3 {
+  margin: 26px 0 8px;
+  font-size: 12px;
+  font-weight: 550;
+  color: var(--text-2);
+}
+.sp-group {
+  margin: 28px 0 -10px;
+  font-size: 15px;
+  font-weight: 600;
+}
+.sp-empty {
+  margin-top: 40px;
+  text-align: center;
+  color: var(--text-3);
+}
+.sp-close {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  width: 30px;
+  height: 30px;
+}
+.set-card {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg-elev);
+  overflow: hidden;
+}
+.set-card .set-row {
+  padding: 12px 16px;
+  min-height: 56px;
+}
+.set-card .set-row:last-child {
+  border-bottom: 0;
+}
+.set-card .set-text b {
+  font-size: 13px;
+}
+.set-card .set-text span {
+  font-size: 12px;
+}
+.set-select {
+  height: 30px;
+  min-width: 200px;
+  max-width: 280px;
+  padding: 0 8px;
+  border: 1px solid var(--line-2);
+  border-radius: 7px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+}
+.set-path {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11.5px;
+  color: var(--text-2);
+}
+.vendor-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.vendor-head small {
+  color: var(--text-3);
+  font-weight: 400;
+}
+.vendor-badge,
+.menu-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  border-radius: 4px;
+  background: var(--vendor, #777);
+  color: #fff;
+  font-size: 9.5px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* composer extras */
+.plus-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+}
+.plus-btn:hover {
+  border-color: var(--line-2);
+}
+.chip.skill {
+  border-color: color-mix(in srgb, var(--text) 18%, transparent);
+}
+.chip.where.cloud {
+  color: var(--text-2);
+}
+.mention-head {
+  padding: 6px 10px 4px;
+  font-size: 11px;
+  color: var(--text-3);
+}
+.skill-item .dim {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 340px;
+}
+.skill-menu .menu-hint {
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.skill-pill {
+  opacity: 0.85;
+}
+
+/* ---------------------------------------------------------- chat list */
+.chat-filter {
+  display: flex;
+  gap: 2px;
+  margin: 0 8px 4px;
+  padding: 2px;
+  border-radius: 7px;
+  background: var(--bg-inset);
+}
+.cf-btn {
+  flex: 1;
+  height: 22px;
+  border-radius: 5px;
+  font-size: 11px;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.cf-btn:hover {
+  color: var(--text);
+}
+.cf-btn.on {
+  background: var(--bg-elev);
+  color: var(--text);
+  box-shadow: var(--shadow-1);
+}
+.chat-row.two {
+  height: auto;
+  min-height: 42px;
+  padding: 5px 6px 5px 9px;
+  align-items: center;
+}
+.chat-lines {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.chat-line1,
+.chat-line2 {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+.chat-line2 {
+  font-size: 11px;
+  color: var(--text-3);
+}
+.chat-line2 > span:nth-child(2) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chat-where {
+  display: inline-flex;
+  opacity: 0.8;
+}
+.chat-ago {
+  flex: none;
+  font-size: 10.5px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.chat-row:hover .chat-ago,
+.chat-row:focus-within .chat-ago {
+  display: none;
+}
+.chat-pin {
+  display: inline-flex;
+  color: var(--text-3);
+}
+.chat-needs {
+  color: var(--warn);
+}
+.chat-state {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+.chat-state.waiting {
+  background: var(--warn);
+}
+.chat-state.running {
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid var(--text-3);
+  border-top-color: transparent;
+  animation: spin 0.9s linear infinite;
+}
+.chat-row.two .chat-flag {
+  display: none;
+}

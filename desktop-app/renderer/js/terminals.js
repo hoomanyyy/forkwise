@@ -157,7 +157,7 @@
     term.started = true
     const dims = term.fit.proposeDimensions() || { cols: 80, rows: 24 }
     try {
-      const info = await window.fw.pty.start(term.id, { cwd: term.cwd, cols: dims.cols, rows: dims.rows })
+      const info = await window.fw.pty.start(term.id, { cwd: term.cwd, cols: dims.cols, rows: dims.rows, shell: S.prefs.terminalShell || "" })
       term.cwd = info.cwd
       if (term.command) {
         setTimeout(function () {

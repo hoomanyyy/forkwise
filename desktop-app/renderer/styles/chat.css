@@ -136,6 +136,32 @@
   background: var(--bg-hover);
   color: var(--text);
 }
+.msg-btn.icon-only {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 7px;
+}
+.msg-btn.on {
+  color: var(--text);
+  background: var(--bg-active);
+}
+.turn-sep {
+  width: 1px;
+  height: 14px;
+  margin: 0 4px;
+  background: var(--line);
+}
+.turn-meta {
+  margin-left: 8px;
+  font-size: 11.5px;
+  color: var(--text-3);
+  opacity: 0;
+  transition: opacity 140ms var(--ease);
+}
+.turn-actions:hover .turn-meta {
+  opacity: 1;
+}
 .turn-actions {
   margin-top: 6px;
   margin-left: -6px;
@@ -624,9 +650,10 @@
   white-space: nowrap;
 }
 .md-code {
-  margin: 10px 0;
+  position: relative;
+  margin: 12px 0;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 10px;
   background: var(--code-bg);
   overflow: hidden;
 }
@@ -634,36 +661,74 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 6px 4px 10px;
+  height: 32px;
+  padding: 0 6px 0 12px;
+  background: color-mix(in srgb, var(--code-bg) 70%, var(--bg-inset));
   border-bottom: 1px solid var(--line);
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--text-3);
+}
+.md-lang {
+  text-transform: lowercase;
   letter-spacing: 0.02em;
 }
-.md-copy {
-  height: 20px;
-  padding: 0 6px;
-  border-radius: 4px;
-  font-size: 11px;
-  color: var(--text-3);
+.md-code-tools {
+  display: flex;
+  align-items: center;
+  gap: 2px;
 }
-.md-copy:hover {
+.md-tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: 24px;
+  min-width: 24px;
+  padding: 0 6px;
+  border-radius: 6px;
+  font-family: var(--font-ui, inherit);
+  font-size: 11.5px;
+  color: var(--text-3);
+  transition: background 110ms var(--ease), color 110ms var(--ease);
+}
+.md-tool:hover {
   background: var(--bg-hover);
   color: var(--text);
 }
+.md-tool .i-done,
+.copy-btn .i-done {
+  display: none;
+}
+.md-tool.done .i-copy,
+.copy-btn.done .ico:first-child {
+  display: none;
+}
+.md-tool.done .i-done,
+.copy-btn.done .i-done {
+  display: inline-block;
+  color: var(--ok, #3ecf8e);
+}
 .md-code pre {
   margin: 0;
-  padding: 10px 12px;
+  padding: 12px 14px;
   overflow: auto;
-  max-height: 460px;
+  max-height: 520px;
+  line-height: 1.55;
 }
 .md-code code {
+  display: block;
   background: none;
   padding: 0;
-  font-size: 12px;
-  line-height: 1.6;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.55;
   color: var(--text);
+  white-space: pre;
+  tab-size: 2;
+}
+.md-code code br {
+  line-height: 1.55;
 }
 .md.streaming > p:last-child::after,
 .md.streaming > ul:last-child > li:last-child::after,

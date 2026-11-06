@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { Link, Navigate, NavLink, useNavigate, useParams } from "react-router-dom"
-import { BarChart3, BookOpen, Brain, Plug, ShieldCheck, Sparkles, Trash2, User, Wrench, Plus, Laptop, Copy, Download, Clock, KeyRound, Link2, Keyboard, Palette } from "lucide-react"
+import { BarChart3, BookOpen, Brain, Plug, ShieldCheck, Sparkles, Trash2, User, Wrench, Plus, Laptop, Copy, Download, Clock, KeyRound, Link2, Keyboard, Palette, Chrome, Terminal, FolderOpen, MousePointer2, Globe, CheckCircle2, Circle, ChevronDown } from "lucide-react"
 import { useStore } from "../../lib/store"
 import { api, apiUrl } from "../../lib/api"
 import { desktopApp } from "../../lib/desktop"
@@ -228,6 +228,7 @@ export function Abilities() {
   const confirm = useConfirm()
   const [tools, setTools] = useState([])
   const [skills, setSkills] = useState([])
+  const [builtin, setBuiltin] = useState([])
   const [open, setOpen] = useState(null)
 
   async function load() {
@@ -235,6 +236,7 @@ export function Abilities() {
     const b = await api.get("/api/skills")
     setTools(a.tools)
     setSkills(b.skills)
+    setBuiltin(b.builtin || [])
   }
 
   useEffect(() => {
@@ -303,6 +305,22 @@ export function Abilities() {
           </div>
         ))}
       </div>
+      <h3 className="section-title"><Sparkles size={15} />Forkwise skills</h3>
+      <p className="muted small">Expert playbooks that come with Forkwise. The agent loads one by itself when a task fits, or add one to a message with + or by typing /.</p>
+      {builtin.length > 0 && (
+        <div className="builtin-skills">
+          {builtin.map((item, index) => (
+            <div key={item.name}>
+              {(index === 0 || builtin[index - 1].category !== item.category) && <div className="builtin-cat">{item.category}</div>}
+              <div className="builtin-skill">
+                <Sparkles size={14} />
+                <div><strong>{item.title}</strong><span className="muted small">{item.description}</span></div>
+                <code className="faint small">/{item.name}</code>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -572,17 +590,96 @@ function ComputerTab() {
     : "curl -fsSL " + pairing.agent_url + " -o forkwise_desktop.py && python3 forkwise_desktop.py --server " + pairing.server + " --token " + pairing.token)
   const auto = Boolean(user.settings && user.settings.desktop_auto)
 
+  const devices = (data && data.devices) || []
+  const online = devices.filter((device) => device.online)
+  const chromeOn = online.some((device) => device.chrome)
+  const inApp = desktopApp()
+  const platform = navigator.userAgent.includes("Windows") ? "Windows" : navigator.userAgent.includes("Mac") ? "macOS" : "Linux"
+  const steps = [
+    { done: inApp || devices.length > 0, title: "Install Forkwise Desktop", text: "For Windows, macOS and Linux. About 90 MB." },
+    { done: devices.length > 0, title: "Sign in to the app", text: "Your computer links itself. Nothing to copy or paste." },
+    { done: online.length > 0, title: "Keep the app open", text: "The agent works on your computer while the app runs, even from this website." },
+    { done: chromeOn, title: "Add Forkwise for Chrome (optional)", text: "So the agent can work in your own browser, signed in as you, on the sites you allow. In the app: Settings, Computer, Your own Chrome." },
+  ]
+  const abilities = [
+    { icon: Terminal, title: "Terminal and commands", text: "Runs your project, tests and builds in your own shell" },
+    { icon: FolderOpen, title: "Files and folders", text: "Only the folders you open or approve in the app" },
+    { icon: MousePointer2, title: "Screen, mouse and keyboard", text: "Uses desktop apps, asks before risky steps" },
+    { icon: Globe, title: "Forkwise browser", text: "A separate browser window the agent controls" },
+  ]
+
   return (
     <div className="settings-stack">
-      <div className="settings-card">
-        <h3>Use your own computer</h3>
-        {desktopApp() ? (
-          <p className="muted small">You are using the Forkwise desktop app. This computer links itself when you sign in, so there is nothing to set up. Choose Work in a folder on the new chat page to let the agent work on your files and run commands here. Press Ctrl+Alt+Shift+X (Cmd on macOS) any time to stop it.</p>
-        ) : (
-          <p className="muted small">Install the Forkwise desktop app for Windows, macOS or Linux. It opens Forkwise in its own window, links your computer when you sign in, and lets the agent work in folders on your computer, run commands in your own terminal, use a built-in browser, and see the screen and use the mouse and keyboard. <Link to="/download">Download the app</Link>.</p>
+      <div className={"settings-card computer-hero" + (online.length ? " on" : "")}>
+        <div className="computer-hero-top">
+          <span className="computer-hero-icon"><Laptop size={22} /></span>
+          <div>
+            <h3>{online.length ? "Your computer is connected" : "Use your own computer"}</h3>
+            <p className="muted small">{online.length ? "The agent can work on " + online.map((device) => device.name).join(", ") + ". Start a chat in the desktop app, or pick a folder from your computer when you start one." : "Let the agent work like Cursor on your own machine: your files, your terminal, your browser. The AI stays in the cloud; the work happens on your computer."}</p>
+          </div>
+          <span className={"status-pill" + (online.length ? " ok" : "")}><span className="dot" />{online.length ? "Online" : devices.length ? "Offline" : "Not linked"}</span>
+        </div>
+        {!inApp && (
+          <div className="computer-actions">
+            {devices.length === 0 && <Link className="btn btn-brand" to="/download"><Download size={15} />Download for {platform}</Link>}
+            <a className="btn btn-ghost" href="forkwise://open">Open the app</a>
+          </div>
         )}
-        <h3 className="settings-sub">Link without the app</h3>
-        <p className="muted small">Already have the app but it is not linked, or you prefer not to install it? Create a one-time token. You can open the app with it, or run the small Python connector (no folder mode, no built-in browser).</p>
+        <ol className="computer-steps">
+          {steps.map((step, index) => (
+            <li key={index} className={step.done ? "done" : ""}>
+              <span className="step-mark">{step.done ? <CheckCircle2 size={17} /> : <Circle size={17} />}</span>
+              <div><strong>{step.title}</strong><span className="muted small">{step.text}</span></div>
+            </li>
+          ))}
+        </ol>
+      </div>
+
+      <div className="settings-card">
+        <h3>Your computers</h3>
+        {!data && <span className="skel block h24" />}
+        {data && devices.length === 0 && <p className="muted small">No computers linked yet. Install the app and sign in; it shows up here by itself.</p>}
+        <div className="device-cards">
+          {devices.map((device) => (
+            <div className={"device-card" + (device.online ? " on" : "")} key={device.id}>
+              <div className="device-card-head">
+                <span className={"dot" + (device.online ? " ok" : "")} />
+                <div className="device-text">
+                  <strong>{device.name}</strong>
+                  <span className="faint small">{device.online ? "Online now" : device.last_seen ? "Last seen " + new Date(device.last_seen * 1000).toLocaleString() : "Waiting for the app to connect"}{device.platform ? " · " + device.platform : ""}</span>
+                </div>
+                <button className="icon-btn" aria-label={"Unlink " + device.name} title="Unlink" onClick={() => remove(device)}><Trash2 size={15} /></button>
+              </div>
+              <div className="cap-grid">
+                {abilities.map((item) => {
+                  const Icon = item.icon
+                  return (
+                    <div key={item.title} className={"cap" + (device.online ? " on" : "")}>
+                      <Icon size={15} /><div><strong>{item.title}</strong><span>{item.text}</span></div>
+                    </div>
+                  )
+                })}
+                <div className={"cap" + (device.chrome ? " on" : "")}>
+                  <Chrome size={15} /><div><strong>Your own Chrome</strong><span>{device.chrome ? (device.chrome_name || "Connected") + ", signed in as you" : "Not added yet. In the app: Settings, Computer"}</span></div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="settings-card">
+        <h3>Permissions</h3>
+        <label className="check">
+          <input type="checkbox" checked={!auto} onChange={(e) => setAuto(!e.target.checked)} />
+          <span>Ask me before every action on my computer (recommended). Screenshots never ask.</span>
+        </label>
+        <p className="muted small">In your own Chrome the agent only uses its purple Forkwise tab group and asks once for every new site. Press Ctrl+Alt+Shift+X (Cmd on macOS) to stop everything on the computer at once.</p>
+      </div>
+
+      <details className="settings-card computer-advanced">
+        <summary><h3>Link without the app</h3><ChevronDown size={15} /></summary>
+        <p className="muted small">Create a one-time token to link the app by hand, or run the small Python connector instead (no folders, no built-in browser).</p>
         <div className="pair-row">
           <input className="input" placeholder="Name, for example Work laptop" value={name} onChange={(e) => setName(e.target.value)} maxLength={60} />
           <button className="btn btn-brand" disabled={busy} onClick={pair}><Plus size={15} />Link a computer</button>
@@ -600,32 +697,9 @@ function ComputerTab() {
               <li>Run this in {os === "windows" ? "PowerShell" : "a terminal"}. The token is shown only once:</li>
             </ol>
             <CopyBox text={command} />
-            <p className="faint small">Or <a href={pairing.agent_url} download><Download size={12} /> download the app</a> and run it with <code>--token {pairing.token.slice(0, 10)}…</code></p>
           </div>
         )}
-      </div>
-      <div className="settings-card">
-        <h3>Linked computers</h3>
-        {!data && <span className="skel block h24" />}
-        {data && data.devices.length === 0 && <p className="muted small">No computers linked yet.</p>}
-        {data && data.devices.map((device) => (
-          <div className="device-row" key={device.id}>
-            <span className={"dot" + (device.online ? " ok" : "")} />
-            <div className="device-text">
-              <strong>{device.name}</strong>
-              <span className="faint small">{device.online ? "Online" : device.last_seen ? "Last seen " + new Date(device.last_seen * 1000).toLocaleString() : "Waiting for the app to connect"}{device.platform ? " · " + device.platform : ""}{device.hostname ? " · " + device.hostname : ""}</span>
-            </div>
-            <button className="icon-btn" aria-label={"Unlink " + device.name} onClick={() => remove(device)}><Trash2 size={15} /></button>
-          </div>
-        ))}
-      </div>
-      <div className="settings-card">
-        <h3>Permissions</h3>
-        <label className="check">
-          <input type="checkbox" checked={!auto} onChange={(e) => setAuto(!e.target.checked)} />
-          <span>Ask me before every action on my computer (recommended). Screenshots never ask.</span>
-        </label>
-      </div>
+      </details>
     </div>
   )
 }

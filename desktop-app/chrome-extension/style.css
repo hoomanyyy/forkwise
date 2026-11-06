@@ -1,0 +1,29 @@
+* { box-sizing: border-box; }
+body { margin: 0; font: 13px/1.5 "Segoe UI", system-ui, -apple-system, sans-serif; background: #111114; color: #ececf1; }
+.wrap { padding: 16px; }
+.head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.head img { width: 28px; height: 28px; border-radius: 7px; }
+.head h1 { font-size: 15px; margin: 0; font-weight: 600; }
+.head small { display: block; color: #8d8d99; font-size: 11.5px; }
+.status { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border: 1px solid #26262d; border-radius: 10px; background: #18181c; margin-bottom: 12px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: #6b6b76; flex: none; }
+.dot.on { background: #3ecf8e; box-shadow: 0 0 0 3px rgba(62, 207, 142, 0.15); }
+.dot.paused { background: #f5a524; }
+.muted { color: #8d8d99; }
+.small { font-size: 12px; }
+button { font: inherit; cursor: pointer; border-radius: 8px; border: 1px solid #2c2c34; background: #1d1d22; color: #ececf1; padding: 8px 12px; }
+button:hover { background: #24242a; border-color: #3a3a44; }
+button.primary { background: #7c6cff; border-color: #7c6cff; color: #fff; }
+button.primary:hover { background: #8b7dff; }
+button.danger { color: #ff7b7b; }
+button.full { width: 100%; margin-bottom: 8px; }
+.row { display: flex; gap: 8px; }
+.row button { flex: 1; }
+h2 { font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.06em; color: #8d8d99; margin: 16px 0 8px; font-weight: 600; }
+.site { display: flex; align-items: center; justify-content: space-between; padding: 7px 10px; border: 1px solid #26262d; border-radius: 8px; margin-bottom: 6px; }
+.site button { padding: 2px 8px; font-size: 12px; }
+.note { padding: 9px 11px; border-radius: 8px; background: #1a1a20; border: 1px solid #26262d; margin-top: 12px; color: #a9a9b5; font-size: 12px; }
+.ask-site { font-size: 18px; font-weight: 600; margin: 4px 0 2px; word-break: break-all; }
+.ask-what { color: #a9a9b5; margin-bottom: 16px; word-break: break-all; }
+.choices { display: flex; flex-direction: column; gap: 8px; }
+.timer { margin-top: 12px; text-align: center; color: #6b6b76; font-size: 11.5px; }
