@@ -191,6 +191,71 @@ contextBridge.exposeInMainWorld("fw", {
       return listen("fw:term:exit", handler)
     }
   },
+  wb: {
+    openFolder: function () {
+      return ipcRenderer.invoke("fw:wb:open-folder")
+    },
+    openFile: function () {
+      return ipcRenderer.invoke("fw:wb:open-file")
+    },
+    saveAs: function (defaultPath, text) {
+      return ipcRenderer.invoke("fw:wb:save-as", { defaultPath: defaultPath, text: text })
+    },
+    recent: function () {
+      return ipcRenderer.invoke("fw:wb:recent")
+    },
+    remember: function (folder) {
+      return ipcRenderer.invoke("fw:wb:remember", folder)
+    },
+    list: function (root, rel) {
+      return ipcRenderer.invoke("fw:wb:list", { root: root, path: rel })
+    },
+    read: function (root, rel) {
+      return ipcRenderer.invoke("fw:wb:read", { root: root, path: rel })
+    },
+    write: function (root, rel, text) {
+      return ipcRenderer.invoke("fw:wb:write", { root: root, path: rel, text: text })
+    },
+    create: function (root, rel, dir) {
+      return ipcRenderer.invoke("fw:wb:create", { root: root, path: rel, dir: dir })
+    },
+    rename: function (root, from, to) {
+      return ipcRenderer.invoke("fw:wb:rename", { root: root, from: from, to: to })
+    },
+    remove: function (root, rel) {
+      return ipcRenderer.invoke("fw:wb:remove", { root: root, path: rel })
+    },
+    files: function (root) {
+      return ipcRenderer.invoke("fw:wb:files", { root: root })
+    },
+    search: function (root, options) {
+      return ipcRenderer.invoke("fw:wb:search", Object.assign({ root: root }, options))
+    },
+    replace: function (root, options) {
+      return ipcRenderer.invoke("fw:wb:replace", Object.assign({ root: root }, options))
+    },
+    original: function (root, rel) {
+      return ipcRenderer.invoke("fw:wb:original", { root: root, path: rel })
+    },
+    branch: function (root) {
+      return ipcRenderer.invoke("fw:wb:branch", { root: root })
+    },
+    revert: function (root, rel) {
+      return ipcRenderer.invoke("fw:wb:revert", { root: root, path: rel })
+    },
+    watch: function (root) {
+      return ipcRenderer.invoke("fw:wb:watch", { root: root })
+    },
+    reveal: function (root, rel) {
+      return ipcRenderer.invoke("fw:wb:reveal", { root: root, path: rel })
+    },
+    openOutside: function (root, rel) {
+      return ipcRenderer.invoke("fw:wb:open-outside", { root: root, path: rel })
+    },
+    onChanged: function (handler) {
+      return listen("fw:wb:changed", handler)
+    }
+  },
   git: {
     status: function (folder) {
       return ipcRenderer.invoke("fw:git:status", folder)

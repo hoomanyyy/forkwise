@@ -10,6 +10,8 @@
 
   const TABS = [
     { id: "general", label: "General", icon: "settings" },
+    { id: "editor", label: "Editor", icon: "code" },
+    { id: "agent", label: "Agent", icon: "spark" },
     { id: "account", label: "Account", icon: "user" },
     { id: "computer", label: "Computer", icon: "monitor" },
     { id: "keys", label: "Keyboard", icon: "keyboard" }
@@ -48,6 +50,8 @@
     })
     const pane = h("div", { class: "modal-pane" })
     if (tab === "general") paneGeneral(pane)
+    if (tab === "editor") paneEditor(pane)
+    if (tab === "agent") paneAgent(pane)
     if (tab === "account") paneAccount(pane)
     if (tab === "computer") paneComputer(pane)
     if (tab === "keys") paneKeys(pane)
@@ -101,7 +105,37 @@
         FW.app.applyTheme(value)
       }))
     )
+    pane.appendChild(
+      row("Density", "Compact fits more on the screen.", picker([
+        { value: "comfortable", label: "Comfortable" },
+        { value: "compact", label: "Compact" }
+      ], S.prefs.density || "comfortable", function (value) {
+        FW.store.savePrefs({ density: value })
+        document.body.classList.toggle("compact", value === "compact")
+      }))
+    )
+    pane.appendChild(
+      row("Status bar", "Folder, branch, cursor, model and context at the bottom.", toggle(S.prefs.statusBar !== false, function (value) {
+        FW.store.savePrefs({ statusBar: value })
+        document.body.classList.toggle("no-status", !value)
+      }))
+    )
     pane.appendChild(h("h3", { text: "Chat" }))
+    pane.appendChild(
+      row("Send with", "Which key sends the message. The other one adds a new line.", picker([
+        { value: "enter", label: "Enter" },
+        { value: "mod-enter", label: U.key("Mod+Enter") }
+      ], S.prefs.sendKey || "enter", function (value) {
+        S.prefs.sendKey = value
+        FW.store.savePrefs({ sendKey: value })
+      }))
+    )
+    pane.appendChild(
+      row("Notifications", "When a task finishes or the agent needs you while the app is in the background.", toggle(S.prefs.notify !== false, function (value) {
+        S.prefs.notify = value
+        FW.store.savePrefs({ notify: value })
+      }))
+    )
     pane.appendChild(
       row("Show the thinking steps", "Keep the reasoning lines in the conversation.", toggle(S.prefs.showThinking !== false, function (value) {
         FW.store.savePrefs({ showThinking: value })
@@ -124,6 +158,60 @@
       h("button", { class: "btn sm", text: "Choose", onclick: async function () { const result = await window.fw.pickFolder(); if (result.folder) { FW.store.savePrefs({ folder: result.folder }); S.folder = result.folder; draw(back.querySelector(".modal")); } } })
     ])
     pane.appendChild(row("Folder for new chats", "The agent gets full read and write access to this folder.", folder))
+  }
+
+  function setEditor(values) {
+    Object.assign(S.prefs, values)
+    FW.store.savePrefs(values)
+    if (FW.editor) FW.editor.applyOptions()
+  }
+
+  function number(value, min, max, onChange) {
+    const input = h("input", { class: "set-number", type: "number", min: String(min), max: String(max), value: String(value) })
+    input.addEventListener("change", function () {
+      const next = Math.max(min, Math.min(max, parseInt(input.value, 10) || value))
+      input.value = String(next)
+      onChange(next)
+    })
+    return input
+  }
+
+  function paneEditor(pane) {
+    const prefs = S.prefs
+    pane.appendChild(h("h3", { text: "Text" }))
+    pane.appendChild(row("Font size", "Size of the code in the editor.", number(prefs.editorFontSize || 13, 9, 28, function (value) { setEditor({ editorFontSize: value }) })))
+    pane.appendChild(row("Tab size", "Spaces per indent level.", picker([{ value: 2, label: "2" }, { value: 4, label: "4" }, { value: 8, label: "8" }], prefs.tabSize || 2, function (value) { setEditor({ tabSize: value }) })))
+    pane.appendChild(row("Indent with spaces", "Off uses tab characters.", toggle(prefs.insertSpaces !== false, function (value) { setEditor({ insertSpaces: value }) })))
+    pane.appendChild(row("Word wrap", "Wrap long lines instead of scrolling sideways.", toggle(!!prefs.wordWrap, function (value) { setEditor({ wordWrap: value }) })))
+    pane.appendChild(h("h3", { text: "View" }))
+    pane.appendChild(row("Minimap", "The small map of the file on the right.", toggle(prefs.minimap !== false, function (value) { setEditor({ minimap: value }) })))
+    pane.appendChild(row("Sticky scroll", "Keep the current function or class name on top while scrolling.", toggle(prefs.stickyScroll !== false, function (value) { setEditor({ stickyScroll: value }) })))
+    pane.appendChild(row("Line numbers", null, toggle(prefs.lineNumbers !== false, function (value) { setEditor({ lineNumbers: value }) })))
+    pane.appendChild(row("Changes side by side", "Off shows changes in one column.", toggle(prefs.diffInline !== true, function (value) { setEditor({ diffInline: !value }) })))
+    pane.appendChild(h("h3", { text: "Saving" }))
+    pane.appendChild(row("Auto save", "Save a second after you stop typing.", toggle(prefs.autoSave === "delay", function (value) { setEditor({ autoSave: value ? "delay" : "off" }) })))
+  }
+
+  function paneAgent(pane) {
+    const prefs = S.prefs
+    pane.appendChild(h("h3", { text: "Working with the agent" }))
+    pane.appendChild(row("Follow the agent", "The panel and the editor switch to the file, preview or plan the agent is working on.", toggle(!!prefs.follow, function (value) {
+      FW.store.savePrefs({ follow: value })
+      if (FW.panel && FW.panel.following() !== value) FW.panel.toggleFollow()
+    })))
+    pane.appendChild(row("Default mode", "How new chats start.", picker([
+      { value: "auto", label: "Agent" },
+      { value: "ask", label: "Ask first" },
+      { value: "plan", label: "Plan" }
+    ], prefs.mode || "auto", function (value) {
+      FW.store.savePrefs({ mode: value })
+      S.prefs.mode = value
+      if (FW.composer) FW.composer.refresh()
+    })))
+    pane.appendChild(h("h3", { text: "Project" }))
+    const folder = (S.chat && S.chat.local_path) || (FW.wb && FW.wb.root()) || ""
+    pane.appendChild(row("Project rules", folder ? "FORKWISE.md in " + FW.wb.baseName(folder) + ". The agent reads it at the start of every task." : "Open a folder first.", h("button", { class: "btn sm", text: "Edit rules", disabled: !folder, onclick: function () { close(); FW.wb.run("agent.rules") } })))
+    pane.appendChild(row("Panel tabs", "Add, remove and reorder them with + and by dragging in the panel.", h("button", { class: "btn sm", text: "Reset tabs", onclick: function () { FW.store.savePrefs({ panelTabs: null }); S.prefs.panelTabs = null; FW.panel.render(); U.toast("Panel tabs reset") } })))
   }
 
   function paneAccount(pane) {
@@ -208,6 +296,19 @@
       ["Send message", "Enter"],
       ["New line", "Shift+Enter"],
       ["Stop the agent", "Esc"],
+      ["Command palette", "Mod+Shift+P"],
+      ["Go to file", "Mod+P"],
+      ["Open file", "Mod+O"],
+      ["Open folder", "Mod+Alt+O"],
+      ["Save", "Mod+S"],
+      ["Close editor", "Mod+W"],
+      ["Explorer", "Mod+Shift+E"],
+      ["Find in files", "Mod+Shift+F"],
+      ["Source control", "Mod+Shift+G"],
+      ["Edit selection with the agent", "Mod+K in the editor"],
+      ["Add selection to chat", "Mod+L in the editor"],
+      ["Chat beside the editor", "Mod+Alt+B"],
+      ["Mention a file", "@ in the message box"],
       ["Last message again", "\u2191 in an empty box"],
       ["Focus the message box", "Mod+L"],
       ["Choose the mode", "Mod+."],

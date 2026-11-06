@@ -7,18 +7,21 @@
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-rows: minmax(0, 1fr);
-  grid-template-columns: var(--side-w) minmax(0, 1fr) 0;
+  grid-template-rows: minmax(0, 1fr) var(--status-h);
+  grid-template-columns: var(--act-w) var(--side-w) minmax(0, 1fr) 0;
   transition: grid-template-columns 180ms var(--ease);
 }
 body.panel-open #app {
-  grid-template-columns: var(--side-w) minmax(0, 1fr) var(--panel-w);
+  grid-template-columns: var(--act-w) var(--side-w) minmax(0, 1fr) var(--panel-w);
 }
 body.sidebar-hidden #app {
-  grid-template-columns: 0 minmax(0, 1fr) 0;
+  grid-template-columns: var(--act-w) 0 minmax(0, 1fr) 0;
 }
 body.sidebar-hidden.panel-open #app {
-  grid-template-columns: 0 minmax(0, 1fr) var(--panel-w);
+  grid-template-columns: var(--act-w) 0 minmax(0, 1fr) var(--panel-w);
+}
+body.no-status #app {
+  grid-template-rows: minmax(0, 1fr) 0;
 }
 body {
   display: flex;
@@ -186,7 +189,7 @@ body.maximized #win-maximize .glyph::after {
 /* ----------------------------------------------------------------- sidebar */
 
 #sidebar {
-  grid-column: 1;
+  grid-column: 2;
   grid-row: 1;
   min-width: 0;
   min-height: 0;
@@ -452,7 +455,7 @@ body.sidebar-hidden #sidebar {
 /* ------------------------------------------------------------------- main */
 
 #main {
-  grid-column: 2;
+  grid-column: 3;
   grid-row: 1;
   min-width: 0;
   min-height: 0;
@@ -553,6 +556,7 @@ body.sidebar-hidden #sidebar {
   background: var(--bg);
 }
 .composer {
+  position: relative;
   max-width: 700px;
   margin: 0 auto;
   border: 1px solid var(--line-2);
@@ -775,7 +779,7 @@ body.sidebar-hidden #sidebar {
 /* ------------------------------------------------------------------ panel */
 
 #panel {
-  grid-column: 3;
+  grid-column: 4;
   grid-row: 1;
   min-width: 0;
   min-height: 0;
@@ -1443,7 +1447,7 @@ kbd {
   body.panel-open #app,
   body.sidebar-hidden #app,
   body.sidebar-hidden.panel-open #app {
-    grid-template-columns: 0 minmax(0, 1fr) 0;
+    grid-template-columns: var(--act-w) 0 minmax(0, 1fr) 0;
   }
   #sidebar {
     position: fixed;

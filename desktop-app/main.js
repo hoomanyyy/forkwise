@@ -28,6 +28,7 @@ const apiLib = require("./src/api")
 const appsLib = require("./src/apps")
 const termLib = require("./src/terminal")
 const gitLib = require("./src/git")
+const wbLib = require("./src/workbench")
 
 if (process.env.FW_USERDATA) app.setPath("userData", process.env.FW_USERDATA)
 
@@ -832,6 +833,7 @@ function wire() {
     if (action === "minimize") win.minimize()
     if (action === "maximize") win.isMaximized() ? win.unmaximize() : win.maximize()
     if (action === "close") win.close()
+    if (action === "devtools") win.webContents.toggleDevTools()
     if (action === "focus") {
       if (win.isMinimized()) win.restore()
       win.show()
@@ -999,6 +1001,106 @@ function wire() {
 
   ipcMain.handle("fw:log", function (event, payload) {
     return { ok: true }
+  })
+
+  /* workbench: the files of an open folder */
+  const watcher = wbLib.createWatcher(function (change) {
+    send("fw:wb:changed", change)
+  })
+  app.on("before-quit", function () {
+    watcher.closeAll()
+  })
+
+  function remember(folder) {
+    const recent = (prefs.get("recentFolders") || []).filter(function (item) {
+      return item !== folder
+    })
+    recent.unshift(folder)
+    prefs.set("recentFolders", recent.slice(0, 12))
+  }
+
+  ipcMain.handle("fw:wb:open-folder", async function () {
+    const result = await dialog.showOpenDialog(win, { title: "Open folder", properties: ["openDirectory", "createDirectory"] })
+    if (result.canceled || !result.filePaths[0]) return { folder: "" }
+    const folder = result.filePaths[0]
+    addRoot(folder)
+    remember(folder)
+    return { folder: folder }
+  })
+
+  ipcMain.handle("fw:wb:open-file", async function () {
+    const result = await dialog.showOpenDialog(win, { title: "Open file", properties: ["openFile", "multiSelections"] })
+    if (result.canceled || !result.filePaths.length) return { files: [] }
+    return { files: result.filePaths }
+  })
+
+  ipcMain.handle("fw:wb:save-as", async function (event, payload) {
+    const result = await dialog.showSaveDialog(win, { title: "Save as", defaultPath: (payload && payload.defaultPath) || os.homedir() })
+    if (result.canceled || !result.filePath) return { file: "" }
+    await fs.promises.writeFile(result.filePath, String((payload && payload.text) || ""), "utf8")
+    return { file: result.filePath }
+  })
+
+  ipcMain.handle("fw:wb:recent", function () {
+    return { folders: (prefs.get("recentFolders") || []).filter(function (folder) {
+      try {
+        return fs.statSync(folder).isDirectory()
+      } catch (problem) {
+        return false
+      }
+    }) }
+  })
+
+  ipcMain.handle("fw:wb:remember", function (event, folder) {
+    if (folder) remember(String(folder))
+    return { ok: true }
+  })
+
+  ipcMain.handle("fw:wb:list", function (event, payload) {
+    return wbLib.list(payload.root, payload.path)
+  })
+  ipcMain.handle("fw:wb:read", function (event, payload) {
+    return wbLib.read(payload.root, payload.path)
+  })
+  ipcMain.handle("fw:wb:write", function (event, payload) {
+    return wbLib.write(payload.root, payload.path, payload.text)
+  })
+  ipcMain.handle("fw:wb:create", function (event, payload) {
+    return wbLib.create(payload.root, payload.path, !!payload.dir)
+  })
+  ipcMain.handle("fw:wb:rename", function (event, payload) {
+    return wbLib.rename(payload.root, payload.from, payload.to)
+  })
+  ipcMain.handle("fw:wb:remove", function (event, payload) {
+    return wbLib.remove(payload.root, payload.path, shell)
+  })
+  ipcMain.handle("fw:wb:files", function (event, payload) {
+    return wbLib.files(payload.root)
+  })
+  ipcMain.handle("fw:wb:search", function (event, payload) {
+    return wbLib.search(payload.root, payload)
+  })
+  ipcMain.handle("fw:wb:replace", function (event, payload) {
+    return wbLib.replaceAll(payload.root, payload)
+  })
+  ipcMain.handle("fw:wb:original", function (event, payload) {
+    return wbLib.original(payload.root, payload.path)
+  })
+  ipcMain.handle("fw:wb:branch", function (event, payload) {
+    return wbLib.branch(payload.root)
+  })
+  ipcMain.handle("fw:wb:revert", function (event, payload) {
+    return wbLib.revert(payload.root, payload.path, shell)
+  })
+  ipcMain.handle("fw:wb:watch", function (event, payload) {
+    return watcher.watch(payload.root)
+  })
+  ipcMain.handle("fw:wb:reveal", function (event, payload) {
+    shell.showItemInFolder(wbLib.inside(payload.root, payload.path))
+    return { ok: true }
+  })
+  ipcMain.handle("fw:wb:open-outside", function (event, payload) {
+    return shell.openPath(wbLib.inside(payload.root, payload.path))
   })
 }
 

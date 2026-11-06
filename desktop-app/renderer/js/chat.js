@@ -179,6 +179,9 @@
   function showEmpty() {
     live = null
     current = null
+    S.todos = []
+    S.planText = ""
+    FW.store.emit("plan", {})
     inner.innerHTML = ""
     stage.classList.add("is-empty")
     hideJump()
@@ -355,6 +358,7 @@
     S.runId = active ? data.run.id : ""
     S.messages = messages
     renderHistory(messages)
+    historyPlan(messages)
     if (active) {
       startLive(data.run.id)
     }
@@ -409,6 +413,7 @@
     clearTurnActions()
     addUser(content, meta, id, true)
     follow(true)
+    FW.store.emit("timeline")
   }
 
   function ensureLive() {
@@ -717,6 +722,50 @@
     }
   }
 
+  /* ------------------------------------------- plan, timeline, following */
+
+  const EDIT_TOOLS = ["write_file", "edit_file", "multi_edit", "read_file"]
+
+  function setTodos(todos) {
+    if (!Array.isArray(todos)) return
+    S.todos = todos
+    FW.store.emit("plan", { todos: todos })
+  }
+
+  function setPlanText(text) {
+    S.planText = text || ""
+    FW.store.emit("plan", { plan: text })
+  }
+
+  function onToolStart(name, args) {
+    if (name === "todo_write" && Array.isArray(args.todos)) {
+      setTodos(args.todos)
+      if (FW.panel) FW.panel.follow("todos", {})
+    }
+    if (name === "exit_plan_mode") setPlanText(args.plan || "")
+    if (EDIT_TOOLS.indexOf(name) >= 0 && args.path && FW.panel) FW.panel.follow("file", { path: args.path })
+    if (name === "computer" && args.action === "screenshot" && FW.panel) FW.panel.follow("screen", {})
+    FW.store.emit("timeline")
+  }
+
+  // After a chat is drawn from history: the latest to-do list and plan.
+  function historyPlan(messages) {
+    let todos = []
+    let plan = ""
+    messages.forEach(function (message) {
+      if (message.role !== "assistant") return
+      parseCalls(message.tool_calls).forEach(function (call) {
+        const name = callName(call)
+        const args = callArgs(call)
+        if (name === "todo_write" && Array.isArray(args.todos)) todos = args.todos
+        if (name === "exit_plan_mode") plan = args.plan || ""
+      })
+    })
+    S.todos = todos
+    S.planText = plan
+    FW.store.emit("plan", {})
+  }
+
   /* -------------------------------------------------------------- events */
 
   function closeText(state) {
@@ -791,6 +840,7 @@
       const row = addActivity(state.flow, { name: event.name, args: event.args || {}, finished: false, enter: true })
       if (!row.plan) row.row.classList.add("running")
       state.rows[event.id] = row
+      onToolStart(event.name, event.args || {})
       return
     }
     if (type === "tool_output") {
@@ -810,6 +860,7 @@
       const text = event.text || ""
       if (text.trim() && !row.plan) setOutput(row, text)
       finishRow(row, event.ok, Date.now() - row.started)
+      FW.store.emit("timeline")
       if (event.meta && event.meta.files) {
         S.changedFiles = event.meta.files
         if (window.FW.panel) window.FW.panel.setChanges(event.meta.files)
@@ -824,6 +875,7 @@
       const state = ensureLive()
       const rows = Object.keys(state.rows).map(function (id) { return state.rows[id] }).filter(function (row) { return row.name === "todo_write" })
       const row = rows[rows.length - 1]
+      setTodos(event.todos)
       if (row && Array.isArray(event.todos)) {
         const old = row.body.querySelector(".todos")
         const list = todoList(event.todos)
@@ -837,11 +889,14 @@
       const state = ensureLive()
       const url = event.url || ""
       if (url) {
+        S.lastPreview = url
         state.flow.appendChild(h("div", { class: "turn-system enter" }, [
           h("span", { html: icon("globe", 13) }),
           h("span", { text: "Preview is running" }),
-          h("button", { class: "link-btn", type: "button", text: "Open", onclick: function () { window.fw.openExternal(url) } })
+          h("button", { class: "link-btn", type: "button", text: "Show here", onclick: function () { FW.app.togglePanel(true); FW.panel.browse(url) } }),
+          h("button", { class: "link-btn", type: "button", text: "Open in browser", onclick: function () { window.fw.openExternal(url) } })
         ]))
+        if (FW.panel) FW.panel.follow("preview", { url: url })
       }
       return
     }
@@ -1081,6 +1136,7 @@
     setRunning(false)
     S.runId = ""
     clearQueued()
+    FW.store.emit("timeline")
     const chatId = S.chat ? S.chat.id : current
     if (chatId && Date.now() - lastReload > 600) {
       lastReload = Date.now()

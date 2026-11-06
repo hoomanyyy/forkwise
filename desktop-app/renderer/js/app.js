@@ -22,6 +22,7 @@
 
   function applyTheme(value) {
     document.documentElement.dataset.theme = resolveTheme(value)
+    if (window.FW.store) window.FW.store.emit("theme", document.documentElement.dataset.theme)
   }
 
   /* ------------------------------------------------------------- boot */
@@ -96,6 +97,9 @@
     window.FW.composer.init()
     window.FW.sidebar.init()
     window.FW.panel.init()
+    window.FW.explorer.init()
+    window.FW.editor.init()
+    window.FW.wb.init()
     window.FW.sidebar.account()
     window.FW.sidebar.device()
     applyLayout()
@@ -226,7 +230,7 @@
     })
     window.addEventListener("resize", U.debounce(function () {
       // a window made narrower tucks the sidebar away instead of crushing the chat
-      if (S.sidebarOpen && S.panelOpen && chatRoom(true, true) < 480) {
+      if (S.sidebarOpen && S.panelOpen && chatRoom(true, true) < neededRoom()) {
         S.sidebarOpen = false
         applyLayout()
       }
@@ -235,7 +239,7 @@
 
   // A desktop notification, only when the window is in the background.
   function notify(title, body, chatId) {
-    if (document.hasFocus() || typeof Notification === "undefined") return
+    if (S.prefs.notify === false || document.hasFocus() || typeof Notification === "undefined") return
     try {
       const note = new Notification(title, { body: String(body || "").slice(0, 160), silent: false })
       note.onclick = function () {
@@ -293,7 +297,11 @@
   function onKey(event) {
     const mod = event.metaKey || event.ctrlKey
     if (!mod) return
+    if (U.overlayOpen() && !event.target.closest(".palette")) return
+    if (window.FW.wb && window.FW.wb.onKey(event)) return
     const key = event.key.toLowerCase()
+    // inside the code editor these keys belong to the editor
+    if (event.target && event.target.closest && event.target.closest(".monaco-editor") && (key === "k" || key === "l" || key === "/" || key === ".")) return
     if (key === "n") {
       event.preventDefault()
       newChat()
@@ -338,14 +346,23 @@
   // both back).
   function chatRoom(sidebar, panel) {
     const style = getComputedStyle(document.documentElement)
-    const side = sidebar ? parseInt(style.getPropertyValue("--side-w"), 10) || 236 : 0
+    const side = sidebar ? parseInt(style.getPropertyValue("--side-w"), 10) || 248 : 0
     const pane = panel ? parseInt(style.getPropertyValue("--panel-w"), 10) || 330 : 0
-    return window.innerWidth - side - pane
+    const bar = parseInt(style.getPropertyValue("--act-w"), 10) || 44
+    return window.innerWidth - side - pane - bar
+  }
+
+  // With the code editor open the middle needs room for both the editor and
+  // the chat.
+  function neededRoom() {
+    if (!document.body.classList.contains("split") || document.body.classList.contains("chat-hidden")) return 480
+    const chat = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--chat-w"), 10) || 440
+    return Math.min(chat, 440) + 400
   }
 
   function makeRoom(keep) {
     if (!S.sidebarOpen || !S.panelOpen) return
-    if (chatRoom(true, true) >= 480) return
+    if (chatRoom(true, true) >= neededRoom()) return
     if (keep === "sidebar") S.panelOpen = false
     else S.sidebarOpen = false
   }
@@ -355,6 +372,8 @@
     document.body.classList.toggle("sidebar-hidden", !S.sidebarOpen)
     const panelBtn = $("btnPanel")
     if (panelBtn) panelBtn.classList.toggle("on", !!S.panelOpen)
+    if (window.FW.wb && booted) window.FW.wb.activity()
+    if (window.FW.editor) setTimeout(window.FW.editor.layout, 200)
   }
 
   function togglePanel(value) {
@@ -477,6 +496,7 @@
       window.FW.panel.show(which)
     },
     applyTheme: applyTheme,
+    applyLayout: applyLayout,
     signOut: signOut,
     reloadSession: reloadSession,
     showLogin: showLogin

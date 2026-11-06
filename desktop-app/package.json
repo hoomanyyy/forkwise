@@ -1,7 +1,7 @@
 {
   "name": "forkwise-desktop",
   "productName": "Forkwise",
-  "version": "3.2.0",
+  "version": "3.3.0",
   "description": "Lets your Forkwise agent use this computer",
   "main": "main.js",
   "author": {
@@ -18,6 +18,7 @@
   "dependencies": {
     "@nut-tree-fork/nut-js": "^4.2.6",
     "electron-updater": "^6.3.9",
+    "monaco-editor": "^0.52.2",
     "ws": "^8.18.0"
   },
   "devDependencies": {
@@ -40,7 +41,9 @@
       "shared/**/*",
       "renderer/**/*",
       "build/icon.png",
-      "package.json"
+      "package.json",
+      "!node_modules/monaco-editor/{esm,dev,min-maps}/**",
+      "!node_modules/monaco-editor/min/vs/nls.messages.*.js"
     ],
     "asarUnpack": [
       "node_modules/@nut-tree-fork/**/*"

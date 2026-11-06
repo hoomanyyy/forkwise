@@ -1,6 +1,24 @@
 /* DOM helpers, icons and small utilities. */
 (function () {
   const ICONS = {
+    filePlus: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M12 11.5v6M9 14.5h6"/>',
+    files: '<path d="M15 3H9a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7z"/><path d="M15 3v4h4"/><path d="M4 8v11a2 2 0 0 0 2 2h8"/>',
+    arrowLeft: '<path d="M19 12H5M11 6l-6 6 6 6"/>',
+    arrowRight: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+    save: '<path d="M5 3h11l4 4v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 1-2z"/><path d="M8 3v5h7V3M8 21v-7h8v7"/>',
+    split: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/>',
+    collapse: '<path d="M7 9l5-5 5 5M7 15l5 5 5-5"/>',
+    replace: '<path d="M4 7h11l-3-3M20 17H9l3 3"/>',
+    regex: '<path d="M17 3v8M13.5 5l7 4M20.5 5l-7 4"/><rect x="3" y="15" width="6" height="6" rx="1"/>',
+    caseSense: '<path d="M3 18l4.5-12L12 18M4.6 14h5.8"/><path d="M15 13.5a2.5 2.5 0 1 1 5 0V18M20 15.6c-3.4-.6-5 .3-5 1.3s.9 1.6 2 1.6 3-.7 3-2.9"/>',
+    clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+    book: '<path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/>',
+    eyeOff: '<path d="M3 3l18 18M10.6 5.6A9.6 9.6 0 0 1 12 5.5c5.9 0 9.5 6.5 9.5 6.5a17 17 0 0 1-2.9 3.7M6.4 6.5C3.9 8.2 2.5 12 2.5 12S6.1 18.5 12 18.5a9 9 0 0 0 4.2-1"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>',
+    code: '<path d="M8 7l-5 5 5 5M16 7l5 5-5 5M13.5 4l-3 16"/>',
+    command: '<path d="M9 6v12M15 6v12M6 9h12M6 15h12"/>',
+    layout: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11"/>',
+    help: '<circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.6M12 17h.01"/>',
+    upload: '<path d="M12 16V4M7 9l5-5 5 5M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>',
     plus: '<path d="M12 5v14M5 12h14"/>',
     search: '<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>',
     settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.11a1.7 1.7 0 0 0-1.11-1.56 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.11A1.7 1.7 0 0 0 4.67 8.7a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34H9a1.7 1.7 0 0 0 1-1.56V3a2 2 0 1 1 4 0v.11a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87V9a1.7 1.7 0 0 0 1.56 1H21a2 2 0 1 1 0 4h-.11a1.7 1.7 0 0 0-1.49 1z"/>',
@@ -191,17 +209,24 @@
       list.innerHTML = ""
       buttons = []
       const needle = String(query || "").trim().toLowerCase()
+      const withIcons = items.some(function (item) {
+        return !!item.icon
+      })
       items.forEach(function (item) {
         if (item.header) {
           if (!needle) list.appendChild(h("div", { class: "menu-head", text: item.header }))
           return
         }
+        if (item.separator) {
+          if (!needle && list.lastChild && !list.lastChild.classList.contains("menu-sep")) list.appendChild(h("div", { class: "menu-sep" }))
+          return
+        }
         const words = (String(item.label || "") + " " + String(item.hint || "")).toLowerCase()
         if (needle && words.indexOf(needle) < 0) return
         const button = h("button", { class: "pop-item menu-item" + (item.checked ? " checked" : "") + (item.danger ? " danger" : ""), type: "button", role: "menuitemradio", "aria-checked": item.checked ? "true" : "false", title: item.title || "" }, [
-          item.icon ? h("span", { class: "menu-icon", html: icon(item.icon, 13) }) : null,
+          item.icon ? h("span", { class: "menu-icon", html: icon(item.icon, 13) }) : withIcons ? h("span", { class: "menu-icon", style: "width:13px" }) : null,
           h("span", { class: "menu-text" }, [h("span", { class: "menu-label", text: item.label }), item.hint ? h("span", { class: "menu-hint", text: item.hint }) : null]),
-          h("span", { class: "menu-check", html: item.checked ? icon("check", 12) : "" })
+          item.key ? h("span", { class: "menu-key", text: item.key }) : h("span", { class: "menu-check", html: item.checked ? icon("check", 12) : "" })
         ])
         button.addEventListener("click", function (event) {
           event.stopPropagation()
@@ -214,6 +239,7 @@
         buttons.push(button)
         list.appendChild(button)
       })
+      if (list.lastChild && list.lastChild.classList.contains("menu-sep")) list.lastChild.remove()
       if (!buttons.length) list.appendChild(h("div", { class: "menu-empty", text: "Nothing matches." }))
       const checked = buttons.findIndex(function (button) {
         return button.classList.contains("checked")
@@ -350,8 +376,9 @@
         box.appendChild(input)
       }
       const cancel = h("button", { class: "btn ghost sm", type: "button", text: settings.cancel || "Cancel" })
+      const extra = settings.extra ? h("button", { class: "btn sm", type: "button", text: settings.extra }) : null
       const ok = h("button", { class: "btn sm " + (settings.danger ? "danger-solid" : "primary"), type: "button", text: settings.ok || "OK" })
-      box.appendChild(h("div", { class: "dialog-actions" }, [cancel, ok]))
+      box.appendChild(h("div", { class: "dialog-actions" }, [extra, cancel, ok]))
       back.appendChild(box)
       document.body.appendChild(back)
       let done = false
@@ -379,6 +406,11 @@
       cancel.addEventListener("click", function () {
         finish(null)
       })
+      if (extra) {
+        extra.addEventListener("click", function () {
+          finish("extra")
+        })
+      }
       ok.addEventListener("click", function () {
         if (input) {
           const value = input.value.trim()

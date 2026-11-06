@@ -46,10 +46,17 @@
       autoGrow()
       updateSend()
       FW.store.setDraft(draftOwner, textarea.value)
+      updateMention()
     })
+    textarea.addEventListener("blur", function () {
+      setTimeout(closeMention, 150)
+    })
+    textarea.addEventListener("click", updateMention)
     window.addEventListener("resize", U.debounce(autoGrow, 120))
     textarea.addEventListener("keydown", function (event) {
-      if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+      if (mentionKeys(event)) return
+      const ctrlSend = S.prefs.sendKey === "mod-enter"
+      if (event.key === "Enter" && !event.shiftKey && !event.isComposing && (!ctrlSend || event.ctrlKey || event.metaKey)) {
         event.preventDefault()
         send()
         return
@@ -471,7 +478,136 @@
     send()
   }
 
+  /* ------------------------------------------------------- @ mentions */
+
+  // Typing @ lists files of the open folder; picking one writes @path.
+  let mention = null
+  let mentionToken = 0
+
+  function mentionQuery() {
+    const at = textarea.selectionStart
+    const before = textarea.value.slice(0, at)
+    const found = before.match(/(^|\s)@([^\s@]{0,120})$/)
+    if (!found) return null
+    return { start: at - found[2].length - 1, end: at, query: found[2] }
+  }
+
+  async function updateMention() {
+    const query = mentionQuery()
+    if (!query || !FW.wb || !FW.wb.root()) {
+      closeMention()
+      return
+    }
+    const mine = ++mentionToken
+    const files = await FW.wb.allFiles()
+    if (mine !== mentionToken) return
+    const scored = []
+    files.forEach(function (file) {
+      const match = FW.wb.fuzzy(file, query.query)
+      if (match) scored.push({ file: file, score: match.score })
+    })
+    scored.sort(function (a, b) {
+      return b.score - a.score
+    })
+    const items = scored.slice(0, 12).map(function (item) {
+      return item.file
+    })
+    if (!items.length) {
+      closeMention()
+      return
+    }
+    if (!mention) {
+      mention = { box: h("div", { class: "mention-box" }), items: [], active: 0, query: query }
+      box.appendChild(mention.box)
+    }
+    mention.items = items
+    mention.query = query
+    mention.active = Math.min(mention.active, items.length - 1)
+    drawMention()
+  }
+
+  function drawMention() {
+    mention.box.innerHTML = ""
+    mention.items.forEach(function (file, index) {
+      const name = file.split("/").pop()
+      const row = h("button", { class: "mention-item" + (index === mention.active ? " active" : ""), type: "button" }, [
+        h("span", { class: "file-ico", html: FW.explorer.fileIcon(name) }),
+        h("span", { text: name }),
+        h("span", { class: "dim", text: file.slice(0, file.length - name.length).replace(/\/$/, "") })
+      ])
+      row.addEventListener("mousedown", function (event) {
+        event.preventDefault()
+        pickMention(file)
+      })
+      mention.box.appendChild(row)
+    })
+    const current = mention.box.children[mention.active]
+    if (current) current.scrollIntoView({ block: "nearest" })
+  }
+
+  function closeMention() {
+    if (!mention) return
+    mention.box.remove()
+    mention = null
+  }
+
+  function pickMention(file) {
+    const query = mention ? mention.query : mentionQuery()
+    if (!query) return
+    const text = "@" + file + " "
+    textarea.setRangeText(text, query.start, query.end, "end")
+    closeMention()
+    textarea.dispatchEvent(new Event("input", { bubbles: true }))
+    textarea.focus()
+  }
+
+  function mentionKeys(event) {
+    if (!mention) return false
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault()
+      mention.active = (mention.active + (event.key === "ArrowDown" ? 1 : -1) + mention.items.length) % mention.items.length
+      drawMention()
+      return true
+    }
+    if (event.key === "Enter" || event.key === "Tab") {
+      event.preventDefault()
+      pickMention(mention.items[mention.active])
+      return true
+    }
+    if (event.key === "Escape") {
+      event.preventDefault()
+      event.stopPropagation()
+      closeMention()
+      return true
+    }
+    return false
+  }
+
+  // Puts text where the cursor is (or at the end) and focuses the box.
+  function insertText(text) {
+    const at = document.activeElement === textarea ? textarea.selectionStart : textarea.value.length
+    const end = document.activeElement === textarea ? textarea.selectionEnd : textarea.value.length
+    const before = textarea.value.slice(0, at)
+    const glue = before && !/\s$/.test(before) ? " " : ""
+    textarea.setRangeText(glue + text, at, end, "end")
+    textarea.dispatchEvent(new Event("input", { bubbles: true }))
+    textarea.focus()
+    if (document.body.classList.contains("chat-hidden")) FW.wb.toggleChat()
+  }
+
+  function insertMention(rel) {
+    insertText("@" + rel + " ")
+  }
+
+  function sendText(text) {
+    if (document.body.classList.contains("chat-hidden")) FW.wb.toggleChat()
+    textarea.value = text
+    autoGrow()
+    send()
+  }
+
   function fill(text) {
+    if (document.body.classList.contains("chat-hidden")) FW.wb.toggleChat()
     textarea.value = text
     autoGrow()
     updateSend()
@@ -514,5 +650,5 @@
   }
 
   window.FW = window.FW || {}
-  window.FW.composer = { init: init, fill: fill, focus: focus, refresh: refresh, setChat: setChat, update: updateSend, renderChips: renderChips, attachPaths: attachPaths, resend: resend, approvePlan: approvePlan, model: function () { return currentModel }, mode: function () { return currentMode } }
+  window.FW.composer = { init: init, fill: fill, focus: focus, refresh: refresh, setChat: setChat, update: updateSend, renderChips: renderChips, attachPaths: attachPaths, resend: resend, approvePlan: approvePlan, sendText: sendText, insertText: insertText, insertMention: insertMention, stopNow: function () { if (S.running) stop() }, model: function () { return currentModel }, mode: function () { return currentMode } }
 })()

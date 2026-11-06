@@ -1,4 +1,5 @@
-/* Right panel: Changes, Terminal, Computer. */
+/* Right panel: tabs you choose (Changes, Terminal, Computer, Browser, Plan,
+   Timeline, Rules), added with +, closed with x and dragged to reorder. */
 (function () {
   const U = window.FW.util
   const S = window.FW.store.state
@@ -26,14 +27,57 @@
   const STEP = 16
 
   const TABS = [
-    { id: "changes", label: "Changes" },
-    { id: "terminal", label: "Terminal" },
-    { id: "computer", label: "Computer" }
+    { id: "changes", label: "Changes", icon: "branch", hint: "Files the agent changed" },
+    { id: "terminal", label: "Terminal", icon: "terminal", hint: "A shell on this computer" },
+    { id: "computer", label: "Computer", icon: "monitor", hint: "Screen, apps and what the agent did" },
+    { id: "browser", label: "Browser", icon: "globe", hint: "Preview pages and sites" },
+    { id: "plan", label: "Plan", icon: "list", hint: "The agent's plan and to-do list" },
+    { id: "timeline", label: "Timeline", icon: "clock", hint: "Every step of this chat" },
+    { id: "rules", label: "Rules", icon: "book", hint: "FORKWISE.md: what the agent should know" }
   ]
+  const DEFAULT_TABS = ["changes", "terminal", "computer", "browser", "plan"]
+
+  let following = false
+  let browserUrl = ""
+  const browserBack = []
+  const browserForward = []
+  let rulesText = null
+  let rulesFile = ""
+  let rulesDirty = false
+
+  function openTabs() {
+    const saved = Array.isArray(S.prefs.panelTabs) ? S.prefs.panelTabs : DEFAULT_TABS
+    const known = saved.filter(function (id) {
+      return TABS.some(function (tab) {
+        return tab.id === id
+      })
+    })
+    return known.length ? known : DEFAULT_TABS.slice()
+  }
+
+  function saveTabs(list) {
+    S.prefs.panelTabs = list
+    FW.store.savePrefs({ panelTabs: list })
+  }
+
+  function tabInfo(id) {
+    return TABS.find(function (tab) {
+      return tab.id === id
+    })
+  }
 
   function init() {
     head = document.getElementById("panelHead")
     body = document.getElementById("panelBody")
+    following = !!S.prefs.follow
+    FW.store.on("timeline", timelineChanged)
+    FW.store.on("plan", function () {
+      if (S.panelOpen && S.panel === "plan") render()
+    })
+    FW.store.on("chat:loaded", function () {
+      rulesText = null
+      if (S.panelOpen && (S.panel === "timeline" || S.panel === "plan" || S.panel === "rules")) render()
+    })
     wireResize()
     render()
     window.fw.term.onData(function (payload) {
@@ -130,23 +174,83 @@
 
   function render() {
     if (!head || !body) return
+    const list = openTabs()
+    if (list.indexOf(S.panel) < 0) S.panel = list[0]
     head.innerHTML = ""
-    TABS.forEach(function (tab) {
-      const count = tab.id === "changes" && S.changedFiles && S.changedFiles.length ? h("span", { class: "count", text: String(S.changedFiles.length) }) : null
-      head.appendChild(
-        h("button", {
-          class: "tab" + (S.panel === tab.id ? " on" : ""),
-          onclick: function () {
-            show(tab.id)
-          }
-        }, [h("span", { text: tab.label }), count])
-      )
+    const strip = h("div", { class: "panel-tabs" })
+    let dragging = ""
+    list.forEach(function (id) {
+      const tab = tabInfo(id)
+      const count = id === "changes" && S.changedFiles && S.changedFiles.length ? h("span", { class: "count", text: String(S.changedFiles.length) }) : id === "plan" && S.todos && S.todos.length ? h("span", { class: "count", text: doneCount() + "/" + S.todos.length }) : null
+      const close = list.length > 1 ? h("span", { class: "tab-x", title: "Close tab", html: icon("close", 9) }) : null
+      const button = h("button", { class: "tab" + (S.panel === id ? " on" : ""), title: tab.hint, draggable: "true", dataset: { tab: id } }, [h("span", { text: tab.label }), count, close])
+      button.addEventListener("click", function (event) {
+        if (close && close.contains(event.target)) {
+          event.stopPropagation()
+          removeTab(id)
+          return
+        }
+        show(id)
+      })
+      button.addEventListener("mousedown", function (event) {
+        if (event.button === 1 && list.length > 1) {
+          event.preventDefault()
+          removeTab(id)
+        }
+      })
+      button.addEventListener("dragstart", function (event) {
+        dragging = id
+        event.dataTransfer.setData("text/fw-panel", id)
+        button.classList.add("dragging")
+      })
+      button.addEventListener("dragend", function () {
+        button.classList.remove("dragging")
+      })
+      button.addEventListener("dragover", function (event) {
+        if (Array.prototype.indexOf.call(event.dataTransfer.types, "text/fw-panel") < 0) return
+        event.preventDefault()
+        button.classList.add("drop-before")
+      })
+      button.addEventListener("dragleave", function () {
+        button.classList.remove("drop-before")
+      })
+      button.addEventListener("drop", function (event) {
+        const moving = event.dataTransfer.getData("text/fw-panel") || dragging
+        button.classList.remove("drop-before")
+        if (!moving || moving === id) return
+        event.preventDefault()
+        const next = openTabs().filter(function (item) {
+          return item !== moving
+        })
+        next.splice(next.indexOf(id), 0, moving)
+        saveTabs(next)
+        render()
+      })
+      strip.appendChild(button)
     })
+    head.appendChild(strip)
+    const missing = TABS.filter(function (tab) {
+      return list.indexOf(tab.id) < 0
+    })
+    head.appendChild(h("button", {
+      class: "icon-btn",
+      title: missing.length ? "Add a tab" : "All tabs are open",
+      html: icon("plus", 13),
+      onclick: function (event) {
+        addMenu(event.currentTarget)
+      }
+    }))
+    head.appendChild(h("button", {
+      class: "icon-btn follow-btn" + (following ? " on" : ""),
+      style: "margin-left:auto",
+      title: following ? "Following the agent: the panel and editor switch to what it is doing (click to stop)" : "Follow the agent",
+      html: icon(following ? "eye" : "eyeOff", 13),
+      onclick: toggleFollow
+    }))
     head.appendChild(
       h("button", {
         class: "icon-btn",
-        style: "margin-left:auto",
-        title: "Close panel",
+        title: "Close panel (" + U.key("Mod+B") + ")",
         html: icon("close", 13),
         onclick: function () {
           FW.app.togglePanel(false)
@@ -154,17 +258,295 @@
       })
     )
     body.innerHTML = ""
-    body.className = "panel-body" + (S.panel === "terminal" ? " flush" : "")
+    termOut = null
+    body.className = "panel-body" + (S.panel === "terminal" || S.panel === "browser" ? " flush" : "")
     if (S.panel === "changes") renderChanges()
     if (S.panel === "terminal") renderTerminal()
     if (S.panel === "computer") renderComputer()
+    if (S.panel === "browser") renderBrowser()
+    if (S.panel === "plan") renderPlan()
+    if (S.panel === "timeline") renderTimeline()
+    if (S.panel === "rules") renderRules()
+  }
+
+  function addMenu(anchor) {
+    const list = openTabs()
+    const items = TABS.map(function (tab) {
+      return { value: tab.id, label: tab.label, hint: tab.hint, icon: tab.icon, checked: list.indexOf(tab.id) >= 0 }
+    })
+    items.push({ separator: true })
+    items.push({ value: "reset", label: "Reset tabs", icon: "refresh" })
+    U.menu(anchor, items, function (value) {
+      if (value === "reset") {
+        saveTabs(DEFAULT_TABS.slice())
+        render()
+        return
+      }
+      const current = openTabs()
+      if (current.indexOf(value) >= 0) {
+        if (current.length > 1) removeTab(value)
+        return
+      }
+      current.push(value)
+      saveTabs(current)
+      show(value)
+    }, { className: "wide" })
+  }
+
+  function removeTab(id) {
+    const list = openTabs().filter(function (item) {
+      return item !== id
+    })
+    if (!list.length) return
+    saveTabs(list)
+    if (S.panel === id) S.panel = list[0]
+    render()
+  }
+
+  function toggleFollow() {
+    following = !following
+    FW.store.savePrefs({ follow: following })
+    U.toast(following ? "Following the agent" : "Stopped following")
+    render()
+  }
+
+  // Following: show the place the agent is working right now.
+  function follow(kind, info) {
+    if (!following) return
+    if (kind === "file" && FW.editor) FW.editor.follow(info.path)
+    if (kind === "preview" && info.url) {
+      FW.app.togglePanel(true)
+      browse(info.url)
+    }
+    if (kind === "todos") {
+      FW.app.togglePanel(true)
+      show("plan")
+    }
+    if (kind === "screen") {
+      FW.app.togglePanel(true)
+      show("computer")
+    }
   }
 
   function show(tab) {
+    if (!S.panelOpen) {
+      S.panel = tab
+      FW.app.togglePanel(true)
+    }
+    if (openTabs().indexOf(tab) < 0) {
+      const list = openTabs()
+      list.push(tab)
+      saveTabs(list)
+    }
     S.panel = tab
     FW.store.savePrefs({ panel: tab })
     render()
     if (tab === "changes") loadGit()
+  }
+
+  /* ------------------------------------------------------------ browser */
+
+  function normalUrl(value) {
+    const text = String(value || "").trim()
+    if (!text) return ""
+    if (/^https?:\/\//i.test(text)) return text
+    if (/^(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])(:\d+)?/i.test(text)) return "http://" + text
+    if (/^[\w-]+(\.[\w-]+)+(:\d+)?(\/.*)?$/.test(text)) return "https://" + text
+    return "https://duckduckgo.com/?q=" + encodeURIComponent(text)
+  }
+
+  function browse(url, fromHistory) {
+    const next = normalUrl(url)
+    if (!next) return
+    if (browserUrl && !fromHistory) {
+      browserBack.push(browserUrl)
+      browserForward.length = 0
+    }
+    browserUrl = next
+    if (S.panel === "browser") render()
+    else show("browser")
+  }
+
+  function renderBrowser() {
+    const wrap = h("div", { class: "browser" })
+    const input = h("input", { type: "text", value: browserUrl, placeholder: "Type a URL, e.g. localhost:3000", spellcheck: "false" })
+    input.addEventListener("keydown", function (event) {
+      if (event.key === "Enter") browse(input.value)
+    })
+    input.addEventListener("focus", function () {
+      input.select()
+    })
+    const bar = h("div", { class: "browser-bar" }, [
+      h("button", { class: "view-btn", title: "Back", html: icon("arrowLeft", 13), disabled: !browserBack.length, onclick: function () { if (browserBack.length) { browserForward.push(browserUrl); browserUrl = browserBack.pop(); render() } } }),
+      h("button", { class: "view-btn", title: "Forward", html: icon("arrowRight", 13), disabled: !browserForward.length, onclick: function () { if (browserForward.length) { browserBack.push(browserUrl); browserUrl = browserForward.pop(); render() } } }),
+      h("button", { class: "view-btn", title: "Reload", html: icon("refresh", 13), onclick: function () { const frame = wrap.querySelector("iframe"); if (frame) frame.src = browserUrl } }),
+      input,
+      h("button", { class: "view-btn", title: "Open in your browser", html: icon("external", 13), onclick: function () { if (browserUrl) window.fw.openExternal(browserUrl) } })
+    ])
+    wrap.appendChild(bar)
+    if (browserUrl) {
+      const frame = h("iframe", { src: browserUrl, sandbox: "allow-scripts allow-forms allow-same-origin allow-popups allow-modals allow-downloads", referrerpolicy: "no-referrer" })
+      wrap.appendChild(frame)
+    } else {
+      wrap.appendChild(h("div", { class: "browser-empty" }, [h("div", {}, [
+        h("div", { text: "Preview a local app or open a page here." }),
+        h("div", { style: "margin-top:6px", text: "When the agent starts a preview it shows up here. Some sites do not allow being shown inside another app; open those in your browser." })
+      ])]))
+      setTimeout(function () {
+        input.focus()
+      }, 30)
+    }
+    body.appendChild(wrap)
+  }
+
+  /* --------------------------------------------------------------- plan */
+
+  function doneCount() {
+    return (S.todos || []).filter(function (todo) {
+      return todo.status === "completed" || todo.status === "done"
+    }).length
+  }
+
+  function renderPlan() {
+    const wrap = h("div")
+    const todos = S.todos || []
+    if (!todos.length && !S.planText) {
+      wrap.appendChild(h("div", { class: "panel-empty" }, [h("div", { html: icon("list", 18) }), h("div", { text: "No plan yet. When the agent breaks a task into steps, they show up here with their progress. Switch to Plan mode to get a plan before any change." })]))
+      body.appendChild(wrap)
+      return
+    }
+    if (todos.length) {
+      const done = doneCount()
+      wrap.appendChild(h("div", { class: "panel-section-title", text: "To-do · " + done + " of " + todos.length + " done" }))
+      const bar = h("div", { class: "plan-progress" }, [h("span", { style: "width:" + Math.round((done / todos.length) * 100) + "%" })])
+      wrap.appendChild(bar)
+      const list = h("div", { class: "todos" })
+      todos.forEach(function (todo) {
+        const status = String(todo.status || "")
+        const mark = status === "completed" || status === "done" ? "check" : status === "in_progress" ? "play" : "dot"
+        list.appendChild(h("div", { class: "todo " + status }, [h("span", { class: "todo-mark", html: icon(mark, 11) }), h("span", { dir: "auto", text: todo.content || todo.text || todo.title || "" })]))
+      })
+      wrap.appendChild(list)
+    }
+    if (S.planText) {
+      wrap.appendChild(h("div", { class: "panel-section-title", style: "margin-top:16px", text: "Plan" }))
+      wrap.appendChild(h("div", { class: "md", style: "font-size:13px", html: window.FWMarkdown.render(S.planText) }))
+    }
+    body.appendChild(wrap)
+  }
+
+  /* ----------------------------------------------------------- timeline */
+
+  function renderTimeline() {
+    const wrap = h("div", { class: "timeline" })
+    const nodes = document.querySelectorAll(".thread-inner .turn-user, .thread-inner .act, .thread-inner .plan-card, .thread-inner .turn-error")
+    if (!nodes.length) {
+      wrap.appendChild(h("div", { class: "panel-empty" }, [h("div", { html: icon("clock", 18) }), h("div", { text: "Every step of this chat shows up here: your messages, commands, edits and errors. Click one to jump to it." })]))
+      body.appendChild(wrap)
+      return
+    }
+    Array.prototype.forEach.call(nodes, function (node) {
+      let text = ""
+      let meta = ""
+      let kind = ""
+      if (node.classList.contains("turn-user")) {
+        text = (node.dataset.raw || "").replace(/\s+/g, " ").slice(0, 120)
+        kind = "user"
+      } else if (node.classList.contains("plan-card")) {
+        text = "Plan ready for review"
+      } else if (node.classList.contains("turn-error")) {
+        text = node.textContent
+        kind = "failed"
+      } else {
+        const label = node.querySelector(".act-text")
+        const time = node.querySelector(".act-meta")
+        text = label ? label.textContent : ""
+        meta = time ? time.textContent : ""
+        if (node.classList.contains("running")) kind = "running"
+        if (node.classList.contains("failed")) kind = "failed"
+      }
+      const row = h("button", { class: "tl-row " + kind, type: "button", title: text }, [h("span", { class: "tl-text", dir: "auto", text: text }), meta ? h("span", { class: "tl-meta", text: meta }) : null])
+      row.addEventListener("click", function () {
+        node.scrollIntoView({ block: "center", behavior: "smooth" })
+        node.classList.remove("flash")
+        void node.offsetWidth
+        node.classList.add("flash")
+      })
+      wrap.appendChild(row)
+    })
+    body.appendChild(wrap)
+    body.scrollTop = body.scrollHeight
+  }
+
+  let timelineTimer = null
+  function timelineChanged() {
+    if (S.panel !== "timeline" || !S.panelOpen) return
+    clearTimeout(timelineTimer)
+    timelineTimer = setTimeout(render, 250)
+  }
+
+  /* -------------------------------------------------------------- rules */
+
+  async function renderRules() {
+    const folder = (S.chat && S.chat.local_path) || (FW.wb && FW.wb.root()) || S.folder
+    const wrap = h("div", { class: "rules" })
+    body.appendChild(wrap)
+    if (!folder) {
+      wrap.appendChild(h("div", { class: "panel-empty" }, [h("div", { html: icon("book", 18) }), h("div", { text: "Open a folder to write rules for its project: how to run it, the stack, the style to follow. The agent reads FORKWISE.md at the start of every task." })]))
+      return
+    }
+    if (rulesText === null || rulesFile.indexOf(folder) !== 0) {
+      rulesText = ""
+      rulesFile = ""
+      const names = ["FORKWISE.md", "AGENTS.md", "CLAUDE.md"]
+      for (let index = 0; index < names.length; index += 1) {
+        try {
+          const data = await window.fw.wb.read(folder, names[index])
+          if (data.kind === "text") {
+            rulesText = data.text
+            rulesFile = folder + "|" + names[index]
+            break
+          }
+        } catch (problem) {}
+      }
+      if (!rulesFile) rulesFile = folder + "|FORKWISE.md"
+      rulesDirty = false
+    }
+    const name = rulesFile.split("|").pop()
+    const area = h("textarea", { spellcheck: "false", placeholder: "# Project rules\n\n- How to run: npm run dev\n- Tests: npm test\n- Style: small functions, no new libraries without asking\n" })
+    area.value = rulesText
+    const state = h("span", { class: "grow", text: rulesDirty ? "Not saved" : name + " in " + FW.wb.baseName(folder) })
+    const saveBtn = h("button", { class: "btn sm primary", text: "Save", disabled: !rulesDirty })
+    area.addEventListener("input", function () {
+      rulesText = area.value
+      rulesDirty = true
+      state.textContent = "Not saved"
+      saveBtn.disabled = false
+    })
+    area.addEventListener("keydown", function (event) {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
+        event.preventDefault()
+        event.stopPropagation()
+        saveRules(folder, name, state, saveBtn)
+      }
+    })
+    saveBtn.addEventListener("click", function () {
+      saveRules(folder, name, state, saveBtn)
+    })
+    wrap.appendChild(h("div", { class: "panel-section-title", text: "What the agent should always know" }))
+    wrap.appendChild(area)
+    wrap.appendChild(h("div", { class: "rules-foot" }, [state, h("button", { class: "btn ghost sm", text: "Open in editor", onclick: function () { FW.editor.open(name, { root: folder, pin: true }) } }), h("button", { class: "btn ghost sm", text: "Let the agent write it", onclick: function () { FW.composer.fill("Look at this project and write a FORKWISE.md with: what it is, the stack, how to run, test and build it, and the conventions to follow.") } }), saveBtn]))
+  }
+
+  async function saveRules(folder, name, state, saveBtn) {
+    try {
+      await window.fw.wb.write(folder, name, rulesText)
+      rulesDirty = false
+      state.textContent = "Saved " + name
+      saveBtn.disabled = true
+    } catch (problem) {
+      U.toast(problem.message || "Could not save the rules", "bad")
+    }
   }
 
   /* ------------------------------------------------------------ changes */
@@ -281,7 +663,7 @@
   /* ----------------------------------------------------------- terminal */
 
   function renderTerminal() {
-    const folder = (S.chat && S.chat.local_path) || S.folder || S.prefs.folder || ""
+    const folder = (S.chat && S.chat.local_path) || (FW.wb && FW.wb.root()) || S.folder || S.prefs.folder || ""
     const shown = termCwd || folder || "Home folder"
     const wrap = h("div", { class: "term" })
     const headRow = h("div", { class: "term-head" }, [
@@ -578,5 +960,17 @@
   }
 
   window.FW = window.FW || {}
-  window.FW.panel = { init: init, render: render, show: show, setChanges: setChanges, loadGit: loadGit }
+  window.FW.panel = {
+    init: init,
+    render: render,
+    show: show,
+    setChanges: setChanges,
+    loadGit: loadGit,
+    toggleFollow: toggleFollow,
+    follow: follow,
+    browse: browse,
+    following: function () {
+      return following
+    }
+  }
 })()

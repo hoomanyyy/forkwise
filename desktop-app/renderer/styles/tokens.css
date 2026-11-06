@@ -20,7 +20,10 @@
 :root {
   --font-ui: "Onest", "Vazirmatn", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  --side-w: 236px;
+  --side-w: 248px;
+  --act-w: 44px;
+  --status-h: 24px;
+  --chat-w: 440px;
   --panel-w: 330px;
   --title-h: 38px;
   --radius: 8px;

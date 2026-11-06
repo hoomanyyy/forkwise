@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' data:; connect-src 'self' https: http: ws: wss:;"
+      content="default-src 'self'; img-src 'self' data: blob: https: http:; style-src 'self' 'unsafe-inline'; script-src 'self'; worker-src 'self' blob:; font-src 'self' data:; connect-src 'self' https: http: ws: wss:; frame-src http: https:;"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Forkwise</title>
@@ -12,6 +12,7 @@
     <link rel="stylesheet" href="styles/app.css" />
     <link rel="stylesheet" href="styles/chat.css" />
     <link rel="stylesheet" href="styles/panel.css" />
+    <link rel="stylesheet" href="styles/workbench.css" />
   </head>
   <body>
     <div id="titlebar">
@@ -21,6 +22,7 @@
           <span class="brand-mark">F</span>
           <span class="brand-name">Forkwise</span>
         </div>
+        <nav id="menubar" class="menubar" aria-label="Menu"></nav>
       </div>
       <div class="tb-center"><span id="tbTitle">New chat</span></div>
       <div class="tb-right">
@@ -46,7 +48,9 @@
     </section>
 
     <div id="app" hidden>
+      <nav id="activity" class="activity" aria-label="Views"></nav>
       <aside id="sidebar">
+        <div class="side-view" data-view="chats">
         <div class="side-top">
           <button class="new-chat" id="btnNew">
             <span class="plus">+</span>
@@ -58,6 +62,10 @@
           </div>
         </div>
         <div id="chatList" class="chat-list"></div>
+        </div>
+        <div class="side-view" data-view="explorer" id="viewExplorer" hidden></div>
+        <div class="side-view" data-view="search" id="viewSearch" hidden></div>
+        <div class="side-view" data-view="git" id="viewGit" hidden></div>
         <div class="side-foot">
           <button class="device-row" id="deviceRow" title="Computer"></button>
           <button class="account" id="account"></button>
@@ -66,9 +74,18 @@
 
       <main id="main">
         <div id="banner" class="banner" hidden></div>
-        <div id="stage">
-          <div id="thread"></div>
-          <div id="composerDock"></div>
+        <div id="work">
+          <section id="editorArea" hidden>
+            <div id="editorTabs" class="editor-tabs"></div>
+            <div id="editorCrumbs" class="editor-crumbs"></div>
+            <div id="editorBody" class="editor-body"></div>
+          </section>
+          <div id="workResize" class="work-resize" role="separator" aria-orientation="vertical" hidden></div>
+          <div id="stage">
+            <div id="stageHead" class="stage-head" hidden></div>
+            <div id="thread"></div>
+            <div id="composerDock"></div>
+          </div>
         </div>
       </main>
 
@@ -77,6 +94,7 @@
         <div id="panelHead" class="panel-head"></div>
         <div id="panelBody" class="panel-body"></div>
       </aside>
+      <footer id="statusbar" class="statusbar"></footer>
     </div>
 
     <script src="../shared/markdown.js"></script>
@@ -88,6 +106,9 @@
     <script src="js/sidebar.js"></script>
     <script src="js/panel.js"></script>
     <script src="js/settings.js"></script>
+    <script src="js/workbench.js"></script>
+    <script src="js/explorer.js"></script>
+    <script src="js/editor.js"></script>
     <script src="js/app.js"></script>
   </body>
 </html>
