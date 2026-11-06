@@ -1,7 +1,7 @@
 {
   "name": "forkwise-desktop",
   "productName": "Forkwise",
-  "version": "3.1.1",
+  "version": "3.2.0",
   "description": "Lets your Forkwise agent use this computer",
   "main": "main.js",
   "author": {
@@ -67,9 +67,19 @@
       "artifactName": "forkwise-desktop-windows.${ext}"
     },
     "nsis": {
-      "oneClick": true,
+      "oneClick": false,
       "perMachine": false,
-      "runAfterFinish": true
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Forkwise",
+      "uninstallDisplayName": "Forkwise",
+      "license": "build/license.txt",
+      "include": "build/installer.nsh",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false,
+      "artifactName": "forkwise-desktop-windows.${ext}"
     },
     "mac": {
       "target": [

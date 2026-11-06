@@ -16,7 +16,8 @@
 
   function basePath(value) {
     const clean = text(value).replace(/\\/g, "/").replace(/\/+$/, "")
-    if (!clean) return "the project"
+    if (!clean || clean === "." || clean === "./") return "the project folder"
+    if (clean === "~") return "the home folder"
     const parts = clean.split("/")
     if (parts.length <= 2) return clean
     return parts.slice(-2).join("/")
@@ -112,6 +113,47 @@
     return name
   }
 
+  // The same label while the step is still going: "Ran ls" becomes "Running ls".
+  const RUNNING = [
+    ["Ran ", "Running "],
+    ["Read ", "Reading "],
+    ["Wrote ", "Writing "],
+    ["Edited ", "Editing "],
+    ["Listed ", "Listing "],
+    ["Found files matching ", "Finding files matching "],
+    ["Searched the web: ", "Searching the web: "],
+    ["Searched for ", "Searching for "],
+    ["Opened ", "Opening "],
+    ["Clicked ", "Clicking "],
+    ["Dragged ", "Dragging "],
+    ["Typed ", "Typing "],
+    ["Pressed ", "Pressing "],
+    ["Scrolled ", "Scrolling "],
+    ["Focused ", "Focusing "],
+    ["Took a screenshot", "Taking a screenshot"],
+    ["Screenshotted the page", "Taking a screenshot of the page"],
+    ["Changed the wallpaper", "Changing the wallpaper"],
+    ["Downloaded ", "Downloading "],
+    ["Stopped ", "Stopping "],
+    ["Started a helper", "Starting a helper"],
+    ["Updated the plan", "Updating the plan"],
+    ["Saved to memory", "Saving to memory"],
+    ["Loaded skill ", "Loading skill "],
+    ["Generated an image", "Generating an image"],
+    ["Used ", "Using "],
+    ["Created the tool ", "Creating the tool "],
+    ["Showed a preview", "Showing a preview"]
+  ]
+
+  function running(value) {
+    const clean = text(value)
+    for (let index = 0; index < RUNNING.length; index += 1) {
+      const pair = RUNNING[index]
+      if (clean.indexOf(pair[0]) === 0) return pair[1] + clean.slice(pair[0].length)
+    }
+    return clean
+  }
+
   function detail(name, args) {
     const data = args && typeof args === "object" ? args : {}
     if (name === "computer" && data.action === "open") return text(data.target)
@@ -151,5 +193,5 @@
     return minutes + "m " + Math.round((number % 60000) / 1000) + "s"
   }
 
-  return { label: label, icon: iconFor, detail: detail, needsApproval: needsApproval, fileName: fileName, bytes: bytes, duration: duration, shorten: shorten }
+  return { label: label, running: running, icon: iconFor, detail: detail, needsApproval: needsApproval, fileName: fileName, bytes: bytes, duration: duration, shorten: shorten }
 })

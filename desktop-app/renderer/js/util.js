@@ -116,8 +116,17 @@
     }
   }
 
+  // The server sends times in seconds, the browser works in milliseconds.
+  function stampMs(stamp) {
+    if (stamp === undefined || stamp === null || stamp === "") return Date.now()
+    const number = Number(stamp)
+    if (!isNaN(number)) return number < 100000000000 ? number * 1000 : number
+    const parsed = new Date(stamp).getTime()
+    return isNaN(parsed) ? Date.now() : parsed
+  }
+
   function timeAgo(stamp) {
-    const seconds = Math.max(0, Math.floor((Date.now() - new Date(stamp).getTime()) / 1000))
+    const seconds = Math.max(0, Math.floor((Date.now() - stampMs(stamp)) / 1000))
     if (seconds < 60) return "just now"
     const minutes = Math.floor(seconds / 60)
     if (minutes < 60) return minutes + "m ago"
@@ -126,11 +135,275 @@
     const days = Math.floor(hours / 24)
     if (days === 1) return "yesterday"
     if (days < 7) return days + "d ago"
-    return new Date(stamp).toLocaleDateString(undefined, { month: "short", day: "numeric" })
+    return new Date(stampMs(stamp)).toLocaleDateString(undefined, { month: "short", day: "numeric" })
   }
 
   function clock(stamp) {
-    return new Date(stamp).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
+    return new Date(stampMs(stamp)).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
+  }
+
+  /* ------------------------------------------------------------- menus */
+
+  // True while a menu, a dialog or the settings window is open, so keys like
+  // Esc close that first instead of stopping the agent.
+  function overlayOpen() {
+    return !!document.querySelector(".modal-back:not(.leaving), .pop:not(.leaving)")
+  }
+
+  let openMenu = null
+
+  function closeMenu() {
+    if (!openMenu) return
+    const current = openMenu
+    openMenu = null
+    current.cleanup()
+    current.node.classList.add("leaving")
+    if (current.anchor) {
+      current.anchor.classList.remove("open")
+      current.anchor.setAttribute("aria-expanded", "false")
+    }
+    setTimeout(function () {
+      current.node.remove()
+    }, 90)
+  }
+
+  // A themed dropdown in place of the native <select>.
+  // items: [{ value, label, hint, icon, checked, danger, header }]
+  function menu(anchor, items, onPick, options) {
+    const settings = options || {}
+    if (openMenu && openMenu.anchor === anchor) {
+      closeMenu()
+      return null
+    }
+    closeMenu()
+    const node = h("div", { class: "pop menu" + (settings.className ? " " + settings.className : ""), role: "menu" })
+    let search = null
+    const list = h("div", { class: "menu-list" })
+    if (settings.search) {
+      search = h("input", { class: "menu-search", type: "text", placeholder: settings.search, spellcheck: "false" })
+      node.appendChild(search)
+    }
+    node.appendChild(list)
+    let buttons = []
+    let active = -1
+
+    function draw(query) {
+      list.innerHTML = ""
+      buttons = []
+      const needle = String(query || "").trim().toLowerCase()
+      items.forEach(function (item) {
+        if (item.header) {
+          if (!needle) list.appendChild(h("div", { class: "menu-head", text: item.header }))
+          return
+        }
+        const words = (String(item.label || "") + " " + String(item.hint || "")).toLowerCase()
+        if (needle && words.indexOf(needle) < 0) return
+        const button = h("button", { class: "pop-item menu-item" + (item.checked ? " checked" : "") + (item.danger ? " danger" : ""), type: "button", role: "menuitemradio", "aria-checked": item.checked ? "true" : "false", title: item.title || "" }, [
+          item.icon ? h("span", { class: "menu-icon", html: icon(item.icon, 13) }) : null,
+          h("span", { class: "menu-text" }, [h("span", { class: "menu-label", text: item.label }), item.hint ? h("span", { class: "menu-hint", text: item.hint }) : null]),
+          h("span", { class: "menu-check", html: item.checked ? icon("check", 12) : "" })
+        ])
+        button.addEventListener("click", function (event) {
+          event.stopPropagation()
+          closeMenu()
+          onPick(item.value, item)
+        })
+        button.addEventListener("mousemove", function () {
+          setActive(buttons.indexOf(button), false)
+        })
+        buttons.push(button)
+        list.appendChild(button)
+      })
+      if (!buttons.length) list.appendChild(h("div", { class: "menu-empty", text: "Nothing matches." }))
+      const checked = buttons.findIndex(function (button) {
+        return button.classList.contains("checked")
+      })
+      setActive(needle ? 0 : checked, true)
+    }
+
+    function setActive(index, reveal) {
+      buttons.forEach(function (button) {
+        button.classList.remove("active")
+      })
+      active = index
+      const button = buttons[index]
+      if (!button) return
+      button.classList.add("active")
+      if (reveal) button.scrollIntoView({ block: "nearest" })
+    }
+
+    function onKey(event) {
+      if (event.key === "Escape") {
+        event.preventDefault()
+        event.stopImmediatePropagation()
+        closeMenu()
+        if (settings.onClose) settings.onClose()
+        return
+      }
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault()
+        event.stopImmediatePropagation()
+        if (!buttons.length) return
+        const step = event.key === "ArrowDown" ? 1 : -1
+        let next = active + step
+        if (next < 0) next = buttons.length - 1
+        if (next >= buttons.length) next = 0
+        setActive(next, true)
+        return
+      }
+      if (event.key === "Enter") {
+        event.preventDefault()
+        event.stopImmediatePropagation()
+        if (buttons[active]) buttons[active].click()
+        return
+      }
+      if (event.key === "Tab") {
+        closeMenu()
+      }
+    }
+
+    function onDown(event) {
+      if (node.contains(event.target)) return
+      if (anchor && anchor.contains(event.target)) {
+        // the anchor's own click closes or reopens the menu
+        event.stopPropagation()
+        closeMenu()
+        return
+      }
+      closeMenu()
+    }
+
+    function onResize() {
+      closeMenu()
+    }
+
+    document.body.appendChild(node)
+    draw("")
+    place(node, anchor, settings)
+    if (search) {
+      search.addEventListener("input", function () {
+        draw(search.value)
+      })
+      setTimeout(function () {
+        search.focus()
+      }, 10)
+    }
+    document.addEventListener("keydown", onKey, true)
+    document.addEventListener("mousedown", onDown, true)
+    window.addEventListener("resize", onResize)
+    window.addEventListener("blur", onResize)
+    if (anchor) {
+      anchor.classList.add("open")
+      anchor.setAttribute("aria-expanded", "true")
+    }
+    openMenu = {
+      node: node,
+      anchor: anchor,
+      cleanup: function () {
+        document.removeEventListener("keydown", onKey, true)
+        document.removeEventListener("mousedown", onDown, true)
+        window.removeEventListener("resize", onResize)
+        window.removeEventListener("blur", onResize)
+      }
+    }
+    return node
+  }
+
+  // Puts a floating box next to its anchor and keeps it inside the window.
+  function place(node, anchor, settings) {
+    const margin = 8
+    const box = anchor ? anchor.getBoundingClientRect() : { left: settings.x || 0, right: settings.x || 0, top: settings.y || 0, bottom: settings.y || 0, width: 0 }
+    node.style.position = "fixed"
+    node.style.visibility = "hidden"
+    node.style.maxHeight = ""
+    const roomBelow = window.innerHeight - box.bottom - margin
+    const roomAbove = box.top - margin
+    const wantUp = settings.up === true || (settings.up !== false && roomBelow < Math.min(node.offsetHeight, 320) && roomAbove > roomBelow)
+    const room = Math.max(120, (wantUp ? roomAbove : roomBelow) - 4)
+    node.style.maxHeight = room + "px"
+    const height = Math.min(node.offsetHeight, room)
+    const width = node.offsetWidth
+    let left = settings.alignRight ? box.right - width : box.left
+    left = Math.max(margin, Math.min(left, window.innerWidth - width - margin))
+    const top = wantUp ? box.top - height - 4 : box.bottom + 4
+    node.style.left = left + "px"
+    node.style.top = Math.max(margin, top) + "px"
+    node.classList.toggle("up", wantUp)
+    node.style.visibility = ""
+  }
+
+  /* ----------------------------------------------------------- dialogs */
+
+  // Electron does not support window.prompt, so the app has its own.
+  // Returns a promise: the typed text (or true for a confirm), or null.
+  function dialog(settings) {
+    return new Promise(function (resolve) {
+      closeMenu()
+      const back = h("div", { class: "modal-back fw-dialog" })
+      const box = h("div", { class: "dialog", role: "dialog", "aria-modal": "true" })
+      const title = h("div", { class: "dialog-title", text: settings.title || "" })
+      box.appendChild(title)
+      if (settings.text) box.appendChild(h("div", { class: "dialog-text", text: settings.text }))
+      let input = null
+      if (settings.input !== undefined) {
+        input = h("input", { class: "dialog-input", type: "text", value: settings.input || "", spellcheck: "false", dir: "auto" })
+        box.appendChild(input)
+      }
+      const cancel = h("button", { class: "btn ghost sm", type: "button", text: settings.cancel || "Cancel" })
+      const ok = h("button", { class: "btn sm " + (settings.danger ? "danger-solid" : "primary"), type: "button", text: settings.ok || "OK" })
+      box.appendChild(h("div", { class: "dialog-actions" }, [cancel, ok]))
+      back.appendChild(box)
+      document.body.appendChild(back)
+      let done = false
+      function finish(value) {
+        if (done) return
+        done = true
+        document.removeEventListener("keydown", onKey, true)
+        back.classList.add("leaving")
+        setTimeout(function () {
+          back.remove()
+        }, 120)
+        resolve(value)
+      }
+      function onKey(event) {
+        if (event.key === "Escape") {
+          event.preventDefault()
+          event.stopImmediatePropagation()
+          finish(null)
+        } else if (event.key === "Enter") {
+          event.preventDefault()
+          event.stopImmediatePropagation()
+          ok.click()
+        }
+      }
+      cancel.addEventListener("click", function () {
+        finish(null)
+      })
+      ok.addEventListener("click", function () {
+        if (input) {
+          const value = input.value.trim()
+          if (!value) {
+            input.focus()
+            return
+          }
+          finish(value)
+        } else {
+          finish(true)
+        }
+      })
+      back.addEventListener("mousedown", function (event) {
+        if (event.target === back) finish(null)
+      })
+      document.addEventListener("keydown", onKey, true)
+      setTimeout(function () {
+        if (input) {
+          input.focus()
+          input.select()
+        } else {
+          ok.focus()
+        }
+      }, 20)
+    })
   }
 
   async function copy(text) {
@@ -185,7 +458,13 @@
     escapeHtml: escapeHtml,
     debounce: debounce,
     timeAgo: timeAgo,
+    stampMs: stampMs,
     clock: clock,
+    menu: menu,
+    closeMenu: closeMenu,
+    place: place,
+    dialog: dialog,
+    overlayOpen: overlayOpen,
     copy: copy,
     toast: toast,
     initials: initials,

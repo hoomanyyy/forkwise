@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require("electron")
+const { contextBridge, ipcRenderer, webUtils } = require("electron")
 
 function listen(channel, handler) {
   const wrapped = function (event, payload) {
@@ -77,6 +77,19 @@ contextBridge.exposeInMainWorld("fw", {
   },
   attachFiles: function (chatId) {
     return ipcRenderer.invoke("fw:attach:pick", chatId)
+  },
+  attachPaths: function (chatId, paths) {
+    return ipcRenderer.invoke("fw:attach:paths", { chatId: chatId, paths: paths })
+  },
+  attachData: function (chatId, name, bytes) {
+    return ipcRenderer.invoke("fw:attach:data", { chatId: chatId, name: name, bytes: bytes })
+  },
+  pathFor: function (file) {
+    try {
+      return webUtils.getPathForFile(file) || ""
+    } catch (problem) {
+      return ""
+    }
   },
   pickFolder: function () {
     return ipcRenderer.invoke("fw:folder:pick")
@@ -167,6 +180,9 @@ contextBridge.exposeInMainWorld("fw", {
     },
     stop: function () {
       return ipcRenderer.invoke("fw:term:stop")
+    },
+    interrupt: function () {
+      return ipcRenderer.invoke("fw:term:interrupt")
     },
     onData: function (handler) {
       return listen("fw:term:data", handler)

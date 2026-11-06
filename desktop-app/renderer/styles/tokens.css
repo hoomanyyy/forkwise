@@ -25,6 +25,7 @@
   --title-h: 38px;
   --radius: 8px;
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ease-soft: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 html[data-theme="light"] {

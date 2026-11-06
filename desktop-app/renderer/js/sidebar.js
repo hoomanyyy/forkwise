@@ -9,6 +9,8 @@
   let searchEl = null
   let accountEl = null
   let footStatus = null
+  let serverHits = null
+  let searchToken = 0
 
   function init() {
     listEl = document.getElementById("chatList")
@@ -18,8 +20,28 @@
 
     searchEl.addEventListener("input", U.debounce(function () {
       S.search = searchEl.value.trim().toLowerCase()
+      serverHits = null
       render()
-    }, 90))
+      searchServer(S.search)
+    }, 120))
+    searchEl.addEventListener("keydown", function (event) {
+      if (event.key === "Escape" && searchEl.value) {
+        event.preventDefault()
+        searchEl.value = ""
+        S.search = ""
+        serverHits = null
+        render()
+      } else if (event.key === "Enter") {
+        const first = listEl.querySelector(".chat-row")
+        if (first) FW.app.openChat(first.dataset.id)
+      } else if (event.key === "ArrowDown") {
+        const first = listEl.querySelector(".chat-row")
+        if (first) {
+          event.preventDefault()
+          first.focus()
+        }
+      }
+    })
 
     document.getElementById("btnNew").addEventListener("click", function () {
       FW.app.newChat()
@@ -76,32 +98,49 @@
     const startOfYesterday = startOfToday - 86400000
     const week = startOfToday - 6 * 86400000
     const buckets = [
+      { name: "Pinned", items: [] },
       { name: "Today", items: [] },
       { name: "Yesterday", items: [] },
       { name: "Previous 7 days", items: [] },
       { name: "Older", items: [] }
     ]
     chats.forEach(function (chat) {
-      const stamp = new Date(chat.updated_at || chat.created_at || Date.now()).getTime()
-      if (stamp >= startOfToday) buckets[0].items.push(chat)
-      else if (stamp >= startOfYesterday) buckets[1].items.push(chat)
-      else if (stamp >= week) buckets[2].items.push(chat)
-      else buckets[3].items.push(chat)
+      const stamp = U.stampMs(chat.updated_at || chat.created_at)
+      if (chat.pinned) buckets[0].items.push(chat)
+      else if (stamp >= startOfToday) buckets[1].items.push(chat)
+      else if (stamp >= startOfYesterday) buckets[2].items.push(chat)
+      else if (stamp >= week) buckets[3].items.push(chat)
+      else buckets[4].items.push(chat)
     })
     return buckets.filter(function (bucket) {
       return bucket.items.length > 0
     })
   }
 
+  // Titles match at once; the server then adds chats whose messages match.
+  async function searchServer(query) {
+    const token = ++searchToken
+    if (query.length < 2) return
+    try {
+      const data = await window.fw.api("/api/search?q=" + encodeURIComponent(query), "GET")
+      if (token !== searchToken) return
+      serverHits = (data.results || []).map(function (item) {
+        return item.id
+      })
+      render()
+    } catch (problem) {}
+  }
+
   function render() {
     if (!listEl) return
     const chats = (S.chats || []).filter(function (chat) {
       if (!S.search) return true
-      return String(chat.title || "").toLowerCase().indexOf(S.search) >= 0
+      if (String(chat.title || "").toLowerCase().indexOf(S.search) >= 0) return true
+      return !!serverHits && serverHits.indexOf(chat.id) >= 0
     })
     listEl.innerHTML = ""
     if (!chats.length) {
-      listEl.appendChild(h("div", { class: "side-empty", text: S.search ? "No chats match that." : "No chats yet. Start one below." }))
+      listEl.appendChild(h("div", { class: "side-empty", text: S.search ? (serverHits || S.search.length < 2 ? "No chats match that." : "Searching\u2026") : "No chats yet. Start one above." }))
       return
     }
     group(chats).forEach(function (bucket) {
@@ -131,52 +170,52 @@
       return item.id === chatId
     })
     if (!chat) return
-    const existing = document.getElementById("chatMenu")
-    if (existing) existing.remove()
-    const menu = h("div", { class: "pop", id: "chatMenu" }, [
-      h("button", { class: "pop-item", onclick: function () { menu.remove(); rename(chat) } }, [h("span", { html: icon("edit", 13) }), h("span", { text: "Rename" })]),
-      h("button", { class: "pop-item", onclick: function () { menu.remove(); pin(chat) } }, [h("span", { html: icon("pin", 13) }), h("span", { text: chat.pinned ? "Unpin" : "Pin" })]),
-      h("button", { class: "pop-item danger", onclick: function () { menu.remove(); remove(chat) } }, [h("span", { html: icon("trash", 13) }), h("span", { text: "Delete" })])
-    ])
-    document.body.appendChild(menu)
-    const box = anchor.getBoundingClientRect()
-    menu.style.position = "fixed"
-    menu.style.left = Math.min(box.left + 20, window.innerWidth - 190) + "px"
-    menu.style.top = Math.min(box.bottom + 4, window.innerHeight - 120) + "px"
-    setTimeout(function () {
-      document.addEventListener("click", closeMenuOnce)
-    }, 10)
+    const items = [
+      { value: "rename", label: "Rename", icon: "edit" },
+      { value: "pin", label: chat.pinned ? "Unpin" : "Pin to the top", icon: "pin" }
+    ]
+    if (chat.local_path) items.push({ value: "folder", label: "Open the folder", icon: "folder" })
+    items.push({ value: "delete", label: "Delete", icon: "trash", danger: true })
+    U.menu(anchor.querySelector(".chat-more") || anchor, items, function (value) {
+      if (value === "rename") rename(chat)
+      if (value === "pin") pin(chat)
+      if (value === "folder") window.fw.openPath(chat.local_path)
+      if (value === "delete") remove(chat)
+    }, { alignRight: true, className: "chat-menu" })
   }
 
-  function closeMenuOnce() {
-    const menu = document.getElementById("chatMenu")
-    if (menu) menu.remove()
-    document.removeEventListener("click", closeMenuOnce)
-  }
-
-  function rename(chat) {
-    const next = window.prompt("Rename chat", chat.title || "New chat")
-    if (!next || !next.trim()) return
-    window.fw.chats.patch(chat.id, { title: next.trim() }).then(function () {
-      chat.title = next.trim()
-      if (S.chat && S.chat.id === chat.id) S.chat.title = next.trim()
+  async function rename(chat) {
+    const next = await U.dialog({ title: "Rename chat", input: chat.title || "New chat", ok: "Rename" })
+    if (!next) return
+    try {
+      await window.fw.chats.patch(chat.id, { title: next })
+      chat.title = next
+      if (S.chat && S.chat.id === chat.id) S.chat.title = next
       render()
-      FW.store.emit("title", next.trim())
-    })
+      FW.store.emit("title", next)
+    } catch (problem) {
+      U.toast(problem.message || "Could not rename the chat", "bad")
+    }
   }
 
   function pin(chat) {
     window.fw.chats.patch(chat.id, { pinned: !chat.pinned }).then(function () {
       FW.app.refreshChats()
+    }).catch(function (problem) {
+      U.toast(problem.message || "Could not pin the chat", "bad")
     })
   }
 
-  function remove(chat) {
-    if (!window.confirm("Delete \u201c" + (chat.title || "this chat") + "\u201d?")) return
-    window.fw.chats.remove(chat.id).then(function () {
+  async function remove(chat) {
+    const sure = await U.dialog({ title: "Delete this chat?", text: "\u201c" + (chat.title || "New chat") + "\u201d and its messages are removed for good.", ok: "Delete", danger: true })
+    if (!sure) return
+    try {
+      await window.fw.chats.remove(chat.id)
       if (S.chat && S.chat.id === chat.id) FW.app.newChat()
       FW.app.refreshChats()
-    })
+    } catch (problem) {
+      U.toast(problem.message || "Could not delete the chat", "bad")
+    }
   }
 
   function device() {

@@ -11,6 +11,9 @@
   let terminalStarted = false
   let termOut = null
   let termInput = null
+  let termText = ""
+  let termCwd = ""
+  const TERM_KEEP = 200000
   let appsLoaded = false
   let appsCache = []
   let lastShot = null
@@ -34,13 +37,11 @@
     wireResize()
     render()
     window.fw.term.onData(function (payload) {
-      if (!termOut) return
-      termOut.appendChild(document.createTextNode(stripAnsi(payload.text || "")))
-      termOut.scrollTop = termOut.scrollHeight
+      termWrite(stripAnsi(payload.text || ""))
     })
     window.fw.term.onExit(function () {
-      if (!termOut) return
-      termOut.appendChild(document.createTextNode("\n[process exited]\n"))
+      terminalStarted = false
+      termWrite("\n[the shell exited \u2014 press Enter to start a new one]\n")
     })
     window.fw.device.onStatus(function (state) {
       S.device = state
@@ -57,8 +58,22 @@
     })
   }
 
+  // Terminal output is kept here so it survives the panel redrawing.
+  function termWrite(text) {
+    if (!text) return
+    termText = (termText + text.replace(/\r\n/g, "\n").replace(/\r/g, "")).slice(-TERM_KEEP)
+    if (!termOut) return
+    const stuck = termOut.scrollHeight - termOut.scrollTop - termOut.clientHeight < 24
+    termOut.textContent = termText
+    if (stuck) termOut.scrollTop = termOut.scrollHeight
+  }
+
   function stripAnsi(text) {
-    return String(text || "").replace(/\u001b\[[0-9;?]*[a-zA-Z]/g, "").replace(/\u001b\][^\u0007]*\u0007/g, "")
+    return String(text || "")
+      .replace(/^.*cannot set terminal process group.*\n?/gm, "")
+      .replace(/^.*no job control in this shell.*\n?/gm, "")
+      .replace(/\u001b\[[0-9;?]*[a-zA-Z]/g, "")
+      .replace(/\u001b\][^\u0007]*\u0007/g, "")
   }
 
   function wireResize() {
@@ -266,74 +281,108 @@
   /* ----------------------------------------------------------- terminal */
 
   function renderTerminal() {
-    const folder = (S.chat && S.chat.local_path) || S.folder || S.prefs.folder || "~"
+    const folder = (S.chat && S.chat.local_path) || S.folder || S.prefs.folder || ""
+    const shown = termCwd || folder || "Home folder"
     const wrap = h("div", { class: "term" })
     const headRow = h("div", { class: "term-head" }, [
-      h("span", { class: "path", text: folder, title: folder }),
-      h("button", { html: icon("refresh", 12), title: "Restart shell", onclick: restartTerminal }),
-      h("button", { html: icon("trash", 12), title: "Clear", onclick: function () { if (termOut) termOut.textContent = "" } })
+      h("span", { class: "path", text: shown, title: shown }),
+      h("button", { html: icon("refresh", 12), title: "Restart the shell here", onclick: restartTerminal }),
+      h("button", { html: icon("trash", 12), title: "Clear (Ctrl+L)", onclick: clearTerminal })
     ])
-    termOut = h("div", { class: "term-out" })
-    termInput = h("input", { type: "text", placeholder: "Type a command and press Enter", spellcheck: "false" })
+    termOut = h("div", { class: "term-out", tabindex: "0" })
+    termOut.textContent = termText
+    termInput = h("input", { type: "text", placeholder: "Type a command and press Enter", spellcheck: "false", autocomplete: "off" })
     const prompt = h("span", { text: "\u276f" })
     const inputRow = h("div", { class: "term-in" }, [prompt, termInput])
     wrap.appendChild(headRow)
     wrap.appendChild(termOut)
     wrap.appendChild(inputRow)
     body.appendChild(wrap)
+    termOut.scrollTop = termOut.scrollHeight
+    termOut.addEventListener("mouseup", function () {
+      // clicking the output puts the cursor back in the input, unless text was selected
+      const picked = window.getSelection && String(window.getSelection())
+      if (!picked) termInput.focus()
+    })
 
-    const history = []
-    let index = -1
     termInput.addEventListener("keydown", function (event) {
       if (event.key === "Enter") {
         const text = termInput.value
-        if (!text.trim()) return
-        history.push(text)
-        index = history.length
+        if (!terminalStarted) startShell(folder, headRow)
+        if (!text.trim()) {
+          window.fw.term.write("\n")
+          return
+        }
+        termHistory.push(text)
+        termIndex = termHistory.length
         termInput.value = ""
         window.fw.term.write(text + "\n")
+        termOut.scrollTop = termOut.scrollHeight
       } else if (event.key === "ArrowUp") {
         event.preventDefault()
-        if (index > 0) {
-          index -= 1
-          termInput.value = history[index] || ""
+        if (termIndex > 0) {
+          termIndex -= 1
+          termInput.value = termHistory[termIndex] || ""
         }
       } else if (event.key === "ArrowDown") {
         event.preventDefault()
-        if (index < history.length - 1) {
-          index += 1
-          termInput.value = history[index] || ""
+        if (termIndex < termHistory.length - 1) {
+          termIndex += 1
+          termInput.value = termHistory[termIndex] || ""
         } else {
-          index = history.length
+          termIndex = termHistory.length
           termInput.value = ""
         }
       } else if (event.key === "l" && (event.ctrlKey || event.metaKey)) {
         event.preventDefault()
-        termOut.textContent = ""
+        clearTerminal()
+      } else if (event.key === "c" && event.ctrlKey && !termInput.value && !String(window.getSelection())) {
+        // Ctrl+C with nothing to copy interrupts the running command
+        event.preventDefault()
+        termWrite("^C\n")
+        window.fw.term.interrupt()
       }
     })
 
-    if (!terminalStarted) {
-      terminalStarted = true
-      window.fw.term
-        .start(folder)
-        .then(function (info) {
-          if (info && info.cwd) headRow.querySelector(".path").textContent = info.cwd
-        })
-        .catch(function (problem) {
-          termOut.textContent += "Could not start a shell: " + problem.message + "\n"
-        })
-    }
+    if (!terminalStarted) startShell(folder, headRow)
     setTimeout(function () {
       termInput.focus()
     }, 60)
   }
 
+  const termHistory = []
+  let termIndex = -1
+
+  function startShell(folder, headRow) {
+    terminalStarted = true
+    window.fw.term
+      .start(folder)
+      .then(function (info) {
+        if (info && info.cwd) {
+          termCwd = info.cwd
+          const path = headRow && headRow.querySelector(".path")
+          if (path) {
+            path.textContent = info.cwd
+            path.title = info.cwd
+          }
+        }
+      })
+      .catch(function (problem) {
+        terminalStarted = false
+        termWrite("Could not start a shell: " + problem.message + "\n")
+      })
+  }
+
+  function clearTerminal() {
+    termText = ""
+    if (termOut) termOut.textContent = ""
+  }
+
   function restartTerminal() {
     window.fw.term.stop().then(function () {
       terminalStarted = false
-      if (termOut) termOut.textContent = ""
-      render()
+      termCwd = ""
+      if (S.panel === "terminal") render()
     })
   }
 

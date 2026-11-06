@@ -48,6 +48,129 @@
     return out
   }
 
+  function isTableRow(line) {
+    return /^\s*\|.*\|\s*$/.test(line) || (/\|/.test(line) && /\S\s*\|\s*\S/.test(line))
+  }
+
+  function isTableRule(line) {
+    return /\|/.test(line) && /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/.test(line)
+  }
+
+  function cells(line) {
+    let clean = String(line).trim()
+    if (clean.charAt(0) === "|") clean = clean.slice(1)
+    if (clean.charAt(clean.length - 1) === "|") clean = clean.slice(0, -1)
+    return clean.split("|").map(function (cell) {
+      return cell.trim()
+    })
+  }
+
+  function table(head, rule, rows) {
+    const aligns = cells(rule).map(function (cell) {
+      const left = cell.charAt(0) === ":"
+      const right = cell.charAt(cell.length - 1) === ":"
+      if (left && right) return "center"
+      if (right) return "right"
+      return ""
+    })
+    function cellHtml(tag, value, index) {
+      const align = aligns[index] ? ' style="text-align:' + aligns[index] + '"' : ""
+      return "<" + tag + align + ">" + inline(value) + "</" + tag + ">"
+    }
+    const titles = cells(head)
+    let html = '<div class="md-table"><table dir="auto"><thead><tr>'
+    titles.forEach(function (value, index) {
+      html += cellHtml("th", value, index)
+    })
+    html += "</tr></thead><tbody>"
+    rows.forEach(function (row) {
+      const values = cells(row)
+      html += "<tr>"
+      for (let index = 0; index < titles.length; index += 1) {
+        html += cellHtml("td", values[index] || "", index)
+      }
+      html += "</tr>"
+    })
+    return html + "</tbody></table></div>"
+  }
+
+  const BULLET = /^(\s*)[-*+]\s+(.*)$/
+  const NUMBER = /^(\s*)(\d+)[.)]\s+(.*)$/
+
+  function listItem(line) {
+    const bullet = line.match(BULLET)
+    if (bullet) return { indent: bullet[1].length, ordered: false, text: bullet[2], number: 1 }
+    const number = line.match(NUMBER)
+    if (number) return { indent: number[1].length, ordered: true, text: number[3], number: Number(number[2]) }
+    return null
+  }
+
+  function itemText(value) {
+    const task = value.match(/^\[([ xX])\]\s+(.*)$/)
+    if (task) {
+      const done = task[1] !== " "
+      return '<span class="md-task' + (done ? " done" : "") + '">' + (done ? "☑" : "☐") + "</span> " + inline(task[2])
+    }
+    return inline(value)
+  }
+
+  // Reads one list (and the lists nested in it) starting at lines[index].
+  function list(lines, index) {
+    const first = listItem(lines[index])
+    const ordered = first.ordered
+    const indent = first.indent
+    const items = []
+    let current = null
+    while (index < lines.length) {
+      const line = lines[index]
+      if (/^\s*$/.test(line)) {
+        // a blank line ends the list unless the next line carries it on
+        let next = index + 1
+        while (next < lines.length && /^\s*$/.test(lines[next])) next += 1
+        const after = next < lines.length ? listItem(lines[next]) : null
+        const indented = next < lines.length && /^\s{2,}\S/.test(lines[next])
+        if ((after && after.indent >= indent && after.ordered === ordered) || (after && after.indent > indent) || (indented && current && !after)) {
+          index = next
+          continue
+        }
+        break
+      }
+      const item = listItem(line)
+      if (item && item.indent > indent && current) {
+        const nested = list(lines, index)
+        current.children += nested.html
+        index = nested.index
+        continue
+      }
+      if (item && item.indent <= indent + 1) {
+        if (item.ordered !== ordered || item.indent < indent) break
+        current = { text: itemText(item.text), children: "" }
+        items.push(current)
+        index += 1
+        continue
+      }
+      if (current && !item && /^\s+\S/.test(line) && !/^\s*```/.test(line)) {
+        current.text += "<br />" + inline(line.trim())
+        index += 1
+        continue
+      }
+      if (current && !item && !/^\s*(```|#{1,6}\s|>)/.test(line) && !isTableRule(lines[index + 1] || "")) {
+        // a lazy continuation line right under an item
+        current.text += " " + inline(line.trim())
+        index += 1
+        continue
+      }
+      break
+    }
+    const start = ordered && first.number !== 1 ? ' start="' + first.number + '"' : ""
+    let html = ordered ? "<ol dir=\"auto\"" + start + ">" : "<ul dir=\"auto\">"
+    items.forEach(function (item) {
+      html += "<li>" + item.text + item.children + "</li>"
+    })
+    html += ordered ? "</ol>" : "</ul>"
+    return { html: html, index: index }
+  }
+
   function render(text) {
     const source = String(text == null ? "" : text).replace(/\r\n/g, "\n")
     const lines = source.split("\n")
@@ -67,7 +190,7 @@
         }
         index += 1
         html.push(
-          '<div class="md-code"><div class="md-code-head"><span>' +
+          '<div class="md-code" dir="ltr"><div class="md-code-head"><span>' +
             escapeHtml(lang || "text") +
             '</span><button class="md-copy" data-copy="1" type="button">Copy</button></div><pre><code>' +
             escapeHtml(body.join("\n")) +
@@ -83,8 +206,8 @@
 
       const heading = line.match(/^(#{1,6})\s+(.*)$/)
       if (heading) {
-        const level = Math.min(heading[1].length + 2, 6)
-        html.push("<h" + level + ">" + inline(heading[2]) + "</h" + level + ">")
+        const level = heading[1].length
+        html.push("<h" + level + ' dir="auto">' + inline(heading[2].replace(/\s+#+\s*$/, "")) + "</h" + level + ">")
         index += 1
         continue
       }
@@ -95,29 +218,33 @@
           body.push(lines[index].replace(/^\s*>\s?/, ""))
           index += 1
         }
-        html.push("<blockquote>" + inline(body.join(" ")) + "</blockquote>")
+        html.push('<blockquote dir="auto">' + inline(body.join("\n")).replace(/\n/g, "<br />") + "</blockquote>")
         continue
       }
 
-      if (/^\s*([-*_])\1{2,}\s*$/.test(line)) {
+      if (/^\s*([-*_])(\s*\1){2,}\s*$/.test(line)) {
         html.push("<hr />")
         index += 1
         continue
       }
 
-      const bullet = line.match(/^\s*[-*+]\s+(.*)$/)
-      const ordered = line.match(/^\s*\d+[.)]\s+(.*)$/)
-      if (bullet || ordered) {
-        const orderedList = !!ordered
-        const items = []
-        while (index < lines.length) {
-          const current = lines[index]
-          const match = orderedList ? current.match(/^\s*\d+[.)]\s+(.*)$/) : current.match(/^\s*[-*+]\s+(.*)$/)
-          if (!match) break
-          items.push("<li>" + inline(match[1]) + "</li>")
+      if (isTableRow(line) && index + 1 < lines.length && isTableRule(lines[index + 1])) {
+        const head = line
+        const rule = lines[index + 1]
+        const rows = []
+        index += 2
+        while (index < lines.length && /\|/.test(lines[index]) && !/^\s*$/.test(lines[index])) {
+          rows.push(lines[index])
           index += 1
         }
-        html.push((orderedList ? "<ol>" : "<ul>") + items.join("") + (orderedList ? "</ol>" : "</ul>"))
+        html.push(table(head, rule, rows))
+        continue
+      }
+
+      if (listItem(line)) {
+        const result = list(lines, index)
+        html.push(result.html)
+        index = result.index
         continue
       }
 
@@ -127,12 +254,17 @@
         if (/^\s*$/.test(current)) break
         if (/^\s*```/.test(current)) break
         if (/^#{1,6}\s+/.test(current)) break
-        if (/^\s*[-*+]\s+/.test(current) || /^\s*\d+[.)]\s+/.test(current)) break
+        if (body.length && listItem(current)) break
         if (/^\s*>/.test(current)) break
+        if (isTableRow(current) && index + 1 < lines.length && isTableRule(lines[index + 1])) break
         body.push(current)
         index += 1
       }
-      html.push("<p>" + inline(body.join("\n")).replace(/\n/g, "<br />") + "</p>")
+      if (!body.length) {
+        body.push(lines[index])
+        index += 1
+      }
+      html.push('<p dir="auto">' + inline(body.join("\n")).replace(/\n/g, "<br />") + "</p>")
     }
 
     return html.join("")

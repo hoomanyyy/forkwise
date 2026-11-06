@@ -1,0 +1,18 @@
+Forkwise Desktop
+
+Forkwise Desktop connects this computer to your Forkwise account so the agent
+can work in the folders you choose, run commands and, when you allow it, use
+apps on this computer.
+
+Before you continue, please read:
+
+  Terms of Service   https://forkwiseai.com/terms
+  Privacy Policy     https://forkwiseai.com/privacy
+
+By installing and using Forkwise Desktop you agree to these terms.
+
+You stay in control:
+  - The agent only works in folders you pick.
+  - "Ask first" mode asks before it changes anything.
+  - Ctrl+Alt+Shift+X stops everything the agent is doing, at any time.
+  - You can uninstall Forkwise Desktop from Settings > Apps whenever you like.

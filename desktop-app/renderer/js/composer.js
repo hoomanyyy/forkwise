@@ -9,37 +9,34 @@
   let box = null
   let textarea = null
   let chips = null
-  let modelWrap = null
-  let modelSel = null
-  let modeWrap = null
-  let modeSel = null
+  let modelBtn = null
+  let modeBtn = null
   let sendBtn = null
   let hint = null
+  let dropZone = null
+  let currentModel = ""
+  let currentMode = "auto"
+  let lastSent = ""
 
   const MODES = [
-    { value: "auto", label: "Agent" },
-    { value: "ask", label: "Ask first" },
-    { value: "plan", label: "Plan" }
+    { value: "auto", label: "Agent", hint: "Works on its own until the task is done", icon: "zap" },
+    { value: "ask", label: "Ask first", hint: "Asks before it changes anything", icon: "shield" },
+    { value: "plan", label: "Plan", hint: "Writes a plan for you to approve first", icon: "list" }
   ]
 
   function init() {
     dock = document.getElementById("composerDock")
     textarea = h("textarea", { id: "prompt", rows: "1", placeholder: "Ask, build, or run something on this computer\u2026", spellcheck: "true" })
     chips = h("div", { class: "chips", id: "chips" })
-    modelSel = h("select", { id: "modelPick", title: "Model" })
-    modelWrap = h("span", { class: "select-wrap" }, [modelSel])
-    modeSel = h("select", { id: "modePick", title: "How the agent should act" })
-    MODES.forEach(function (item) {
-      modeSel.appendChild(h("option", { value: item.value, text: item.label }))
-    })
-    modeWrap = h("span", { class: "select-wrap" }, [modeSel])
+    modeBtn = h("button", { class: "pick", id: "modePick", type: "button", title: "How the agent should act", "aria-haspopup": "menu", "aria-expanded": "false" })
+    modelBtn = h("button", { class: "pick", id: "modelPick", type: "button", title: "Model", "aria-haspopup": "menu", "aria-expanded": "false" })
     const folderBtn = h("button", { class: "icon-btn", id: "btnFolder", title: "Work in a folder", html: icon("folderPlus", 15) })
     const attachBtn = h("button", { class: "icon-btn", id: "btnAttach", title: "Attach files", html: icon("clip", 15) })
     hint = h("span", { class: "hint", id: "composerHint" })
     sendBtn = h("button", { class: "send", id: "btnSend", title: "Send", html: icon("arrowUp", 15) })
 
     const bar = h("div", { class: "composer-bar" }, [
-      h("div", { class: "composer-left" }, [modeWrap, modelWrap, folderBtn, attachBtn]),
+      h("div", { class: "composer-left" }, [modeBtn, modelBtn, folderBtn, attachBtn]),
       h("div", { class: "composer-right" }, [hint, sendBtn])
     ])
     box = h("div", { class: "composer", id: "composer" }, [chips, textarea, bar])
@@ -48,43 +45,59 @@
     textarea.addEventListener("input", function () {
       autoGrow()
       updateSend()
-      FW.store.setDraft(S.chat ? S.chat.id : "new", textarea.value)
+      FW.store.setDraft(draftOwner, textarea.value)
     })
+    window.addEventListener("resize", U.debounce(autoGrow, 120))
     textarea.addEventListener("keydown", function (event) {
-      if (event.key === "Enter" && !event.shiftKey) {
-        if (event.metaKey || event.ctrlKey || !event.isComposing) {
-          event.preventDefault()
-          send()
-        }
-      }
-    })
-    textarea.addEventListener("paste", function (event) {
-      const text = event.clipboardData && event.clipboardData.getData("text")
-      if (text && text.length > 4000) {
+      if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
         event.preventDefault()
-        textarea.value += text
-        autoGrow()
+        send()
+        return
+      }
+      if (event.key === "ArrowUp" && !textarea.value && lastSent) {
+        // like a shell: the arrow brings back the last message
+        event.preventDefault()
+        fill(lastSent)
       }
     })
+    textarea.addEventListener("paste", onPaste)
     sendBtn.addEventListener("click", function () {
       if (S.running && sendBtn.classList.contains("stop")) stop()
       else send()
     })
-    modelSel.addEventListener("change", function () {
-      FW.store.savePrefs({ model: modelSel.value })
-      updateSend()
+    modeBtn.addEventListener("click", function () {
+      U.menu(modeBtn, MODES.map(function (item) {
+        return { value: item.value, label: item.label, hint: item.hint, icon: item.icon, checked: item.value === currentMode }
+      }), function (value) {
+        setMode(value, true)
+        focus()
+      }, { up: true, className: "pick-menu", onClose: focus })
     })
-    modeSel.addEventListener("change", function () {
-      FW.store.savePrefs({ mode: modeSel.value })
-      if (S.chat) {
-        window.fw.chats.patch(S.chat.id, { mode: modeSel.value }).catch(function () {})
+    modelBtn.addEventListener("click", function () {
+      const models = S.models || []
+      if (!models.length) {
+        U.toast("The server has no models set up yet")
+        return
       }
+      U.menu(modelBtn, models.map(function (model) {
+        return { value: model.key, label: model.label || model.key, hint: modelHint(model), checked: model.key === currentModel }
+      }), function (value) {
+        setModel(value, true)
+        focus()
+      }, { up: true, search: models.length > 7 ? "Search models" : "", className: "pick-menu model-menu", onClose: focus })
     })
     folderBtn.addEventListener("click", chooseFolder)
     attachBtn.addEventListener("click", pickAttachments)
     document.addEventListener("keydown", function (event) {
-      if (event.key === "Escape" && S.running) stop()
+      if (event.key !== "Escape") return
+      if (event.defaultPrevented || U.overlayOpen()) return
+      if (event.target && event.target.id === "chatSearch") return
+      if (S.running) {
+        event.preventDefault()
+        stop()
+      }
     })
+    wireDrop()
 
     refreshModels()
     syncMode()
@@ -93,49 +106,103 @@
   }
 
   function autoGrow() {
+    const most = Math.max(120, Math.min(320, Math.round(window.innerHeight * 0.35)))
     textarea.style.height = "auto"
-    textarea.style.height = Math.min(textarea.scrollHeight, 200) + "px"
+    const height = Math.min(textarea.scrollHeight, most)
+    textarea.style.height = height + "px"
+    textarea.style.overflowY = textarea.scrollHeight > most ? "auto" : "hidden"
   }
+
+  function modelHint(model) {
+    const parts = []
+    if (model.context) parts.push(model.context >= 1000000 ? Math.round(model.context / 100000) / 10 + "M context" : Math.round(model.context / 1000) + "k context")
+    if (model.vision) parts.push("reads images")
+    return parts.join(" \u00b7 ")
+  }
+
+  function setModel(value, save) {
+    const models = S.models || []
+    const found = models.find(function (model) {
+      return model.key === value
+    })
+    currentModel = found ? found.key : models.length ? models[0].key : ""
+    const label = found ? found.label || found.key : models.length ? models[0].label || models[0].key : "Default model"
+    modelBtn.innerHTML = ""
+    modelBtn.appendChild(h("span", { class: "pick-icon", html: icon("cpu", 12) }))
+    modelBtn.appendChild(h("span", { class: "pick-label", text: label }))
+    modelBtn.appendChild(h("span", { class: "pick-chev", html: icon("chevronDown", 11) }))
+    modelBtn.title = "Model: " + label
+    if (save) {
+      FW.store.savePrefs({ model: currentModel })
+      S.prefs.model = currentModel
+    }
+    updateSend()
+  }
+
+  function setMode(value, save) {
+    const found = MODES.find(function (item) {
+      return item.value === value
+    }) || MODES[0]
+    currentMode = found.value
+    modeBtn.innerHTML = ""
+    modeBtn.appendChild(h("span", { class: "pick-icon", html: icon(found.icon, 12) }))
+    modeBtn.appendChild(h("span", { class: "pick-label", text: found.label }))
+    modeBtn.appendChild(h("span", { class: "pick-chev", html: icon("chevronDown", 11) }))
+    modeBtn.dataset.mode = found.value
+    modeBtn.title = found.label + " \u2014 " + found.hint
+    if (save) {
+      FW.store.savePrefs({ mode: currentMode })
+      S.prefs.mode = currentMode
+      if (S.chat) {
+        S.chat.mode = currentMode
+        window.fw.chats.patch(S.chat.id, { mode: currentMode }).catch(function () {})
+      }
+    }
+  }
+
+  const PLACEHOLDER = "Ask, build, or run something on this computer\u2026"
+  const PLACEHOLDER_BUSY = "Add a follow-up \u2014 it runs after the current step\u2026"
 
   function updateSend() {
     const ready = textarea.value.trim().length > 0 || S.attachments.length > 0
-    if (S.running) {
+    textarea.placeholder = S.running ? PLACEHOLDER_BUSY : PLACEHOLDER
+    hint.title = ""
+    if (S.running && !ready) {
       sendBtn.classList.add("stop")
-      sendBtn.innerHTML = icon("square", 13)
+      sendBtn.innerHTML = icon("square", 11)
       sendBtn.title = "Stop (Esc)"
+      sendBtn.setAttribute("aria-label", "Stop")
       sendBtn.disabled = false
       hint.textContent = "Esc to stop"
       return
     }
     sendBtn.classList.remove("stop")
     sendBtn.innerHTML = icon("arrowUp", 15)
-    sendBtn.title = "Send"
+    sendBtn.title = S.running ? "Send after this step (Enter)" : "Send (Enter)"
+    sendBtn.setAttribute("aria-label", "Send")
     sendBtn.disabled = !ready
+    if (S.running) {
+      hint.textContent = "Queues after the current step"
+      return
+    }
     const parts = []
     if (S.context && S.context.tokens) {
       parts.push(Math.round(S.context.tokens / 1000) + "k" + (S.context.limit ? "/" + Math.round(S.context.limit / 1000) + "k" : ""))
+      hint.title = "Context used: " + S.context.tokens.toLocaleString() + (S.context.limit ? " of " + S.context.limit.toLocaleString() : "") + " tokens"
     }
     hint.textContent = parts.join("  \u00b7  ")
   }
 
   function refreshModels() {
-    modelSel.innerHTML = ""
     const models = S.models || []
-    if (!models.length) {
-      modelSel.appendChild(h("option", { value: "", text: "Default model" }))
-      return
-    }
-    models.forEach(function (model) {
-      modelSel.appendChild(h("option", { value: model.key, text: model.label || model.key }))
-    })
-    const wanted = S.prefs.model && models.some(function (m) { return m.key === S.prefs.model }) ? S.prefs.model : models[0].key
-    modelSel.value = wanted
-    if (!S.prefs.model) S.prefs.model = wanted
+    const wanted = S.prefs.model && models.some(function (model) { return model.key === S.prefs.model }) ? S.prefs.model : models.length ? models[0].key : ""
+    setModel(wanted, false)
+    if (!S.prefs.model && wanted) S.prefs.model = wanted
   }
 
   function syncMode() {
     const value = (S.chat && S.chat.mode) || S.prefs.mode || "auto"
-    modeSel.value = MODES.some(function (item) { return item.value === value }) ? value : "auto"
+    setMode(value, false)
   }
 
   function renderChips() {
@@ -151,10 +218,13 @@
       )
     }
     S.attachments.forEach(function (file, index) {
+      const kind = String(file.kind || "")
       chips.appendChild(
-        h("span", { class: "chip", title: file.name }, [
+        h("span", { class: "chip file", title: file.path || file.name }, [
+          h("span", { html: icon(kind === "image" ? "image" : "file", 11) }),
           h("b", { text: file.name }),
-          h("button", { class: "x", html: icon("close", 10), onclick: function () { S.attachments.splice(index, 1); renderChips() } })
+          file.size ? h("span", { class: "chip-size", text: window.FWLabels.bytes(file.size) }) : null,
+          h("button", { class: "x", html: icon("close", 10), title: "Remove", onclick: function () { S.attachments.splice(index, 1); renderChips() } })
         ])
       )
     })
@@ -181,7 +251,7 @@
     if (hasChat) {
       S.folder = result.folder
       FW.store.savePrefs({ folder: result.folder })
-      const created = await window.fw.chats.create({ local_path: result.folder, model: modelSel.value || "", mode: modeSel.value || "auto" })
+      const created = await window.fw.chats.create({ local_path: result.folder, model: currentModel || "", mode: currentMode || "auto" })
       await FW.app.refreshChats()
       await FW.app.openChat(created.chat.id)
       U.toast("Now working in " + result.folder)
@@ -199,37 +269,134 @@
 
   async function ensureChat() {
     if (S.chat && S.chat.id) return S.chat.id
-    const body = { local_path: S.folder || "", model: modelSel.value || "", mode: modeSel.value || "auto" }
+    const body = { local_path: S.folder || "", model: currentModel || "", mode: currentMode || "auto" }
     const created = await window.fw.chats.create(body)
     const chat = created.chat
+    // what was typed into the new chat stays in the box
+    FW.store.setDraft(chat.id, textarea.value)
+    FW.store.setDraft("new", "")
     S.chat = chat
     await FW.app.refreshChats()
     await FW.app.openChat(chat.id)
     return chat.id
   }
 
+  function addUploaded(result) {
+    ;(result.files || []).forEach(function (file) {
+      S.attachments.push(file)
+    })
+    if (result.skipped && result.skipped.length) U.toast("Skipped " + result.skipped.join(", ") + " (folders and files over 25 MB are left out)", "warn", 4200)
+    renderChips()
+  }
+
   async function pickAttachments() {
     try {
       const chatId = await ensureChat()
       const result = await window.fw.attachFiles(chatId)
-      ;(result.files || []).forEach(function (file) {
-        S.attachments.push(file)
-      })
-      renderChips()
+      addUploaded(result)
     } catch (problem) {
       U.toast(problem.message || "Could not attach that file", "bad")
     }
   }
 
+  async function attachPaths(paths) {
+    if (!paths.length) return
+    U.toast(paths.length === 1 ? "Attaching the file\u2026" : "Attaching " + paths.length + " files\u2026")
+    try {
+      const chatId = await ensureChat()
+      addUploaded(await window.fw.attachPaths(chatId, paths))
+    } catch (problem) {
+      U.toast(problem.message || "Could not attach those files", "bad")
+    }
+  }
+
+  async function attachImage(file) {
+    try {
+      const chatId = await ensureChat()
+      const buffer = new Uint8Array(await file.arrayBuffer())
+      const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")
+      const type = (file.type.split("/")[1] || "png").replace("jpeg", "jpg")
+      addUploaded(await window.fw.attachData(chatId, "pasted-" + stamp + "." + type, buffer))
+    } catch (problem) {
+      U.toast(problem.message || "Could not attach the image", "bad")
+    }
+  }
+
+  // Large pastes go in at the cursor (not at the end), pasted images become attachments.
+  function onPaste(event) {
+    const data = event.clipboardData
+    if (!data) return
+    const images = Array.prototype.filter.call(data.files || [], function (file) {
+      return /^image\//.test(file.type)
+    })
+    const text = data.getData("text")
+    if (images.length && !text) {
+      event.preventDefault()
+      images.slice(0, 4).forEach(attachImage)
+      return
+    }
+    if (text && text.length > 4000) {
+      event.preventDefault()
+      textarea.setRangeText(text, textarea.selectionStart, textarea.selectionEnd, "end")
+      textarea.dispatchEvent(new Event("input", { bubbles: true }))
+    }
+  }
+
+  // Files dragged from the desktop onto the chat become attachments.
+  function wireDrop() {
+    const area = document.getElementById("main") || dock
+    dropZone = h("div", { class: "drop-zone", hidden: true }, [h("div", { class: "drop-box" }, [h("span", { html: icon("clip", 18) }), h("b", { text: "Drop files to attach them" })])])
+    area.appendChild(dropZone)
+    let depth = 0
+    function hasFiles(event) {
+      const types = event.dataTransfer && event.dataTransfer.types
+      return !!types && Array.prototype.indexOf.call(types, "Files") >= 0
+    }
+    area.addEventListener("dragenter", function (event) {
+      if (!hasFiles(event)) return
+      event.preventDefault()
+      depth += 1
+      dropZone.hidden = false
+    })
+    area.addEventListener("dragover", function (event) {
+      if (!hasFiles(event)) return
+      event.preventDefault()
+      event.dataTransfer.dropEffect = "copy"
+    })
+    area.addEventListener("dragleave", function (event) {
+      if (!hasFiles(event)) return
+      depth = Math.max(0, depth - 1)
+      if (!depth) dropZone.hidden = true
+    })
+    area.addEventListener("drop", function (event) {
+      if (!hasFiles(event)) return
+      event.preventDefault()
+      depth = 0
+      dropZone.hidden = true
+      const paths = []
+      Array.prototype.forEach.call(event.dataTransfer.files || [], function (file) {
+        const where = window.fw.pathFor ? window.fw.pathFor(file) : ""
+        if (where) paths.push(where)
+      })
+      attachPaths(paths)
+    })
+    // a file dropped anywhere else must not replace the app with that file
+    document.addEventListener("dragover", function (event) {
+      event.preventDefault()
+    })
+    document.addEventListener("drop", function (event) {
+      event.preventDefault()
+    })
+  }
+
   async function send() {
     const text = textarea.value.trim()
-    if (S.running) {
-      if (!text) return stop()
-      // A new message while running is queued by the backend.
-    }
+    if (S.running && !text && S.attachments.length === 0) return stop()
+    // a new message while running is queued by the backend
     if (!text && S.attachments.length === 0) return
+    if (text) lastSent = text
     const attachments = S.attachments.slice()
-    const draftKey = S.chat ? S.chat.id : "new"
+    const draftKey = draftOwner
     textarea.value = ""
     autoGrow()
     FW.store.setDraft(draftKey, "")
@@ -237,19 +404,26 @@
     renderChips()
     updateSend()
 
+    const queued = S.running
     try {
       const chatId = await ensureChat()
-      FW.chat.appendUser(text, { attachments: attachments })
-      U.el("#stage").classList.remove("is-empty")
+      // a message sent while the agent works is shown when the agent picks it up
+      if (!queued) {
+        FW.chat.appendUser(text, { attachments: attachments })
+        U.el("#stage").classList.remove("is-empty")
+      }
       const data = await window.fw.send({
         chatId: chatId,
         content: text,
-        model: modelSel.value || "",
-        mode: modeSel.value || "",
+        model: currentModel || "",
+        mode: currentMode || "",
         attachments: attachments,
         skills: []
       })
-      if (data && data.queued) U.toast("Queued for when the agent is free")
+      if (data && data.queued) {
+        updateSend()
+        return
+      }
       if (data && data.run_id) {
         S.runId = data.run_id
         FW.chat.setRunning(true)
@@ -260,6 +434,8 @@
         FW.app.refreshChats()
       }, 1200)
     } catch (problem) {
+      // the message did not go out: take its bubble back and return the text
+      if (!queued) FW.chat.dropLastUser()
       textarea.value = text
       autoGrow()
       S.attachments = attachments
@@ -270,11 +446,29 @@
 
   async function stop() {
     try {
+      sendBtn.disabled = true
       await window.fw.stopRun(S.runId || "")
-      FW.chat.note("Stopping\u2026")
     } catch (problem) {
       U.toast(problem.message || "Could not stop the run", "bad")
+    } finally {
+      sendBtn.disabled = false
     }
+  }
+
+  // Retry: the same words (and files) again, after the old answer was removed.
+  function resend(text, attachments) {
+    S.attachments = (attachments || []).slice()
+    renderChips()
+    textarea.value = text || ""
+    autoGrow()
+    send()
+  }
+
+  async function approvePlan() {
+    setMode("auto", true)
+    textarea.value = "The plan is approved. Build it now, following the plan, and verify the result."
+    autoGrow()
+    send()
   }
 
   function fill(text) {
@@ -289,17 +483,28 @@
     textarea.focus()
   }
 
+  let draftOwner = "new"
+
   function setChat(chat) {
     renderChips()
     syncMode()
-    if (chat) {
-      const draft = FW.store.draftFor(chat.id)
-      if (draft && !textarea.value) {
-        textarea.value = draft
-        autoGrow()
-      }
+    const owner = chat ? chat.id : "new"
+    if (owner !== draftOwner) {
+      // each chat keeps its own unsent text
+      draftOwner = owner
+      textarea.value = FW.store.draftFor(owner) || ""
+      autoGrow()
     }
+    lastSent = lastUserText()
     updateSend()
+  }
+
+  function lastUserText() {
+    const messages = S.messages || []
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      if (messages[index].role === "user" && typeof messages[index].content === "string") return messages[index].content
+    }
+    return ""
   }
 
   function refresh() {
@@ -309,5 +514,5 @@
   }
 
   window.FW = window.FW || {}
-  window.FW.composer = { init: init, fill: fill, focus: focus, refresh: refresh, setChat: setChat, update: updateSend, renderChips: renderChips }
+  window.FW.composer = { init: init, fill: fill, focus: focus, refresh: refresh, setChat: setChat, update: updateSend, renderChips: renderChips, attachPaths: attachPaths, resend: resend, approvePlan: approvePlan, model: function () { return currentModel }, mode: function () { return currentMode } }
 })()

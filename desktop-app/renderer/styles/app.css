@@ -7,6 +7,7 @@
   flex: 1;
   min-height: 0;
   display: grid;
+  grid-template-rows: minmax(0, 1fr);
   grid-template-columns: var(--side-w) minmax(0, 1fr) 0;
   transition: grid-template-columns 180ms var(--ease);
 }
@@ -186,7 +187,9 @@ body.maximized #win-maximize .glyph::after {
 
 #sidebar {
   grid-column: 1;
+  grid-row: 1;
   min-width: 0;
+  min-height: 0;
   overflow: hidden;
   background: var(--bg-side);
   border-right: 1px solid var(--line);
@@ -316,8 +319,13 @@ body.sidebar-hidden #sidebar {
 }
 .chat-row:hover .chat-more,
 .chat-row:focus-within .chat-more,
-.chat-row:focus-visible .chat-more {
+.chat-row:focus-visible .chat-more,
+.chat-more.open {
   opacity: 1;
+}
+.chat-more.open {
+  background: var(--bg-active);
+  color: var(--text);
 }
 .chat-more:hover {
   background: var(--bg-active);
@@ -445,7 +453,9 @@ body.sidebar-hidden #sidebar {
 
 #main {
   grid-column: 2;
+  grid-row: 1;
   min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   background: var(--bg);
@@ -538,6 +548,7 @@ body.sidebar-hidden #sidebar {
 
 #composerDock {
   flex: none;
+  position: relative;
   padding: 6px 26px 14px;
   background: var(--bg);
 }
@@ -564,8 +575,8 @@ body.sidebar-hidden #sidebar {
   line-height: 1.6;
   color: var(--text);
   padding: 2px 3px 4px;
-  max-height: 200px;
   min-height: 24px;
+  overflow-y: hidden;
   user-select: text;
 }
 .composer textarea::placeholder {
@@ -650,45 +661,52 @@ body.sidebar-hidden #sidebar {
   background: var(--bg-hover);
   color: var(--text);
 }
-.select-wrap {
-  position: relative;
+/* model and mode pickers: themed buttons that open a menu */
+.pick {
   display: inline-flex;
   align-items: center;
-}
-.select-wrap::after {
-  content: "";
-  position: absolute;
-  right: 7px;
-  top: 50%;
-  width: 5px;
-  height: 5px;
-  border-right: 1.4px solid var(--text-3);
-  border-bottom: 1.4px solid var(--text-3);
-  transform: translateY(-70%) rotate(45deg);
-  pointer-events: none;
-}
-.select-wrap select {
-  appearance: none;
-  -webkit-appearance: none;
-  border: 0;
-  outline: none;
-  background: transparent;
-  color: var(--text-2);
-  font-size: 12px;
-  padding: 0 19px 0 7px;
-  height: 24px;
+  gap: 5px;
+  height: 26px;
+  max-width: 190px;
+  padding: 0 6px 0 7px;
   border-radius: 6px;
-  max-width: 168px;
-  text-overflow: ellipsis;
-  cursor: default;
+  font-size: 12px;
+  color: var(--text-2);
+  transition: background 110ms var(--ease), color 110ms var(--ease);
 }
-.select-wrap select:hover {
+.pick:hover,
+.pick.open {
   background: var(--bg-hover);
   color: var(--text);
 }
-.select-wrap select option {
-  background: var(--bg-elev);
-  color: var(--text);
+.pick-icon {
+  display: inline-flex;
+  color: var(--text-3);
+  flex: none;
+}
+.pick-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pick-chev {
+  display: inline-flex;
+  flex: none;
+  color: var(--text-3);
+  transition: transform 160ms var(--ease-soft);
+}
+.pick.open .pick-chev {
+  transform: rotate(180deg);
+}
+.pick[data-mode="plan"] .pick-icon,
+.pick[data-mode="ask"] .pick-icon {
+  color: var(--text-2);
+}
+.chip-size {
+  color: var(--text-3);
+  font-size: 10.5px;
+  flex: none;
 }
 .hint {
   font-size: 11px;
@@ -719,17 +737,48 @@ body.sidebar-hidden #sidebar {
 .send.stop {
   background: var(--bg-active);
   color: var(--text);
-  border-radius: 50%;
+  border: 1px solid var(--line-2);
 }
-body.hide-thinking .think {
+.send.stop svg {
+  fill: currentColor;
+}
+.send.stop:hover {
+  opacity: 1;
+  background: var(--bg-hover);
+}
+.hide-thinking .think {
   display: none;
+}
+
+/* files dragged over the chat */
+.drop-zone {
+  position: absolute;
+  inset: 8px;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  border: 1.5px dashed var(--text-3);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  pointer-events: none;
+  animation: fadeIn 120ms ease;
+}
+.drop-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-2);
 }
 
 /* ------------------------------------------------------------------ panel */
 
 #panel {
   grid-column: 3;
+  grid-row: 1;
   min-width: 0;
+  min-height: 0;
   overflow: hidden;
   border-left: 1px solid var(--line);
   background: var(--bg-side);
@@ -909,6 +958,171 @@ kbd {
 }
 .pop-item.danger {
   color: var(--bad);
+}
+
+/* themed dropdown menus (U.menu) */
+.pop.menu {
+  position: fixed;
+  display: flex;
+  flex-direction: column;
+  min-width: 190px;
+  max-width: min(340px, calc(100vw - 16px));
+  overflow: hidden;
+  animation: menuIn 140ms var(--ease-soft);
+  transform-origin: top left;
+}
+.pop.menu.up {
+  transform-origin: bottom left;
+}
+.pop.menu.leaving {
+  opacity: 0;
+  transition: opacity 90ms ease;
+}
+@keyframes menuIn {
+  from {
+    opacity: 0;
+    transform: translateY(-3px) scale(0.985);
+  }
+}
+.pop.menu.up {
+  animation-name: menuUp;
+}
+@keyframes menuUp {
+  from {
+    opacity: 0;
+    transform: translateY(3px) scale(0.985);
+  }
+}
+.menu-list {
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1;
+}
+.menu-search {
+  flex: none;
+  height: 28px;
+  margin: 0 0 4px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  font-size: 12px;
+  color: var(--text);
+  outline: none;
+}
+.menu-search:focus {
+  border-color: var(--line-2);
+}
+.menu-head {
+  padding: 6px 8px 3px;
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.menu-item {
+  height: auto;
+  min-height: 28px;
+  padding: 4px 8px;
+  align-items: center;
+}
+.menu-item.active {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.menu-icon {
+  display: inline-flex;
+  flex: none;
+  color: var(--text-3);
+}
+.menu-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+.menu-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.menu-hint {
+  font-size: 11px;
+  color: var(--text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.menu-check {
+  display: inline-flex;
+  flex: none;
+  width: 12px;
+  color: var(--text);
+}
+.menu-item.checked .menu-label {
+  color: var(--text);
+}
+.menu-empty {
+  padding: 8px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+/* small dialogs (rename, delete, edit) in place of window.prompt */
+.dialog {
+  width: min(400px, 92vw);
+  background: var(--bg-elev);
+  border: 1px solid var(--line-2);
+  border-radius: 12px;
+  box-shadow: var(--shadow-2);
+  padding: 16px 16px 12px;
+  animation: menuIn 160ms var(--ease-soft);
+}
+.dialog-title {
+  font-size: 14px;
+  font-weight: 550;
+  color: var(--text);
+}
+.dialog-text {
+  margin-top: 6px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text-2);
+}
+.dialog-input {
+  width: 100%;
+  height: 32px;
+  margin-top: 12px;
+  padding: 0 10px;
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+  user-select: text;
+}
+.dialog-input:focus {
+  border-color: var(--text-3);
+}
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 16px;
+}
+.btn.danger-solid {
+  background: var(--bad);
+  border-color: var(--bad);
+  color: var(--bg);
+}
+.btn.danger-solid:hover {
+  opacity: 0.9;
+  background: var(--bad);
+}
+.modal-back.leaving {
+  opacity: 0;
+  transition: opacity 110ms ease;
 }
 
 /* ----------------------------------------------------------------- modal */
@@ -1214,30 +1428,9 @@ kbd {
 
 /* ---------------------------------------------------------------- narrow */
 
+/* The panel stays docked; when the window is too narrow for the sidebar, the
+   chat and the panel together, app.js closes the sidebar (or the panel). */
 @media (max-width: 880px) {
-  body #app,
-  body.panel-open #app {
-    grid-template-columns: var(--side-w) minmax(0, 1fr) 0;
-  }
-  body.sidebar-hidden #app,
-  body.sidebar-hidden.panel-open #app {
-    grid-template-columns: 0 minmax(0, 1fr) 0;
-  }
-  #panel {
-    position: fixed;
-    top: var(--title-h);
-    right: 0;
-    bottom: 0;
-    width: min(340px, 90vw);
-    z-index: 45;
-    border-left: 1px solid var(--line-2);
-    box-shadow: var(--shadow-2);
-    transform: translateX(101%);
-    transition: transform 190ms var(--ease);
-  }
-  body.panel-open #panel {
-    transform: none;
-  }
   .thread-inner {
     padding: 16px 18px 8px;
   }

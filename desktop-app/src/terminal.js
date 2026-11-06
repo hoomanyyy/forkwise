@@ -1,6 +1,7 @@
 /* A small local terminal for the panel: one shell per app window, line based,
    with output streamed to the renderer. Not a full pty, so full screen TUIs
    (vim, htop) are better opened with the computer tool. */
+const fs = require("fs")
 const os = require("os")
 const path = require("path")
 const { spawn } = require("child_process")
@@ -16,32 +17,54 @@ function shellArgs(command) {
   return ["-i"]
 }
 
+// "~" is a shell idea, so spawn needs it spelled out. A folder that is gone
+// falls back to the home folder instead of failing with ENOENT.
+function realFolder(folder) {
+  let value = String(folder || "").trim()
+  if (value === "~") value = os.homedir()
+  else if (value.indexOf("~/") === 0 || value.indexOf("~\\") === 0) value = path.join(os.homedir(), value.slice(2))
+  try {
+    if (value && fs.statSync(value).isDirectory()) return value
+  } catch (problem) {}
+  return ""
+}
+
 function create(options) {
   const onData = options.onData || function () {}
   const onExit = options.onExit || function () {}
   let child = null
-  let cwd = options.cwd || os.homedir()
+  let cwd = realFolder(options.cwd) || os.homedir()
 
   function start(folder) {
     stop()
-    if (folder) cwd = folder
+    const wanted = realFolder(folder)
+    if (wanted) cwd = wanted
+    if (!realFolder(cwd)) cwd = os.homedir()
     const command = shellCommand()
-    child = spawn(command, shellArgs(command), {
+    // On macOS and Linux the shell runs through sh so its error output is
+    // joined to the normal output; two pipes would mix up the order of a
+    // prompt and the command's output.
+    const program = process.platform === "win32" ? command : "/bin/sh"
+    const programArgs = process.platform === "win32" ? shellArgs(command) : ["-c", 'exec "$0" "$@" 2>&1', command].concat(shellArgs(command))
+    const current = spawn(program, programArgs, {
       cwd: cwd,
       env: Object.assign({}, process.env, { TERM: "xterm-256color", FORCE_COLOR: "1", CLICOLOR_FORCE: "1" }),
       windowsHide: true,
       detached: process.platform !== "win32"
     })
-    child.stdout.on("data", function (chunk) {
+    child = current
+    current.stdout.on("data", function (chunk) {
       onData(chunk.toString())
     })
-    child.stderr.on("data", function (chunk) {
+    current.stderr.on("data", function (chunk) {
       onData(chunk.toString())
     })
-    child.on("error", function (problem) {
+    current.on("error", function (problem) {
       onData("\r\n" + problem.message + "\r\n")
     })
-    child.on("exit", function (code) {
+    current.on("exit", function (code) {
+      // a shell we stopped on purpose does not report an exit
+      if (child !== current) return
       child = null
       onExit(code)
     })
@@ -56,13 +79,38 @@ function create(options) {
 
   function resize() {}
 
+  // Ctrl+C: the running command gets SIGINT, the shell itself ignores it.
+  function interrupt() {
+    if (!child) return false
+    if (process.platform === "win32") {
+      const folder = cwd
+      stop()
+      start(folder)
+      return true
+    }
+    try {
+      process.kill(-child.pid, "SIGINT")
+      return true
+    } catch (problem) {
+      return false
+    }
+  }
+
   function stop() {
     if (!child) return
     const victim = child
     child = null
     try {
       if (process.platform === "win32") spawn("taskkill", ["/pid", String(victim.pid), "/T", "/F"], { windowsHide: true })
-      else process.kill(-victim.pid, "SIGTERM")
+      else {
+        // an interactive shell ignores SIGTERM, so hang it up and make sure
+        process.kill(-victim.pid, "SIGHUP")
+        setTimeout(function () {
+          try {
+            process.kill(-victim.pid, "SIGKILL")
+          } catch (problem) {}
+        }, 400)
+      }
     } catch (problem) {
       try {
         victim.kill()
@@ -74,7 +122,7 @@ function create(options) {
     return { cwd: cwd, running: !!child }
   }
 
-  return { start: start, write: write, stop: stop, resize: resize, info: info }
+  return { start: start, write: write, stop: stop, interrupt: interrupt, resize: resize, info: info }
 }
 
 module.exports = { create: create }

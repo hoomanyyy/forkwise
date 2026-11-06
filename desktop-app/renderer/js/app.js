@@ -91,6 +91,7 @@
       document.documentElement.style.setProperty("--panel-w", S.prefs.panelWidth + "px")
     }
 
+    makeRoom("panel")
     chat.init()
     window.FW.composer.init()
     window.FW.sidebar.init()
@@ -197,6 +198,10 @@
         openChat(payload.chatId, true)
       }
       refreshChats()
+      if (payload.status !== "stopped") notify("Forkwise is done", (S.chat && S.chat.title) || "The task finished.", payload.chatId)
+    })
+    window.FW.store.on("waiting", function () {
+      notify("Forkwise needs you", "The agent is waiting for your answer.", S.chat ? S.chat.id : "")
     })
     window.FW.store.on("run:start", function () {
       window.FW.composer.update()
@@ -219,6 +224,25 @@
       const external = event.target.closest("[data-external]")
       if (external) window.fw.openExternal(external.getAttribute("data-external"))
     })
+    window.addEventListener("resize", U.debounce(function () {
+      // a window made narrower tucks the sidebar away instead of crushing the chat
+      if (S.sidebarOpen && S.panelOpen && chatRoom(true, true) < 480) {
+        S.sidebarOpen = false
+        applyLayout()
+      }
+    }, 120))
+  }
+
+  // A desktop notification, only when the window is in the background.
+  function notify(title, body, chatId) {
+    if (document.hasFocus() || typeof Notification === "undefined") return
+    try {
+      const note = new Notification(title, { body: String(body || "").slice(0, 160), silent: false })
+      note.onclick = function () {
+        window.fw.win.control("focus")
+        if (chatId && (!S.chat || S.chat.id !== chatId)) openChat(chatId)
+      }
+    } catch (problem) {}
   }
 
   const askQueue = []
@@ -275,8 +299,22 @@
       newChat()
     } else if (key === "k") {
       event.preventDefault()
-      $("chatSearch").focus()
-      $("chatSearch").select()
+      if (!S.sidebarOpen) toggleSidebar()
+      setTimeout(function () {
+        $("chatSearch").focus()
+        $("chatSearch").select()
+      }, 30)
+    } else if (key === "l" && !event.shiftKey) {
+      event.preventDefault()
+      window.FW.composer.focus()
+    } else if (key === ".") {
+      event.preventDefault()
+      const mode = $("modePick")
+      if (mode) mode.click()
+    } else if (key === "/") {
+      event.preventDefault()
+      const model = $("modelPick")
+      if (model) model.click()
     } else if (key === "b") {
       event.preventDefault()
       togglePanel(!S.panelOpen)
@@ -295,6 +333,23 @@
 
   /* ------------------------------------------------------------ layout */
 
+  // The chat needs about 480px. When the sidebar and the panel would squeeze
+  // it below that, one of them gives way (not saved, so a wide window gets
+  // both back).
+  function chatRoom(sidebar, panel) {
+    const style = getComputedStyle(document.documentElement)
+    const side = sidebar ? parseInt(style.getPropertyValue("--side-w"), 10) || 236 : 0
+    const pane = panel ? parseInt(style.getPropertyValue("--panel-w"), 10) || 330 : 0
+    return window.innerWidth - side - pane
+  }
+
+  function makeRoom(keep) {
+    if (!S.sidebarOpen || !S.panelOpen) return
+    if (chatRoom(true, true) >= 480) return
+    if (keep === "sidebar") S.panelOpen = false
+    else S.sidebarOpen = false
+  }
+
   function applyLayout() {
     document.body.classList.toggle("panel-open", !!S.panelOpen)
     document.body.classList.toggle("sidebar-hidden", !S.sidebarOpen)
@@ -305,6 +360,7 @@
   function togglePanel(value) {
     S.panelOpen = value === undefined ? !S.panelOpen : !!value
     window.FW.store.savePrefs({ panelOpen: S.panelOpen })
+    makeRoom("panel")
     applyLayout()
     if (S.panelOpen) window.FW.panel.render()
   }
@@ -312,6 +368,7 @@
   function toggleSidebar() {
     S.sidebarOpen = !S.sidebarOpen
     window.FW.store.savePrefs({ sidebarOpen: S.sidebarOpen })
+    makeRoom("sidebar")
     applyLayout()
   }
 

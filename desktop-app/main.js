@@ -356,8 +356,15 @@ function buildAgent() {
 
 /* ------------------------------------------------------------------- runs */
 
+// One live stream at a time. Each new stream gets a number, and events from an
+// older stream that is still closing are dropped, so nothing shows twice. A
+// dropped connection picks up where it left off instead of starting over.
+let streamNumber = 0
+
 function watchRun(runId) {
   if (!runId) return
+  streamNumber += 1
+  const number = streamNumber
   if (activeStream) {
     try {
       activeStream.close()
@@ -365,37 +372,86 @@ function watchRun(runId) {
     activeStream = null
   }
   activeRunId = runId
-  api
-    .stream(
-      "/api/runs/" + encodeURIComponent(runId) + "/events",
-      function (event) {
-        send("fw:run:event", Object.assign({ run_id: runId }, event))
-        if (event.type === "done" || event.type === "error") {
+  let seen = 0
+  let tries = 0
+  let finished = false
+  let waiting = false
+
+  function open() {
+    api
+      .stream(
+        "/api/runs/" + encodeURIComponent(runId) + "/events?after=" + seen,
+        function (event) {
+          if (number !== streamNumber) return
+          seen += 1
+          tries = 0
+          send("fw:run:event", Object.assign({ run_id: runId }, event))
+          if (event.type === "done") {
+            finished = true
+            activeRunId = ""
+          }
+        },
+        {
+          onError: function (problem) {
+            if (number !== streamNumber || finished) return
+            retry(problem)
+          },
+          onClose: function () {
+            // the server ends the stream when the run is over; an early end is a drop
+            if (number !== streamNumber || finished) return
+            retry(new Error("The live connection closed early"))
+          }
+        }
+      )
+      .then(function (handle) {
+        if (number === streamNumber && !finished) activeStream = handle
+        else handle.close()
+      })
+      .catch(function (problem) {
+        if (number !== streamNumber) return
+        if (problem && problem.status === 404) {
+          // the run is already over on the server
+          finished = true
           activeRunId = ""
+          send("fw:run:event", { run_id: runId, type: "done", status: "gone" })
+          return
         }
-      },
-      {
-        onError: function (problem) {
-          send("fw:run:error", { run_id: runId, message: problem.message })
+        if (problem && problem.status === 401) {
+          activeRunId = ""
+          send("fw:run:error", { run_id: runId, message: "Signed out. Sign in again to keep watching the agent." })
+          return
         }
-      }
-    )
-    .then(function (handle) {
-      if (activeRunId === runId) activeStream = handle
-      else handle.close()
-    })
-    .catch(function (problem) {
-      send("fw:run:error", { run_id: runId, message: problem.message })
-    })
+        retry(problem)
+      })
+  }
+
+  function retry(problem) {
+    if (waiting) return
+    activeStream = null
+    tries += 1
+    if (tries > 6) {
+      activeRunId = ""
+      send("fw:run:error", { run_id: runId, message: (problem && problem.message) || "The live connection dropped" })
+      return
+    }
+    waiting = true
+    setTimeout(function () {
+      waiting = false
+      if (number === streamNumber && !finished) open()
+    }, Math.min(8000, 700 * tries))
+  }
+
+  open()
 }
 
 function stopStream() {
+  streamNumber += 1
+  activeRunId = ""
   if (!activeStream) return
   try {
     activeStream.close()
   } catch (problem) {}
   activeStream = null
-  activeRunId = ""
 }
 
 /* ----------------------------------------------------------------- window */
@@ -659,7 +715,8 @@ function wire() {
       skills: payload.skills || []
     }
     const data = await api.call("/api/chats/" + encodeURIComponent(payload.chatId) + "/messages", { method: "POST", body: body })
-    if (data && data.run_id) watchRun(data.run_id)
+    // a queued message belongs to the run that is already being watched
+    if (data && data.run_id && !data.queued) watchRun(data.run_id)
     return data
   })
 
@@ -679,22 +736,64 @@ function wire() {
     return { ok: true }
   })
 
+  async function uploadFiles(chatId, files) {
+    if (!files.length) return { files: [] }
+    const chat = await api.call("/api/chats/" + encodeURIComponent(chatId))
+    const workspace = chat.chat.workspace_id
+    const form = new FormData()
+    files.slice(0, 10).forEach(function (file) {
+      form.append("files", new Blob([file.buffer]), file.name)
+    })
+    return api.call("/api/ws/" + encodeURIComponent(workspace) + "/upload", { method: "POST", body: form })
+  }
+
+  const ATTACH_LIMIT = 25 * 1024 * 1024
+
+  function readForUpload(paths) {
+    const files = []
+    const skipped = []
+    ;(paths || []).slice(0, 10).forEach(function (file) {
+      try {
+        const info = fs.statSync(file)
+        if (!info.isFile() || info.size > ATTACH_LIMIT) {
+          skipped.push(path.basename(file))
+          return
+        }
+        files.push({ name: path.basename(file), buffer: fs.readFileSync(file) })
+      } catch (problem) {
+        skipped.push(path.basename(file))
+      }
+    })
+    return { files: files, skipped: skipped }
+  }
+
   ipcMain.handle("fw:attach:pick", async function (event, chatId) {
     const result = await dialog.showOpenDialog(win, {
       title: "Attach files",
       properties: ["openFile", "multiSelections"],
-      filters: [{ name: "Files", extensions: ["png", "jpg", "jpeg", "gif", "webp", "pdf", "txt", "md", "csv", "json", "zip", "log", "py", "js", "ts", "html", "css"] }, { name: "All files", extensions: ["*"] }]
+      filters: [{ name: "All files", extensions: ["*"] }, { name: "Images", extensions: ["png", "jpg", "jpeg", "gif", "webp"] }, { name: "Documents", extensions: ["pdf", "txt", "md", "csv", "json", "log"] }]
     })
     if (result.canceled || result.filePaths.length === 0) return { files: [] }
-    const chat = await api.call("/api/chats/" + encodeURIComponent(chatId))
-    const workspace = chat.chat.workspace_id
-    const form = new FormData()
-    result.filePaths.slice(0, 10).forEach(function (file) {
-      const buffer = fs.readFileSync(file)
-      form.append("files", new Blob([buffer]), path.basename(file))
-    })
-    const data = await api.call("/api/ws/" + encodeURIComponent(workspace) + "/upload", { method: "POST", body: form })
+    const read = readForUpload(result.filePaths)
+    const data = await uploadFiles(chatId, read.files)
+    data.skipped = read.skipped
     return data
+  })
+
+  // Files dropped on the window arrive as paths.
+  ipcMain.handle("fw:attach:paths", async function (event, payload) {
+    const read = readForUpload((payload && payload.paths) || [])
+    const data = await uploadFiles(payload.chatId, read.files)
+    data.skipped = read.skipped
+    return data
+  })
+
+  // Pasted screenshots have no path, so the bytes come across.
+  ipcMain.handle("fw:attach:data", async function (event, payload) {
+    const bytes = Buffer.from(payload && payload.bytes ? payload.bytes : [])
+    if (!bytes.length || bytes.length > ATTACH_LIMIT) return { files: [], skipped: [payload && payload.name] }
+    const name = String((payload && payload.name) || "pasted.png").replace(/[\\/:*?"<>|]/g, "_").slice(0, 80)
+    return uploadFiles(payload.chatId, [{ name: name, buffer: bytes }])
   })
 
   ipcMain.handle("fw:folder:pick", async function () {
@@ -733,6 +832,11 @@ function wire() {
     if (action === "minimize") win.minimize()
     if (action === "maximize") win.isMaximized() ? win.unmaximize() : win.maximize()
     if (action === "close") win.close()
+    if (action === "focus") {
+      if (win.isMinimized()) win.restore()
+      win.show()
+      win.focus()
+    }
     return { ok: true, maximized: win.isMaximized() }
   })
 
@@ -865,6 +969,10 @@ function wire() {
   ipcMain.handle("fw:term:write", function (event, text) {
     if (terminal) terminal.write(text)
     return { ok: true }
+  })
+
+  ipcMain.handle("fw:term:interrupt", function () {
+    return { ok: !!(terminal && terminal.interrupt()) }
   })
 
   ipcMain.handle("fw:term:stop", function () {
