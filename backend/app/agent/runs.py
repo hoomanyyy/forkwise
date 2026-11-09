@@ -4,7 +4,7 @@ import json
 import time
 import traceback
 from app import db, config
-from app.agent import llm, tools, specs, prompt, checkpoints, sandbox, integrations, local
+from app.agent import llm, tools, specs, prompt, checkpoints, sandbox, integrations, local, leaks
 
 RUNS = {}
 ACTIVE = {}
@@ -415,9 +415,71 @@ async def make_title(run, first_text, answer):
     run.emit("title", {"title": title})
 
 
+def reset_stream(run):
+    run.leak_text = ""
+    run.leak_sent = 0
+    run.leak_blocked = False
+
+
+def stream_text(run, step, data):
+    if getattr(run, "leak_blocked", False):
+        return
+    run.leak_text = getattr(run, "leak_text", "") + data
+    sent = getattr(run, "leak_sent", 0)
+    cut = leaks.first_marker(run.leak_text)
+    if cut >= 0:
+        if cut > sent:
+            run.emit("text", {"step": step, "text": run.leak_text[sent:cut]})
+        run.leak_sent = len(run.leak_text)
+        run.leak_blocked = True
+        return
+    end = leaks.safe_end(run.leak_text)
+    if end > sent:
+        run.emit("text", {"step": step, "text": run.leak_text[sent:end]})
+        run.leak_sent = end
+
+
+def flush_stream(run, step):
+    if getattr(run, "leak_blocked", False):
+        return
+    text = getattr(run, "leak_text", "")
+    sent = getattr(run, "leak_sent", 0)
+    if len(text) > sent:
+        run.emit("text", {"step": step, "text": text[sent:]})
+        run.leak_sent = len(text)
+
+
+def tool_names(specs_list):
+    names = []
+    for spec in specs_list or []:
+        names.append(spec["function"]["name"])
+    return names
+
+
+def recover_calls(answer, specs_list):
+    calls = list(answer["tool_calls"])
+    content = answer["content"] or ""
+    reasoning = answer["reasoning"] or ""
+    unknown = []
+    leaked = leaks.has_leak(content) or (len(calls) == 0 and leaks.has_leak(reasoning))
+    if not leaked:
+        return calls, content, reasoning, False, unknown
+    if len(calls) == 0:
+        found, unknown = leaks.extract_calls(content + "\n" + reasoning, tool_names(specs_list))
+        for item in found:
+            calls.append({"id": "call_" + db.new_id("t"), "type": "function", "function": {"name": item["name"], "arguments": item["arguments"]}})
+    content, extra = leaks.clean(content)
+    if leaks.has_leak(reasoning):
+        reasoning, more = leaks.clean(reasoning)
+        extra = (extra + "\n" + more).strip()
+    if extra:
+        reasoning = (reasoning + "\n" + extra).strip()
+    return calls, content, reasoning, True, unknown
+
+
 async def handle_delta(run, step, kind, data):
     if kind == "text":
-        run.emit("text", {"step": step, "text": data})
+        stream_text(run, step, data)
     elif kind == "reasoning":
         run.emit("reasoning", {"step": step, "text": data})
     elif kind == "tool_name":
@@ -508,8 +570,10 @@ async def model_turn(run, step):
 
     answer = None
     for attempt in range(4):
+        reset_stream(run)
         try:
             answer = await llm.stream_chat(run.model, messages, tools=run.tool_specs, on_delta=on_delta, stop_flag=run.stop_flag, effort=run.effort)
+            flush_stream(run, step)
             break
         except llm.ModelError as problem:
             if llm.is_overflow(str(problem)):
@@ -542,6 +606,8 @@ async def run_main(run, first_text):
         db.update("runs", "id", run.id, {"checkpoint_before": before})
         run.emit("checkpoint", {"commit": before})
         nudges = 0
+        repairs = 0
+        empties = 0
         step = 0
         while step < config.MAX_STEPS:
             step = step + 1
@@ -556,19 +622,27 @@ async def run_main(run, first_text):
             answer = await model_turn(run, step)
             run.tokens_in = run.tokens_in + answer["usage"]["prompt_tokens"]
             run.tokens_out = run.tokens_out + answer["usage"]["completion_tokens"]
-            calls = answer["tool_calls"]
+            calls, content, reasoning, leaked, unknown = recover_calls(answer, run.tool_specs)
             if run.stop_flag.is_set():
                 calls = []
-            message_id = save_message(run.chat["id"], "assistant", answer["content"], answer["reasoning"], calls)
-            run.emit("assistant", {"step": step, "id": message_id, "content": answer["content"], "reasoning": answer["reasoning"], "tool_calls": calls})
+            message_id = save_message(run.chat["id"], "assistant", content, reasoning, calls)
+            run.emit("assistant", {"step": step, "id": message_id, "content": content, "reasoning": reasoning, "tool_calls": calls})
             run.emit("usage", {"tokens_in": run.tokens_in, "tokens_out": run.tokens_out})
-            if answer["content"].strip():
-                final_text = answer["content"]
+            if content.strip():
+                final_text = content
             if run.stop_flag.is_set():
                 status = "stopped"
                 break
             if len(calls) == 0:
                 if len(run.inbox) > 0:
+                    continue
+                if leaked and repairs < 5:
+                    repairs = repairs + 1
+                    save_message(run.chat["id"], "note", leaks.repair_note(tool_names(run.tool_specs), unknown), hidden=1)
+                    continue
+                if not content.strip() and answer["finish"] != "length" and empties < 2:
+                    empties = empties + 1
+                    save_message(run.chat["id"], "note", "Your last turn ended with no answer and no tool call. Continue the task: call the next tool, or write your final answer to the user.", hidden=1)
                     continue
                 if run.mode != "plan" and unfinished(run.todos) and nudges < 2 and answer["finish"] != "length":
                     nudges = nudges + 1
@@ -652,6 +726,7 @@ async def run_subagent(run, args, call_id):
     messages = [{"role": "system", "content": system}, {"role": "user", "content": args.get("prompt") or args.get("description") or ""}]
     run.emit("sub", {"parent": call_id, "kind": "start", "text": args.get("description") or "Helper"})
     step = 0
+    sub_repairs = 0
     last_text = ""
     while step < SUB_STEPS:
         step = step + 1
@@ -660,16 +735,20 @@ async def run_subagent(run, args, call_id):
         answer = await llm.stream_chat(run.model, messages, tools=found, stop_flag=run.stop_flag)
         run.tokens_in = run.tokens_in + answer["usage"]["prompt_tokens"]
         run.tokens_out = run.tokens_out + answer["usage"]["completion_tokens"]
-        calls = answer["tool_calls"]
-        message = {"role": "assistant", "content": answer["content"] or None}
+        calls, content, reasoning, leaked, unknown = recover_calls(answer, found)
+        message = {"role": "assistant", "content": content or None}
         if len(calls) > 0:
             message["tool_calls"] = calls
         if message["content"] is None and len(calls) == 0:
             message["content"] = ""
         messages.append(message)
-        if answer["content"].strip():
-            last_text = answer["content"]
-            run.emit("sub", {"parent": call_id, "kind": "text", "text": answer["content"][:1500]})
+        if content.strip():
+            last_text = content
+            run.emit("sub", {"parent": call_id, "kind": "text", "text": content[:1500]})
+        if len(calls) == 0 and leaked and sub_repairs < 4:
+            sub_repairs = sub_repairs + 1
+            messages.append({"role": "user", "content": leaks.repair_note(tool_names(found), unknown)})
+            continue
         if len(calls) == 0:
             run.emit("sub", {"parent": call_id, "kind": "end", "text": "Finished in " + str(step) + " steps"})
             return tools.result(last_text or "The helper finished without a report.", meta={"steps": step})
