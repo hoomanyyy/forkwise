@@ -1,106 +1,344 @@
-import { useEffect, useMemo, useState } from "react"
-import { Link, Navigate, useParams } from "react-router-dom"
-import { ArrowLeft, ArrowRight, BookOpen, Bot, Chrome, Code2, Cpu, Laptop, Menu, Newspaper, Rocket, Search, Sparkles, Wrench, X, Zap } from "lucide-react"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { Link, Navigate, NavLink, useLocation, useNavigate, useParams } from "react-router-dom"
+import ReactMarkdown from "react-markdown"
+import remarkGfm from "remark-gfm"
+import { ArrowLeft, ArrowRight, BookOpen, Bot, Check, ChevronRight, Chrome, Code2, Copy, Cpu, Menu, Newspaper, Rocket, Search, Sparkles, X, Zap } from "lucide-react"
 import { Prose, headings } from "../../components/site/Cover"
 import { DOCS, DOC_GROUPS } from "../../content/docs"
 import { LEGAL, POSTS, RELEASES } from "../../content/posts"
-import { Cta, PageHero, Reveal, usePage } from "../ui"
-
-const GROUP_ICONS = [Rocket, Bot, Sparkles, Laptop, Wrench, Code2]
+import { Cta, MkLogo, PageHero, Reveal, usePage } from "../ui"
+import { useStore } from "../../lib/store"
 
 function allDocs() {
   const list = []
   DOC_GROUPS.forEach((group) => group.slugs.forEach((slug) => {
-    if (DOCS[slug]) list.push({ slug: slug, group: group.title, title: DOCS[slug].title, summary: DOCS[slug].summary })
+    if (DOCS[slug]) list.push({ slug: slug, group: group.title, title: DOCS[slug].title, summary: DOCS[slug].summary, body: DOCS[slug].body })
   }))
   return list
 }
 
-function DocsNav({ current }) {
-  const [query, setQuery] = useState("")
-  const [open, setOpen] = useState(false)
-  const needle = query.trim().toLowerCase()
+function slugOf(text) {
+  return String(text).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
+}
+
+function textOf(node) {
+  if (node == null) return ""
+  if (typeof node === "string" || typeof node === "number") return String(node)
+  if (Array.isArray(node)) return node.map(textOf).join("")
+  if (node.props) return textOf(node.props.children)
+  return ""
+}
+
+function H2({ children }) {
+  return <h2 id={slugOf(textOf(children))}>{children}</h2>
+}
+
+function H3({ children }) {
+  return <h3 id={slugOf(textOf(children))}>{children}</h3>
+}
+
+function DocLink({ href, children }) {
+  if (href && href.startsWith("/")) return <Link to={href}>{children}</Link>
+  if (href && href.startsWith("#")) return <a href={href}>{children}</a>
+  return <a href={href} target="_blank" rel="noreferrer">{children}</a>
+}
+
+function CodeBlock({ children }) {
+  const [copied, setCopied] = useState(false)
+  const child = Array.isArray(children) ? children[0] : children
+  const className = child && child.props ? child.props.className || "" : ""
+  const language = className.replace("language-", "") || "text"
+  const code = textOf(child).replace(/\n$/, "")
+  function copy() {
+    navigator.clipboard.writeText(code)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1400)
+  }
   return (
-    <aside className={"mk-docs-side" + (open ? " open" : "")}>
-      <button type="button" className="mk-docs-toggle" onClick={() => setOpen(!open)} aria-expanded={open}>{current ? DOCS[current].title : "All guides"}{open ? <X size={18} /> : <Menu size={18} />}</button>
-      <div className="mk-docs-nav">
-        <label className="mk-docs-search"><Search size={15} /><input placeholder="Search the docs" value={query} onChange={(e) => setQuery(e.target.value)} /></label>
-        {DOC_GROUPS.map((group) => {
-          const items = group.slugs.filter((slug) => DOCS[slug] && (!needle || (DOCS[slug].title + " " + DOCS[slug].summary + " " + DOCS[slug].body).toLowerCase().includes(needle)))
-          if (items.length === 0) return null
-          return (
-            <div className="mk-docs-group" key={group.title}>
-              <div>{group.title}</div>
-              {items.map((slug) => <Link key={slug} to={"/docs/" + slug} className={slug === current ? "on" : ""} onClick={() => setOpen(false)}>{DOCS[slug].title}</Link>)}
-            </div>
-          )
-        })}
+    <div className="dx-pre">
+      <div className="dx-pre-head"><span>{language}</span><button type="button" onClick={copy} aria-label="Copy code">{copied ? <Check size={13} /> : <Copy size={13} />}{copied ? "Copied" : "Copy"}</button></div>
+      <pre>{children}</pre>
+    </div>
+  )
+}
+
+const DOC_PARTS = { h2: H2, h3: H3, a: DocLink, pre: CodeBlock }
+
+function DocProse({ text }) {
+  return (
+    <div className="prose">
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={DOC_PARTS}>{text}</ReactMarkdown>
+    </div>
+  )
+}
+
+function snippet(body, needle) {
+  const plain = body.replace(/[#*`>|_[\]()]/g, " ").replace(/\s+/g, " ")
+  const at = plain.toLowerCase().indexOf(needle)
+  if (at === -1) return ""
+  const from = Math.max(0, at - 50)
+  return (from > 0 ? "…" : "") + plain.slice(from, at + 90).trim() + "…"
+}
+
+function SearchDialog({ onClose }) {
+  const [query, setQuery] = useState("")
+  const [active, setActive] = useState(0)
+  const navigate = useNavigate()
+  const input = useRef(null)
+  const list = useMemo(allDocs, [])
+  const needle = query.trim().toLowerCase()
+  const results = useMemo(() => {
+    if (!needle) return list.slice(0, 8).map((item) => ({ item: item, text: item.summary }))
+    const found = []
+    list.forEach((item) => {
+      const inTitle = item.title.toLowerCase().includes(needle)
+      const inSummary = item.summary.toLowerCase().includes(needle)
+      const inBody = item.body.toLowerCase().includes(needle)
+      if (inTitle || inSummary) found.push({ item: item, text: item.summary, rank: inTitle ? 0 : 1 })
+      else if (inBody) found.push({ item: item, text: snippet(item.body, needle), rank: 2 })
+    })
+    found.sort((a, b) => a.rank - b.rank)
+    return found.slice(0, 12)
+  }, [needle, list])
+
+  useEffect(() => {
+    if (input.current) input.current.focus()
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.body.style.overflow = ""
+    }
+  }, [])
+
+  useEffect(() => {
+    setActive(0)
+  }, [needle])
+
+  function go(item) {
+    onClose()
+    navigate("/docs/" + item.slug)
+  }
+
+  function onKey(event) {
+    if (event.key === "Escape") onClose()
+    if (event.key === "ArrowDown") {
+      event.preventDefault()
+      setActive(Math.min(active + 1, results.length - 1))
+    }
+    if (event.key === "ArrowUp") {
+      event.preventDefault()
+      setActive(Math.max(active - 1, 0))
+    }
+    if (event.key === "Enter" && results[active]) go(results[active].item)
+  }
+
+  return (
+    <div className="dx-dialog" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
+      <div className="dx-dialog-box" role="dialog" aria-label="Search the docs">
+        <div className="dx-dialog-input">
+          <Search size={17} />
+          <input ref={input} value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={onKey} placeholder="Search the docs" aria-label="Search the docs" />
+          <span className="dx-kbd">Esc</span>
+        </div>
+        <div className="dx-results">
+          {results.length === 0 && <div className="dx-empty">No results for “{query}”</div>}
+          {results.map((row, index) => (
+            <a key={row.item.slug} href={"/docs/" + row.item.slug} className={index === active ? "on" : ""} onMouseEnter={() => setActive(index)} onClick={(event) => { event.preventDefault(); go(row.item) }}>
+              <strong>{row.item.title}<small>{row.item.group}</small></strong>
+              {row.text && <span>{row.text}</span>}
+            </a>
+          ))}
+        </div>
       </div>
+    </div>
+  )
+}
+
+function DocsSide({ current, open }) {
+  return (
+    <aside className={"dx-side" + (open ? " open" : "")} aria-label="Docs">
+      <div className="dx-group">
+        <Link to="/docs" className={current === "" ? "on" : ""}>Overview</Link>
+      </div>
+      {DOC_GROUPS.map((group) => (
+        <div className="dx-group" key={group.title}>
+          <div>{group.title}</div>
+          {group.slugs.filter((slug) => DOCS[slug]).map((slug) => <Link key={slug} to={"/docs/" + slug} className={slug === current ? "on" : ""}>{DOCS[slug].title}</Link>)}
+        </div>
+      ))}
     </aside>
   )
 }
 
-export function Docs() {
-  usePage("Docs", "Guides for every part of Forkwise: the agent, projects, skills, the desktop app, Forkwise for Chrome and the API.")
+function DocsChrome({ current, wide, children }) {
+  const { user } = useStore()
+  const [searching, setSearching] = useState(false)
+  const [menu, setMenu] = useState(false)
+  const location = useLocation()
+
+  useEffect(() => {
+    setMenu(false)
+  }, [location.pathname])
+
+  useEffect(() => {
+    function onKey(event) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault()
+        setSearching(true)
+      }
+      if (event.key === "/" && !searching && document.activeElement && ["INPUT", "TEXTAREA"].indexOf(document.activeElement.tagName) === -1) {
+        event.preventDefault()
+        setSearching(true)
+      }
+    }
+    document.addEventListener("keydown", onKey)
+    return () => document.removeEventListener("keydown", onKey)
+  }, [searching])
+
+  const mac = typeof navigator !== "undefined" && navigator.platform && navigator.platform.indexOf("Mac") !== -1
   return (
     <>
-      <PageHero kicker="Documentation" title="Learn Forkwise" lead="Short, practical guides for every feature, from your first message to the API." />
-      <div className="mk-wrap" style={{ paddingBottom: 96 }}>
-        <div className="mk-docs-home">
-          {DOC_GROUPS.map((group, index) => {
-            const Icon = GROUP_ICONS[index % GROUP_ICONS.length]
+      <header className="dx-head">
+        <div className="dx-head-in">
+          <button type="button" className="dx-menu" aria-label={menu ? "Close menu" : "Open menu"} onClick={() => setMenu(!menu)}>{menu ? <X size={19} /> : <Menu size={19} />}</button>
+          <Link to="/docs" className="dx-brand" aria-label="Forkwise docs"><MkLogo /><em>Docs</em></Link>
+          <button type="button" className="dx-search-btn" onClick={() => setSearching(true)} aria-label="Search the docs"><Search size={15} /><span>Search the docs</span><i className="dx-kbd" style={{ fontStyle: "normal" }}>{mac ? "⌘K" : "Ctrl K"}</i></button>
+          <nav className="dx-links">
+            <NavLink to="/docs/api" className="hide-sm">API</NavLink>
+            <NavLink to="/changelog" className="hide-sm">Changelog</NavLink>
+            <Link to="/" className="hide-sm">Forkwise.com</Link>
+            <Link to={user ? "/app" : "/register"} className="mk-btn go sm">{user ? "Open Forkwise" : "Get started"}</Link>
+          </nav>
+        </div>
+      </header>
+      <div className={"dx" + (wide ? " wide" : "")}>
+        <DocsSide current={current} open={menu} />
+        {children}
+      </div>
+      <footer className="dx-footer">
+        <div className="dx-footer-in">
+          <span>© {new Date().getFullYear()} Forkwise AI</span>
+          <div>
+            <Link to="/">Home</Link>
+            <Link to="/pricing">Pricing</Link>
+            <Link to="/blog">Blog</Link>
+            <Link to="/security">Security</Link>
+            <Link to="/contact?topic=Support">Support</Link>
+            <Link to="/privacy">Privacy</Link>
+            <Link to="/terms">Terms</Link>
+          </div>
+        </div>
+      </footer>
+      {searching && <SearchDialog onClose={() => setSearching(false)} />}
+    </>
+  )
+}
+
+const QUICK = [
+  { to: "/docs/getting-started", icon: Rocket, title: "Get started", text: "Your first project in a few minutes." },
+  { to: "/docs/finishing-projects", icon: Check, title: "How projects are finished", text: "Planning, structure and the automatic review." },
+  { to: "/docs/api", icon: Code2, title: "API reference", text: "Keys, endpoints and live events." },
+  { to: "/docs/desktop-app", icon: Cpu, title: "Desktop app", text: "Your folders and your terminal." },
+  { to: "/docs/chrome-extension", icon: Chrome, title: "Forkwise for Chrome", text: "Your own browser, safely." },
+  { to: "/docs/skills", icon: Sparkles, title: "Skills", text: "24 built in playbooks, and your own." },
+]
+
+export function Docs() {
+  usePage("Docs", "Guides for every part of Forkwise: the agent, projects, skills, the desktop app, Forkwise for Chrome and the API.")
+  const [searching, setSearching] = useState(false)
+  return (
+    <DocsChrome current="" wide>
+      <main className="dx-main">
+        <div className="dx-home-hero">
+          <h1>Forkwise documentation</h1>
+          <p>Short, practical guides for every feature, from your first message to the API.</p>
+          <button type="button" className="dx-search-btn dx-big-search" onClick={() => setSearching(true)}><Search size={16} /><span>Search guides, features and API</span></button>
+        </div>
+        <div className="dx-quick">
+          {QUICK.map((item) => {
+            const Icon = item.icon
             return (
-              <Reveal index={index % 3} className="mk-doc-card" key={group.title}>
-                <span className="mk-tile"><Icon size={17} /></span>
-                <h3>{group.title}</h3>
-                <ul>{group.slugs.filter((slug) => DOCS[slug]).map((slug) => <li key={slug}><Link to={"/docs/" + slug}>{DOCS[slug].title}</Link></li>)}</ul>
-              </Reveal>
+              <Link to={item.to} key={item.to}>
+                <span className="mk-tile"><Icon size={16} /></span>
+                <strong>{item.title}</strong>
+                <span>{item.text}</span>
+              </Link>
             )
           })}
         </div>
-      </div>
-    </>
+        <div className="dx-sections">
+          {DOC_GROUPS.map((group) => (
+            <section key={group.title}>
+              <h2>{group.title}</h2>
+              <ul>
+                {group.slugs.filter((slug) => DOCS[slug]).map((slug) => <li key={slug}><Link to={"/docs/" + slug}>{DOCS[slug].title}<span>{DOCS[slug].summary}</span></Link></li>)}
+              </ul>
+            </section>
+          ))}
+        </div>
+      </main>
+      {searching && <SearchDialog onClose={() => setSearching(false)} />}
+    </DocsChrome>
   )
+}
+
+function useActiveHeading(ids) {
+  const [active, setActive] = useState("")
+  useEffect(() => {
+    function onScroll() {
+      let current = ""
+      for (const id of ids) {
+        const node = document.getElementById(id)
+        if (node && node.getBoundingClientRect().top < 120) current = id
+      }
+      setActive(current || (ids.length > 0 ? ids[0] : ""))
+    }
+    onScroll()
+    window.addEventListener("scroll", onScroll, { passive: true })
+    return () => window.removeEventListener("scroll", onScroll)
+  }, [ids])
+  return active
 }
 
 export function DocPage() {
   const { slug } = useParams()
   const page = DOCS[slug]
   usePage(page ? page.title : "Docs", page ? page.summary : "")
+  const toc = useMemo(() => (page ? headings(page.body) : []), [page])
+  const ids = useMemo(() => toc.map((item) => item.id), [toc])
+  const active = useActiveHeading(ids)
   if (!page) return <Navigate to="/docs" replace />
   const list = allDocs()
   const index = list.findIndex((item) => item.slug === slug)
   const prev = index > 0 ? list[index - 1] : null
   const next = index >= 0 && index < list.length - 1 ? list[index + 1] : null
-  const toc = headings(page.body)
   return (
-    <div className="mk-wrap mk-docs">
-      <DocsNav current={slug} />
-      <article className="mk-doc">
-        <div className="mk-crumbs"><Link to="/docs">Docs</Link><span>/</span><span>{list[index] ? list[index].group : ""}</span></div>
-        <h1>{page.title}</h1>
-        <p className="summary">{page.summary}</p>
-        <Prose text={page.body} />
-        <div className="mk-pager">
-          {prev && <Link to={"/docs/" + prev.slug}><small>Previous</small><b><ArrowLeft size={14} style={{ verticalAlign: -2 }} /> {prev.title}</b></Link>}
-          {next && <Link to={"/docs/" + next.slug} className="next"><small>Next</small><b>{next.title} <ArrowRight size={14} style={{ verticalAlign: -2 }} /></b></Link>}
+    <DocsChrome current={slug}>
+      <main className="dx-main" key={slug}>
+        <article className="dx-article">
+          <div className="dx-crumbs"><Link to="/docs">Docs</Link><ChevronRight size={13} /><span>{list[index] ? list[index].group : ""}</span></div>
+          <h1>{page.title}</h1>
+          <p className="dx-summary">{page.summary}</p>
+          <DocProse text={page.body} />
+        </article>
+        <div className="dx-foot">
+          <div className="dx-pager">
+            {prev && <Link to={"/docs/" + prev.slug}><small>Previous</small><b><ArrowLeft size={14} />{prev.title}</b></Link>}
+            {next && <Link to={"/docs/" + next.slug} className="next"><small>Next</small><b>{next.title}<ArrowRight size={14} /></b></Link>}
+          </div>
+          <div className="dx-help">
+            <span>Still stuck? A person on the team will help.</span>
+            <Link to="/contact?topic=Support">Contact support</Link>
+          </div>
         </div>
-      </article>
-      <nav className="mk-toc" aria-label="On this page">
+      </main>
+      <nav className="dx-toc" aria-label="On this page">
         {toc.length > 0 && <div>On this page</div>}
-        {toc.map((item) => <a key={item.id} href={"#" + item.id}>{item.title}</a>)}
+        {toc.map((item) => <a key={item.id} href={"#" + item.id} className={item.id === active ? "on" : ""}>{item.title}</a>)}
       </nav>
-    </div>
+    </DocsChrome>
   )
 }
 
-const ART = [
-  ["#7c5cff", "#2fd4f0", "#ff7a52"],
-  ["#4f8bff", "#3ee0a1", "#8b6cff"],
-  ["#ff5b7a", "#ffc04d", "#7c5cff"],
-  ["#2fd4f0", "#7c5cff", "#3ee0a1"],
-  ["#ff8a4c", "#8b6cff", "#2fd4f0"],
-]
 const ART_ICONS = { Product: Rocket, Guide: BookOpen, Engineering: Cpu, Company: Newspaper, Release: Zap, Browser: Chrome }
 
 function seedOf(text) {
@@ -111,15 +349,13 @@ function seedOf(text) {
 
 export function Art({ post }) {
   const seed = seedOf(post.slug)
-  const colors = ART[seed % ART.length]
-  const Icon = ART_ICONS[post.tag] || Sparkles
+  const Icon = ART_ICONS[post.tag] || Bot
   return (
-    <div className="mk-art" style={{ background: "linear-gradient(135deg, #0f1230, #1a1f4a)" }}>
+    <div className="mk-art">
       <div className="lines" />
-      <div className="blob" style={{ width: "60%", height: "90%", left: (seed % 30) + "%", top: "-20%", background: colors[0] }} />
-      <div className="blob" style={{ width: "50%", height: "80%", right: (seed % 20) + "%", bottom: "-30%", background: colors[1] }} />
-      <div className="blob" style={{ width: "30%", height: "50%", left: "35%", top: "30%", background: colors[2], opacity: 0.6 }} />
-      <div className="glyph"><Icon size={56} strokeWidth={1.4} /></div>
+      <span className="dot" style={{ left: 18 + (seed % 60) + "%", top: 18 + (seed % 23) + "%" }} />
+      <div className="glyph"><span><Icon size={30} strokeWidth={1.6} /></span></div>
+      <span className="label">{post.tag.toLowerCase()} · {post.date}</span>
     </div>
   )
 }
@@ -179,7 +415,7 @@ export function BlogPost() {
         <Link to="/blog" className="mk-crumbs"><ArrowLeft size={14} />All posts</Link>
         <div className="mk-post-meta" style={{ justifyContent: "center" }}><span className="mk-tag">{post.tag}</span><span>{post.date}</span><span>{post.minutes} min read</span></div>
         <h1>{post.title}</h1>
-        <p className="mk-lead" style={{ margin: 0 }}>{post.summary}</p>
+        <p className="mk-lead">{post.summary}</p>
       </header>
       <div className="mk-article-cover"><Art post={post} /></div>
       <article className="mk-article"><Prose text={post.body} /></article>
@@ -204,11 +440,11 @@ export function Changelog() {
   return (
     <>
       <PageHero kicker="Changelog" title="What's new in Forkwise" lead="Every release, newest first." />
-      <div className="mk-wrap" style={{ paddingBottom: 96 }}>
+      <div className="mk-wrap" style={{ paddingBottom: 72 }}>
         <div className="mk-timeline">
-          {RELEASES.map((release, index) => (
-            <Reveal index={0} className="mk-release" key={release.version}>
-              <div className="mk-release-date"><b className={index === 0 ? "mk-grad" : ""}>{release.version}</b><span>{release.date}</span></div>
+          {RELEASES.map((release) => (
+            <Reveal className="mk-release" key={release.version}>
+              <div className="mk-release-date"><b>{release.version}</b><span>{release.date}</span></div>
               <div className="mk-release-card">
                 <h3>{release.title}</h3>
                 <ul>{release.items.map((item) => <li key={item[1]}><span className={"mk-pill " + item[0]}>{labels[item[0]]}</span><span>{item[1]}</span></li>)}</ul>
@@ -217,7 +453,7 @@ export function Changelog() {
           ))}
         </div>
       </div>
-      <div className="mk" style={{ background: "transparent", minHeight: 0 }}><Cta /></div>
+      <Cta />
     </>
   )
 }
@@ -230,12 +466,12 @@ export function Legal({ kind }) {
     <>
       <PageHero kicker="Legal" title={page.title} lead={"Last updated " + page.updated + "."} />
       <div className="mk-wrap mk-legal">
-        <nav className="mk-toc" style={{ display: "block" }}>
+        <nav className="mk-toc">
           <div>On this page</div>
           {toc.map((item) => <a key={item.id} href={"#" + item.id}>{item.title}</a>)}
           <div style={{ marginTop: 20 }}>Legal</div>
-          <Link to="/privacy" style={{ display: "block", padding: "5px 0 5px 12px" }}>Privacy policy</Link>
-          <Link to="/terms" style={{ display: "block", padding: "5px 0 5px 12px" }}>Terms of service</Link>
+          <Link to="/privacy">Privacy policy</Link>
+          <Link to="/terms">Terms of service</Link>
         </nav>
         <article><Prose text={page.body} /></article>
       </div>

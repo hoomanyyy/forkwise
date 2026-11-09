@@ -248,7 +248,7 @@ export function Pricing() {
                   {plan.tag && <span className="mk-plan-tag">{plan.tag}</span>}
                   <h3>{plan.name}</h3>
                   <p>{plan.desc}</p>
-                  <div className="mk-price">{price === null ? <b style={{ fontSize: 34 }}>Custom</b> : <><b>${price}</b><span>/ month{yearly && price ? ", billed yearly" : ""}</span></>}</div>
+                  <div className="mk-price">{price === null ? <b>Custom</b> : <><b>${price}</b><span>/ month{yearly && price ? ", billed yearly" : ""}</span></>}</div>
                   <Link to={plan.to} className={"mk-btn full " + (plan.hot ? "go" : "ghost")}>{plan.cta}</Link>
                   <ul>{plan.features.map((item) => <li key={item}><Check size={15} /><span>{item}</span></li>)}</ul>
                 </Reveal>

@@ -32,6 +32,9 @@ function GoogleButton({ label }) {
 function Shell({ children }) {
   const { pathname } = useLocation()
   const onLogin = pathname === "/login"
+  useEffect(() => {
+    document.documentElement.dataset.theme = "dark"
+  }, [])
   return (
     <div className="auth auth-center">
       <header className="auth-top">
@@ -39,7 +42,7 @@ function Shell({ children }) {
         <div className="auth-top-links">
           <Link to="/pricing">Pricing</Link>
           <Link to="/docs">Docs</Link>
-          <Link className="btn btn-sm" to={onLogin ? "/register" : "/login"}>{onLogin ? "Sign up" : "Sign in"}</Link>
+          {onLogin ? <Link className="btn btn-primary btn-sm" to="/register">Get started</Link> : <Link to="/login">Sign in</Link>}
         </div>
       </header>
       <main className="auth-main">
