@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState } from "react"
 import { Link, Outlet, useLocation } from "react-router-dom"
-import SiteHeader from "./SiteHeader"
-import SiteFooter from "./SiteFooter"
 import { LogoMark } from "../ui/Logo"
 
 export function usePageTitle(title, description) {
@@ -42,23 +40,6 @@ function useReveal(path) {
   }, [path])
 }
 
-export function SiteLayout() {
-  const location = useLocation()
-  useReveal(location.pathname)
-  useEffect(() => {
-    document.documentElement.dataset.theme = "dark"
-  }, [])
-  useEffect(() => {
-    if (!location.hash) window.scrollTo(0, 0)
-  }, [location.pathname, location.hash])
-  return (
-    <div className="site">
-      <SiteHeader />
-      <main className="site-main" key={location.pathname}><Outlet /></main>
-      <SiteFooter />
-    </div>
-  )
-}
 
 export function PageHero({ kicker, title, lead, actions, art, align, tone }) {
   return (

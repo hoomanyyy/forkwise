@@ -386,6 +386,8 @@ def friendly_error(text):
         return "The AI model is busy right now. Pick another model next to the send button, or try again in a minute."
     if status in [401, 403]:
         return "The server could not sign in to the AI provider. The administrator needs to check the API key."
+    if text.startswith("Connection problem"):
+        return "Forkwise could not reach the AI provider (" + text[len("Connection problem: "):][:120] + "). If this keeps happening, the provider address in the server settings is wrong or the provider is down. Pick another model next to the send button."
     return text
 
 
@@ -591,8 +593,103 @@ async def model_turn(run, step):
         told = getattr(run, "told_switch", "")
         if told != answer["switched_to"]:
             run.told_switch = answer["switched_to"]
-            run.emit("notice", {"text": "Switched to " + answer["switched_to"] + " because the first model is busy."})
+            run.emit("notice", {"text": "Switched to " + answer["switched_to"] + " because the first model is not available right now."})
     return answer
+
+
+SOURCE_TYPES = [".js", ".jsx", ".ts", ".tsx", ".vue", ".svelte", ".py", ".cs", ".go", ".rs", ".java", ".php", ".rb", ".kt", ".dart", ".html", ".css"]
+APP_TYPES = [".jsx", ".tsx", ".vue", ".svelte", ".html"]
+SERVER_WORDS = ["dev", "start", "serve", "uvicorn", "flask", "node ", "python -m http", "vite", "next", "dotnet run", "npm run", "pnpm", "gunicorn", "php -s"]
+
+
+def track_call(run, name, args, outcome):
+    if not hasattr(run, "wrote"):
+        run.wrote = {}
+        run.last_cmd = None
+        run.served = False
+    if name == "write_file" and outcome["ok"]:
+        path = str(args.get("path") or "")
+        run.wrote[path] = str(args.get("content") or "").count("\n") + 1
+    if name in ["edit_file", "multi_edit"] and outcome["ok"]:
+        path = str(args.get("path") or "")
+        if path not in run.wrote:
+            run.wrote[path] = 0
+    if name == "preview" and outcome["ok"]:
+        run.served = True
+    if name == "computer" and args.get("action") == "chrome":
+        run.served = True
+    if name == "bash":
+        command = str(args.get("command") or "")
+        if args.get("run_in_background"):
+            lowered = command.lower()
+            for word in SERVER_WORDS:
+                if word in lowered:
+                    run.served = True
+        else:
+            run.last_cmd = {"command": command[:160], "ok": bool(outcome["ok"]), "code": (outcome.get("meta") or {}).get("code")}
+
+
+def ending(path):
+    lowered = path.lower()
+    for kind in SOURCE_TYPES:
+        if lowered.endswith(kind):
+            return kind
+    return ""
+
+
+def finish_problems(run):
+    wrote = getattr(run, "wrote", {})
+    problems = []
+    if unfinished(run.todos):
+        left = []
+        for item in run.todos:
+            if item.get("status") != "completed":
+                left.append(str(item.get("content") or "")[:80])
+        problems.append("These items on your task list are not done: " + "; ".join(left[:6]) + ". Do them, or mark the list honestly and say why in your summary.")
+    sources = []
+    for path in wrote:
+        if ending(path) and wrote[path] > 0:
+            sources.append(path)
+    if len(sources) < 3:
+        return problems
+    big = []
+    for path in sources:
+        if wrote[path] > 450:
+            big.append(path + " (" + str(wrote[path]) + " lines)")
+    if big:
+        problems.append("Very large single files: " + ", ".join(big[:4]) + ". Real projects split these into pages, components, hooks, services and routes. Split them and keep the app working.")
+    app_files = []
+    has_pages = False
+    for path in sources:
+        lowered = path.lower().replace("\\", "/")
+        if ending(path) in APP_TYPES:
+            app_files.append(path)
+        if "/pages/" in lowered or "/routes/" in lowered or "/views/" in lowered or "/app/" in lowered or "/screens/" in lowered:
+            has_pages = True
+    if len(app_files) >= 1 and len(app_files) < 4 and not has_pages and len(sources) >= 4:
+        problems.append("The user interface is only " + str(len(app_files)) + " file(s) with no pages folder. Unless the user asked for one simple page, build it as a real app: a router, a pages folder with one file per page, shared components, and an api or services layer.")
+    if app_files and not getattr(run, "served", False):
+        problems.append("You built a user interface but never started it. Start the app (bash run_in_background), open it with preview or the browser, look at a screenshot at desktop and phone width, and fix what is broken.")
+    last = getattr(run, "last_cmd", None)
+    if last and not last["ok"]:
+        problems.append("Your last command failed (exit code " + str(last["code"]) + "): " + last["command"] + ". Fix the cause and run it again. If it cannot work here (for example a missing runtime), install the runtime or explain clearly in your summary.")
+    readme = False
+    for path in wrote:
+        if path.lower().endswith("readme.md"):
+            readme = True
+    if len(sources) >= 8 and not readme and not run.local:
+        problems.append("There is no README. Add one with what the project is, how to install, configure and run it, and the main features.")
+    return problems
+
+
+INTENT = re.compile(r"(\b(let me(?! know)|let's|i'll(?! be)|i will|i am going to|i'm going to|now i|next,? i|next step|then i)\b[^\n]{0,200}$)|((حالا|اکنون|در ادامه|بعد|سپس|الان)[^\n]{0,160}(می\u200cکنم|میکنم|می‌سازم|میسازم|می‌نویسم|مینویسم|اجرا)[^\n]{0,60}$)", re.I)
+
+
+def announced_more(content):
+    tail = content.strip()[-320:]
+    if tail.endswith("?") or tail.endswith("\u061f"):
+        return False
+    return bool(INTENT.search(tail))
 
 
 async def run_main(run, first_text):
@@ -608,6 +705,8 @@ async def run_main(run, first_text):
         nudges = 0
         repairs = 0
         empties = 0
+        gates = 0
+        promised = 0
         step = 0
         while step < config.MAX_STEPS:
             step = step + 1
@@ -644,7 +743,18 @@ async def run_main(run, first_text):
                     empties = empties + 1
                     save_message(run.chat["id"], "note", "Your last turn ended with no answer and no tool call. Continue the task: call the next tool, or write your final answer to the user.", hidden=1)
                     continue
-                if run.mode != "plan" and unfinished(run.todos) and nudges < 2 and answer["finish"] != "length":
+                if run.mode != "plan" and content.strip() and announced_more(content) and promised < 4 and run.changed:
+                    promised = promised + 1
+                    save_message(run.chat["id"], "note", "You wrote what you will do next but did not call a tool, so nothing happened and the task is not finished. Do it now with a real tool call. Only write a final summary when everything is done and verified.", hidden=1)
+                    continue
+                if run.mode != "plan" and run.changed and gates < 2 and not run.stop_flag.is_set():
+                    problems = finish_problems(run)
+                    if problems:
+                        gates = gates + 1
+                        run.emit("notice", {"text": "Checking the work before finishing: " + str(len(problems)) + " thing(s) to fix."})
+                        save_message(run.chat["id"], "note", "Before you finish, check your work. An automatic review found these problems:\n- " + "\n- ".join(problems) + "\nFix them now and verify by running the project. Then give your final summary. If something truly cannot be done here, say so plainly in the summary.", hidden=1)
+                        continue
+                if run.mode != "plan" and unfinished(run.todos) and nudges < 4 and answer["finish"] != "length":
                     nudges = nudges + 1
                     note = "Your task list still has unfinished items. Continue working until every item is completed and verified, then update the list. If an item is truly impossible, mark the list honestly and explain why."
                     save_message(run.chat["id"], "note", note, hidden=1)
@@ -661,6 +771,7 @@ async def run_main(run, first_text):
                     run.emit("tool_end", {"id": call["id"], "ok": False, "text": "Stopped", "meta": {}})
                     continue
                 name, args, outcome = await execute_call(run, call)
+                track_call(run, name, args, outcome)
                 meta = outcome["meta"]
                 meta["ok"] = outcome["ok"]
                 save_message(run.chat["id"], "tool", outcome["text"], tool_call_id=call["id"], name=name, meta=meta)
@@ -672,6 +783,8 @@ async def run_main(run, first_text):
                 break
         if step >= config.MAX_STEPS:
             run.emit("notice", {"text": "Stopped after " + str(config.MAX_STEPS) + " steps. Send a message to continue."})
+        elif status == "done" and not final_text.strip() and step > 1:
+            run.emit("notice", {"text": "The model stopped without a final answer. Send \"continue\" and it picks up where it stopped."})
     except llm.ModelError as problem:
         status = "error"
         error_text = str(problem)

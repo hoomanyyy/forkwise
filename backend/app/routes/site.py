@@ -2,6 +2,7 @@ import asyncio
 import re
 import time
 from fastapi import Request, HTTPException
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from app import db, config, mailer
 from app.routes.auth import admin_user, client_ip
@@ -142,7 +143,22 @@ def root():
     return {"name": "Forkwise API", "version": "2.0", "docs": config.SITE_URL + "/docs"}
 
 
+DOWNLOAD_FILES = {
+    "windows": "forkwise-desktop-windows.exe",
+    "macos": "forkwise-desktop-macos-arm64.dmg",
+    "linux": "forkwise-desktop-linux.AppImage",
+}
+
+
+async def download(platform: str):
+    name = DOWNLOAD_FILES.get(platform)
+    if not name:
+        raise HTTPException(status_code=404, detail="Unknown platform. Use windows, macos or linux.")
+    return RedirectResponse(config.DOWNLOAD_BASE_URL + "/" + name, status_code=302)
+
+
 def register_routes(app):
+    app.add_api_route("/api/download/{platform}", download, methods=["GET"])
     app.add_api_route("/", root, methods=["GET"])
     app.add_api_route("/api/contact", contact, methods=["POST"])
     app.add_api_route("/api/status", status, methods=["GET"])

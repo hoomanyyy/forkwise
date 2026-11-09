@@ -46,6 +46,7 @@ CHECKPOINTS_DIR = DATA_DIR / "checkpoints"
 TOOLS_DIR = DATA_DIR / "tools"
 DB_PATH = DATA_DIR / "forkwise.db"
 SITE_URL = text("SITE_URL", "http://localhost:5173").rstrip("/")
+DOWNLOAD_BASE_URL = text("DOWNLOAD_BASE_URL", "https://github.com/hoomanyyy/forkwise/releases/latest/download").rstrip("/")
 API_URL = text("API_URL", "http://localhost:5000").rstrip("/")
 SECURE_COOKIES = flag("SECURE_COOKIES", API_URL.startswith("https"))
 COOKIE_DOMAIN = text("COOKIE_DOMAIN", "")

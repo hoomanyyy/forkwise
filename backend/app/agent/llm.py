@@ -662,6 +662,10 @@ async def stream_chat(model, messages, tools=None, on_delta=None, max_tokens=160
                 if not last_one:
                     continue
                 raise
+            if text.startswith("Connection problem") and not last_one:
+                COOLDOWNS[item["key"]] = time.time() + 300
+                print("MODEL FAILOVER unreachable", item["key"], text[:160], flush=True)
+                continue
             if status_of(text) in FAILOVER_STATUS and not last_one:
                 COOLDOWNS[item["key"]] = time.time() + wait_seconds(text)
                 print("MODEL FAILOVER", item["key"], text[:160], flush=True)

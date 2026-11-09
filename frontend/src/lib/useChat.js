@@ -43,7 +43,7 @@ function reducer(state, action) {
       preview: data.preview,
       todos: data.chat.todos || [],
       checkpoint: (data.run && data.run.checkpoint_before) || state.checkpoint,
-      live: action.keepLive ? state.live : { ...emptyLive, running: Boolean(data.run && data.run.active), runId: data.run && data.run.active ? data.run.id : null },
+      live: action.keepLive ? state.live : { ...emptyLive, running: Boolean(data.run && data.run.active), runId: data.run && data.run.active ? data.run.id : null, error: (data.run && !data.run.active && data.run.error) || "" },
     }
   }
   if (action.type === "reset") return start

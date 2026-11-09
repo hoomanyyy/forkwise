@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from app import config, db
-from app.routes import auth, chats, files, settings, preview, terminal, site, billing, google, admin, desktop, connections, schedules
+from app.routes import auth, chats, files, settings, preview, terminal, site, billing, google, admin, desktop, connections, schedules, keys
 from app.agent import sandbox, runs
 
 
@@ -45,6 +45,12 @@ async def gatekeeper(request: Request, call_next):
     path = request.url.path
     if path.startswith("/api/") and served_preview(request):
         return JSONResponse({"detail": "Previews cannot use the Forkwise API."}, status_code=403)
+    if path.startswith("/api/") and keys.bearer(request):
+        if keys.blocked_path(path):
+            return JSONResponse({"detail": "API keys cannot do this. Sign in on the website."}, status_code=403)
+        response = await call_next(request)
+        response.headers["Cache-Control"] = "no-store"
+        return response
     if path.startswith("/api/") and path != "/api/billing/ipn" and request.method not in ["GET", "HEAD", "OPTIONS"]:
         if request.headers.get("x-forkwise") != "1":
             return JSONResponse({"detail": "Missing request header."}, status_code=403)
@@ -68,6 +74,7 @@ app.add_middleware(
 )
 
 auth.register_routes(app)
+keys.register_routes(app)
 chats.register_routes(app)
 files.register_routes(app)
 settings.register_routes(app)

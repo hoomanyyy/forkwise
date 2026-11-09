@@ -128,6 +128,17 @@ CREATE TABLE IF NOT EXISTS custom_tools (
     updated_at REAL NOT NULL,
     UNIQUE(user_id, name)
 );
+CREATE TABLE IF NOT EXISTS api_keys (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    prefix TEXT NOT NULL,
+    tail TEXT NOT NULL,
+    hash TEXT NOT NULL UNIQUE,
+    created_at REAL NOT NULL,
+    last_used_at REAL
+);
+CREATE INDEX IF NOT EXISTS api_keys_user ON api_keys(user_id);
 CREATE TABLE IF NOT EXISTS skills (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL,
@@ -350,6 +361,17 @@ MYSQL_TABLES = [
     created_at DOUBLE NOT NULL,
     updated_at DOUBLE NOT NULL,
     UNIQUE (user_id, name)
+)""",
+"""CREATE TABLE IF NOT EXISTS api_keys (
+    id VARCHAR(64) PRIMARY KEY,
+    user_id VARCHAR(64) NOT NULL,
+    name VARCHAR(80) NOT NULL,
+    prefix VARCHAR(16) NOT NULL,
+    tail VARCHAR(8) NOT NULL,
+    hash VARCHAR(64) NOT NULL UNIQUE,
+    created_at DOUBLE NOT NULL,
+    last_used_at DOUBLE NULL,
+    INDEX api_keys_user (user_id)
 )""",
 """CREATE TABLE IF NOT EXISTS skills (
     id VARCHAR(64) PRIMARY KEY,

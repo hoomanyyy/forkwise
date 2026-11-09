@@ -1,12 +1,228 @@
 export const DOC_GROUPS = [
-  { title: "Start here", slugs: ["getting-started", "how-forkwise-decides"] },
+  { title: "Start here", slugs: ["getting-started", "how-forkwise-decides", "finishing-projects", "choosing-a-model"] },
   { title: "Working with Forkwise", slugs: ["the-computer", "modes-and-checkpoints", "projects", "files-and-uploads"] },
-  { title: "Make it yours", slugs: ["memory", "abilities", "connectors", "project-settings"] },
-  { title: "Accounts and your computer", slugs: ["github-and-gmail", "schedules-and-secrets", "desktop-app"] },
-  { title: "Run it yourself", slugs: ["self-hosting"] },
+  { title: "Make it yours", slugs: ["skills", "memory", "abilities", "connectors", "project-settings"] },
+  { title: "Your computer and browser", slugs: ["desktop-app", "chrome-extension"] },
+  { title: "Accounts", slugs: ["github-and-gmail", "schedules-and-secrets"] },
+  { title: "Developers", slugs: ["api", "api-events"] },
 ]
 
 export const DOCS = {
+  "finishing-projects": {
+    title: "How Forkwise finishes projects",
+    summary: "Why you get a real, working project and not a single file demo.",
+    body: `Forkwise is built to deliver complete projects. Here is what happens behind the scenes when you ask it to build something.
+
+## It plans first
+
+For anything bigger than a quick script it loads the matching skills (for example **fullstack-app** and **frontend-design**), then plans the user stories, every page, the data model, the API routes and the stack. The pages and features go on the task list you see on the right, so nothing is forgotten.
+
+## It builds like a team
+
+- A router with a pages folder, one file per page, shared components and an API layer on the front end.
+- Separate routes, models, schemas, services and database setup on the back end, with settings from environment variables.
+- A real database (SQLite unless you ask for another one), real sign up and sign in with hashed passwords, real API calls, uploads and live updates where they make sense.
+- Loading, empty and error states on every page.
+
+It builds in slices: one feature end to end, then it runs the build and fixes every error before the next.
+
+## It checks its own work
+
+Before Forkwise may finish, an automatic review looks at what actually happened in the run, not at what the model says:
+
+- Items left on the task list.
+- Very large single files that should be split.
+- A user interface with only one or two files and no pages.
+- An app that was built but never started and opened.
+- A last command or build that failed.
+- A bigger project without a README.
+
+If anything is found, the agent gets the list and keeps working. You see a short notice, *Checking the work before finishing*, when this happens.
+
+## It does not stop half way
+
+If the model writes "now I will run the server" but does not actually do it, or ends a turn with no answer, Forkwise sends it back to work. If a model is busy or cannot be reached, the next model takes over. If a run still stops, the chat says why and you can send **continue**.
+
+## Getting the best result
+
+- Say who it is for, the pages and features you need, and the language of the site.
+- Pick a strong model for big projects. Small free models make more mistakes on long tasks.
+- Name the stack if you care about it. If you ask for something that does not fit together, such as "a C# backend with FastAPI", Forkwise picks the sensible reading and tells you.`,
+  },
+  "choosing-a-model": {
+    title: "Choosing a model",
+    summary: "Which model to pick for which job, and what happens when one is busy.",
+    body: `Open the model picker next to the send button. Models are grouped by maker: Claude, OpenAI, Gemini, DeepSeek, Qwen, Llama, Mistral, Kimi, GLM and more. Use the tabs or type to search; your recent picks are at the top.
+
+## Rules of thumb
+
+| Job | Pick |
+| --- | --- |
+| Big projects, long builds, refactors | The strongest coding models you have, such as Claude Sonnet or Opus, GPT-5 class, or Qwen3 Coder |
+| Quick questions and small scripts | A fast, small model |
+| Research and long documents | A model with a large context window |
+| Images in your message | A model marked *sees images* |
+
+Free models are great for trying things, but on long agent tasks they make more mistakes, repeat themselves or stop early.
+
+## Thinking level
+
+Under the models you can set how long reasoning models think: Auto, Low, Medium or High. Higher is slower and uses more of your plan, but helps with hard bugs and planning.
+
+## When a model is busy
+
+If a model is rate limited, overloaded or cannot be reached, Forkwise switches to the next available model and tells you in a short notice. The busy model is rested for a few minutes.`,
+  },
+  skills: {
+    title: "Skills",
+    summary: "Expert playbooks the agent loads for a task, built in and your own.",
+    body: `A skill is a step by step method for one kind of job, written the way a senior engineer works. Forkwise comes with 24 of them, and it can save new ones it learns.
+
+## Using skills
+
+- The agent loads a matching skill by itself when a task fits.
+- Add one to your message with **+, Add a skill**, or type **/** in the message box and pick from the list.
+- Up to five skills per message. They show as chips on your message.
+
+## Built in skills
+
+**Build:** fullstack-app, frontend-design, large-codebase, plan-big-feature, api-design, database, ai-features, mobile-app, seo-web.
+
+**Quality:** debug-systematically, code-review, tdd, refactor-safely, security-audit, performance, e2e-testing.
+
+**Ship:** git-workflow, deploy, upgrade-dependencies.
+
+**Research:** web-research, data-analysis.
+
+**Documents:** documents (Word, Excel, PowerPoint and PDF), write-docs.
+
+**Browser:** browser-tasks.
+
+## Your own skills
+
+When the agent finds a good procedure it can save it with *save_skill*. You can also ask: "save this as a skill". See and turn off your skills under **Customize, Abilities**. In a project you can also keep skills as files in \`.forkwise/skills/NAME.md\`.`,
+  },
+  "chrome-extension": {
+    title: "Forkwise for Chrome",
+    summary: "Let the agent work in your own browser, signed in as you, only on the sites you allow.",
+    body: `Some tasks need your accounts: a store admin, an analytics dashboard, a CMS. Forkwise for Chrome lets the agent open tabs in your own Chrome, Edge or Brave, where you are already signed in.
+
+## Set it up
+
+1. Install the [desktop app](/download) and sign in. The extension comes with it.
+2. In the app open **Settings, Computer, Your own Chrome** and press **Set up**. It opens the extensions page and copies the extension folder path.
+3. Turn on **Developer mode**, press **Load unpacked**, paste the path and choose the folder. The Forkwise button appears in the toolbar.
+
+When it is connected, the app and the website show **Your own Chrome: connected**.
+
+## How it behaves
+
+- The agent works only in tabs of the purple **Forkwise** tab group. It cannot see your other tabs unless you press **Let Forkwise use this tab** in the toolbar popup.
+- The first time it wants to use a site, a small window asks: **Allow this time**, **Always allow on this site** or **Don't allow**. Manage always allowed sites in the popup.
+- While it controls a tab, Chrome shows a bar that says the tab is being controlled. Press **Cancel** on it, or **Stop now** in the popup, to stop at once. **Pause** blocks everything until you resume.
+- It never types passwords, card numbers or one time codes itself, and never buys, sends or deletes without your clear yes.
+
+The desktop app must be open while the extension is in use.`,
+  },
+  api: {
+    title: "API and API keys",
+    summary: "Drive Forkwise from your own code: chats, tasks and live events.",
+    body: `Everything you do in chats can be done from code with an API key. The base address is \`https://api.forkwiseai.com\`.
+
+## Create a key
+
+Open **Settings, API keys**, give the key a name and press **Create key**. Copy it right away; it is shown only once. Send it in every request:
+
+\`\`\`
+Authorization: Bearer fwk_...
+\`\`\`
+
+A key can use chats, projects and runs. It cannot read or change your password, email, billing, account settings or other keys. Revoke a key at any time; programs using it stop at once. Usage counts against your plan.
+
+## Start a chat
+
+\`\`\`bash
+curl https://api.forkwiseai.com/api/chats \\
+  -H "Authorization: Bearer $FORKWISE_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"model": "", "mode": "auto"}'
+\`\`\`
+
+The answer has \`chat.id\`. Optional fields: \`project_id\`, \`model\` (a key from \`GET /api/auth/me\` models), \`mode\` (\`auto\`, \`ask\` or \`plan\`).
+
+## Give it a task
+
+\`\`\`bash
+curl https://api.forkwiseai.com/api/chats/CHAT_ID/messages \\
+  -H "Authorization: Bearer $FORKWISE_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"content": "Build a REST API for a todo app with tests", "skills": ["fullstack-app"]}'
+\`\`\`
+
+The answer has \`run_id\`. If a run is already working in that chat, the message is queued and \`queued\` is true.
+
+## Other endpoints
+
+| Method and path | What it does |
+| --- | --- |
+| GET /api/chats | List your chats |
+| GET /api/chats/ID | A chat with all its messages and the last run |
+| DELETE /api/chats/ID | Delete a chat |
+| GET /api/runs/ID/events | Live events of a run (see [Events](/docs/api-events)) |
+| POST /api/runs/ID/stop | Stop a run |
+| POST /api/runs/ID/respond | Answer a question or an approval: \`{"id": "CALL_ID", "value": "allow"}\`. For approvals send allow, always or deny; for questions send the answer text |
+| GET /api/projects | List projects |
+| GET /api/skills | Your skills and the built in ones |
+
+## Errors and limits
+
+Errors come back as JSON with \`detail\`. 401 means a missing or revoked key, 403 an action keys may not do, 404 something that is not yours or does not exist, and 429 that your plan's usage for today is used up.`,
+  },
+  "api-events": {
+    title: "API: live events",
+    summary: "Stream every step of a run as server sent events.",
+    body: `\`GET /api/runs/RUN_ID/events\` streams a run as server sent events. Each event is a line \`data: {...}\` with JSON. Lines that start with \`:\` keep the connection open; ignore them. If you reconnect, pass \`?after=N\` with the last \`seq\` you saw plus one.
+
+## Event types
+
+| type | Meaning | Fields |
+| --- | --- | --- |
+| step | A new model turn starts | step |
+| text | Answer text as it streams | text |
+| reasoning | Thinking text, for models that show it | text |
+| tool_start | A tool call begins | id, name, args |
+| tool_output | Live output of a running command | id, text |
+| tool_end | A tool call finished | id, ok, text |
+| assistant | A finished model turn | content, tool_calls |
+| todos | The task list changed | todos |
+| waiting | The agent needs an answer or an approval | id, kind (approval or question), name, args or the question |
+| answered | A waiting call was answered | id, value |
+| file | The agent shared a result file | path |
+| preview | A live preview started | port, url |
+| notice | A short message for the user | text |
+| error | The run failed | text |
+| done | The run ended | status: done, stopped or error |
+
+## Example in Python
+
+\`\`\`python
+import json, os, requests
+
+head = {"Authorization": "Bearer " + os.environ["FORKWISE_KEY"]}
+url = "https://api.forkwiseai.com/api/runs/" + run_id + "/events"
+with requests.get(url, headers=head, stream=True) as events:
+    for line in events.iter_lines():
+        if not line.startswith(b"data: "):
+            continue
+        event = json.loads(line[6:])
+        if event["type"] == "text":
+            print(event["text"], end="", flush=True)
+        if event["type"] == "done":
+            break
+\`\`\`
+
+When the stream ends, read the whole chat with \`GET /api/chats/CHAT_ID\` for the final messages and files changed.`,
+  },
   "github-and-gmail": {
     title: "GitHub and Gmail",
     summary: "Link one or more GitHub and Google accounts and let Forkwise use them.",
@@ -41,43 +257,47 @@ Open **Settings, Secrets** and save a value under a name like \`STRIPE_KEY\`. Fo
   },
   "desktop-app": {
     title: "The desktop app",
-    summary: "All of Forkwise in its own window, working on the folders of your own computer.",
-    body: `The Forkwise Desktop app is the full Forkwise on Windows, macOS and Linux. It opens the same chat in its own window and adds what a website cannot do: work on folders of your own computer and run commands in your own terminal.
+    summary: "Forkwise on Windows, macOS and Linux, working in your own folders and terminal.",
+    body: `The Forkwise desktop app is the full Forkwise in its own window, plus what a website cannot do: work in the folders of your own computer and run commands in your own terminal. The AI model stays in the cloud; your files stay on your machine.
 
 ## Install and sign in
 
-Download the app from the [Download page](/download), install it and sign in. The app links your computer to your account by itself. You do not paste a token. The builds are not code-signed yet, so Windows SmartScreen or macOS Gatekeeper may ask you to confirm the first run.
+Download the app from the [Download page](/download), install it and sign in. The app links your computer to your account by itself. You never paste a token. The installers are not code signed yet, so Windows SmartScreen or macOS may ask you to confirm the first run.
 
-## Work in a folder
+## Where a chat runs
 
-On the new chat page choose **Work in a folder on this computer** (or File, Open folder). Pick a project folder in the system dialog. From then on the agent works directly on your real files, like Claude Code or Cursor:
+In the desktop app every new chat runs **on this computer**. The folder is chosen in this order:
 
-- It lists, searches (glob and grep), reads, edits and creates files inside that folder. It cannot go outside it, and it cannot write into the \`.git\` folder.
-- It runs commands in your own shell: PowerShell on Windows, your login shell on macOS and Linux. Dev servers can run in the background and be stopped later.
-- It reads a \`FORKWISE.md\`, \`AGENTS.md\` or \`CLAUDE.md\` file in the folder, if there is one, for how to build and test your project.
-- To test a web app it starts, it opens \`http://localhost:PORT\` in the built-in browser.
+1. A folder you name in your message, for example *"work in D:\\projects\\shop"*. The app asks once before it uses a folder it has not seen.
+2. The folder you opened with **File, Open folder** or chose with **+ , Work in a folder**.
+3. Otherwise \`~/Forkwise\` in your home folder.
 
-A chat in a folder starts in **Ask** mode: every file change and command waits for your approval in the chat. Choose **Always allow** for a kind of action, or switch the chat to Auto, when you trust the task. There is no undo for changes on your computer, so keep your project in git.
+You can switch new chats to the cloud sandbox in **Settings, Agent, Run new chats on**. The chip above the message box always shows where a chat runs.
 
-## Built-in browser
+## What the agent can do there
 
-The app has its own browser with tabs. The agent can open pages, switch and close tabs, read the page text or source, list the clickable elements, then click and type by element number. Sign in to sites there once and it remembers you. It is separate from your everyday browser. The agent can also drive a separate Chrome profile when you ask for it.
+- List, search, read, edit and create files inside the folder, never outside it.
+- Run commands in your own shell (PowerShell, cmd, Git Bash or WSL on Windows; zsh or bash elsewhere). Output appears live in the chat while the command runs.
+- Start dev servers in the background, read their output and stop them.
+- Open \`http://localhost:PORT\` in the built in browser to test what it built.
+- Read \`FORKWISE.md\`, \`AGENTS.md\` or \`CLAUDE.md\` in the folder for how to build and test your project.
 
-## Screen, mouse and keyboard
+## The editor and terminals
 
-The agent can take screenshots, list and switch windows, use the clipboard, click, drag, scroll, type and press shortcuts. On Windows it can also list the buttons and fields of the window in front. On macOS allow **Screen Recording** and **Accessibility** for Forkwise in System Settings, Privacy and Security. On Linux these need an X11 session.
+The app has a full editor (Monaco) with tabs, diffs, search and replace, and type errors for the whole project. Terminals are real shells; choose the shell in **Settings, Terminal**. Code blocks in answers have **Copy** and, for shell commands, **Run**, which opens a terminal in the chat's folder.
+
+## Agent board
+
+Press **Ctrl+Shift+A** for the agent board. Start several agents at once; each can work on its own git branch (a worktree) so they never step on each other. When an agent finishes you can **Review** its changes with a second agent, **Merge** them or **Discard** them.
 
 ## Staying in control
 
-- The app only accepts file and command requests for folders you picked in its own dialog.
-- Computer actions outside a folder (mouse, keyboard, apps) ask for approval, unless you allowed that kind in the app.
-- Press Ctrl+Alt+Shift+X (Cmd+Alt+Shift+X on macOS) anywhere to pause the agent and stop running commands. The tray icon and **Computer activity** window show everything it does and have a Pause button.
-- The computer must be on and the app open while the agent works on it.
-
-## Older connector
-
-The small Python connector from Settings, Your computer still works for people who do not want to install the app.`,
+- The agent only works in folders you opened or approved.
+- Choose in **Settings, Computer** what asks first: file changes, commands, the screen.
+- Press **Ctrl+Alt+Shift+X** (Cmd on macOS) anywhere to stop everything at once.
+- The computer must be on and the app open while the agent works on it. Keep your project in git; changes on your computer have no automatic undo.`,
   },
+
   "getting-started": {
     title: "Getting started",
     summary: "Create an account, send your first message and see Forkwise work.",
@@ -318,39 +538,7 @@ Delete a connector in the same place. Its tools disappear from the next message 
 
 Commands that contain any text in \`deny\` are refused.`,
   },
-  "self-hosting": {
-    title: "Self-hosting",
-    summary: "Run your own Forkwise on a Linux server.",
-    body: `Forkwise has two parts: the **frontend** (this website and app) and the **backend** (the API on your server).
 
-## Backend
-
-The Teams plan includes a private install package, which we send you. On an Ubuntu server with a domain such as \`api.example.com\`:
-
-\`\`\`bash
-unzip forkwise-backend.zip
-cd forkwise/backend
-sudo LLM_API_KEY=your-key LLM_MODELS="model-id=Label" bash deploy/install.sh --api-domain api.example.com --site https://example.com
-\`\`\`
-
-This installs Docker, the sandbox image, a firewall for the sandboxes, the \`forkwise-api\` service and nginx with HTTPS.
-
-## Updates
-
-\`\`\`bash
-sudo forkwise-update
-\`\`\`
-
-It installs the update package we give you, installs new packages only when needed, rebuilds the sandbox only when it changed and restarts the API.
-
-## Frontend
-
-Deploy the \`frontend\` folder to Vercel or Cloudflare Pages with \`VITE_API_URL=https://api.example.com\`.
-
-## Settings
-
-All settings live in \`/opt/forkwise/backend.env\`: models and keys, sandbox limits, email, and the allowed frontend addresses.`,
-  },
 }
 
 export function docOrder() {

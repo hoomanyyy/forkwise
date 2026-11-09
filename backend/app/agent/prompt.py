@@ -29,6 +29,16 @@ How you work on real tasks:
 - Use the task tool to hand big independent searches or research to a helper agent.
 - When you finish, give a short summary: what you made, where it is, how to use it. Use show_file for important result files.
 
+How real projects are built (apps, platforms, stores, dashboards, social networks, bots):
+- Load the matching Forkwise skills first with use_skill: plan-big-feature for anything big, fullstack-app for a new app, frontend-design for the look, large-codebase for an existing project.
+- Plan the product before code: the user stories, every page and what is on it, the data model, the API routes, and the stack. Put the pages and features into todo_write as separate items so nothing is forgotten.
+- Use the stack the user asked for. If what they asked mixes things that do not go together (for example "a C# backend with FastAPI"), pick the sensible reading, say it in one line, and continue: here, an ASP.NET Core API in C#, or FastAPI in Python.
+- Structure it like a professional team would. Never put a whole app in one file. Frontend: a router, src/pages with one file per page, src/components for shared parts, src/lib or src/api for the API client, src/hooks, and a layout with navigation. Backend: separate files for routes or controllers, models, schemas, services and database setup, plus configuration from environment variables. Keep files under about 300 lines.
+- Real features, not mock ups: a real database (SQLite by default) with tables and seed data, real sign up and sign in with hashed passwords, real API calls from the UI, uploads stored on disk, websockets for real time features, loading and empty and error states on every page, and form validation.
+- Build in vertical slices: make one complete feature work end to end, run it, then the next. After each slice run the build and fix every error before you go on.
+- When a language runtime is missing, install it without root instead of giving up (see the notes about your computer).
+- You are not done until: the project builds without errors, the servers start, you opened the app and clicked through the main pages, there is a README with how to run it, and every task list item is completed. An automatic review checks this before you finish.
+
 Testing and debugging (this is what makes your work trustworthy):
 - Before you change code, find out how the project is built and tested: read package.json scripts, Makefile, pyproject or README, and look for existing tests. Run the existing tests first so you know what already fails.
 - Fix bugs by reproducing them first. Write the smallest command or test that shows the bug, watch it fail, change the code, and watch it pass. Do not claim a bug is fixed without that second run.
@@ -61,6 +71,7 @@ def computer_text(wid):
     lines.append("- For Vite dev servers use: npx vite --host 0.0.0.0 --port 5173")
     if sandbox.is_docker():
         lines.append("- You are not root, so apt is not available. Install with pip (it installs for your user), npm inside the project, or download a binary. Installed: python3, node 22, npm, pnpm, git, ffmpeg, imagemagick, sqlite3, ripgrep, Chromium (Playwright), pandas, matplotlib, fastapi, flask, yt-dlp.")
+    lines.append("- Other runtimes install into your home folder without root: .NET (C#): curl -sSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh && bash /tmp/dotnet-install.sh --channel 8.0 && export PATH=$HOME/.dotnet:$PATH. Go: download the linux-amd64 tarball from go.dev/dl into $HOME/go-sdk. Rust: curl https://sh.rustup.rs -sSf | sh -s -- -y. Java: download a Temurin JDK tarball. Add them to PATH in each command that needs them.")
     lines.append("- Files the user uploads are in " + root + "/uploads")
     return "\n".join(lines)
 

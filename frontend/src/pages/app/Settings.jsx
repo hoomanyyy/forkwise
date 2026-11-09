@@ -8,6 +8,7 @@ import Select from "../../components/ui/Select"
 import { useConfirm } from "../../components/ui/Modal"
 import Connections from "./settings/Connections"
 import Secrets from "./settings/Secrets"
+import ApiKeys from "./settings/ApiKeys"
 import Schedules from "./settings/Schedules"
 
 const GROUPS = [
@@ -24,6 +25,7 @@ const GROUPS = [
     tabs: [
       { key: "connections", label: "Connected accounts", icon: Link2 },
       { key: "secrets", label: "Secrets", icon: KeyRound },
+      { key: "api-keys", label: "API keys", icon: Terminal },
       { key: "schedules", label: "Schedules", icon: Clock },
     ],
   },
@@ -527,24 +529,11 @@ function DataTab() {
   )
 }
 
-function CopyBox({ text }) {
-  const { toast } = useStore()
-  return (
-    <div className="copy-box" dir="ltr">
-      <code>{text}</code>
-      <button type="button" className="icon-btn tiny" aria-label="Copy" onClick={() => navigator.clipboard.writeText(text).then(() => toast("Copied", "ok"))}><Copy size={14} /></button>
-    </div>
-  )
-}
 
 function ComputerTab() {
   const { user, setUser, toast } = useStore()
   const confirm = useConfirm()
   const [data, setData] = useState(null)
-  const [name, setName] = useState("")
-  const [pairing, setPairing] = useState(null)
-  const [busy, setBusy] = useState(false)
-  const [os, setOs] = useState(() => (navigator.userAgent.includes("Windows") ? "windows" : "unix"))
 
   function load() {
     api.get("/api/desktop").then(setData).catch((problem) => toast(problem.message, "error"))
@@ -555,19 +544,6 @@ function ComputerTab() {
     const timer = setInterval(load, 5000)
     return () => clearInterval(timer)
   }, [])
-
-  async function pair() {
-    setBusy(true)
-    try {
-      const result = await api.post("/api/desktop/pair", { name })
-      setPairing(result)
-      setName("")
-      load()
-    } catch (problem) {
-      toast(problem.message, "error")
-    }
-    setBusy(false)
-  }
 
   async function remove(device) {
     if (!(await confirm({ title: "Unlink " + device.name + "?", text: "Forkwise will lose access to this computer right away.", confirmLabel: "Unlink", danger: true }))) return
@@ -585,9 +561,6 @@ function ComputerTab() {
     }
   }
 
-  const command = pairing && (os === "windows"
-    ? "irm " + pairing.agent_url + " -OutFile forkwise_desktop.py; python forkwise_desktop.py --server " + pairing.server + " --token " + pairing.token
-    : "curl -fsSL " + pairing.agent_url + " -o forkwise_desktop.py && python3 forkwise_desktop.py --server " + pairing.server + " --token " + pairing.token)
   const auto = Boolean(user.settings && user.settings.desktop_auto)
 
   const devices = (data && data.devices) || []
@@ -677,29 +650,6 @@ function ComputerTab() {
         <p className="muted small">In your own Chrome the agent only uses its purple Forkwise tab group and asks once for every new site. Press Ctrl+Alt+Shift+X (Cmd on macOS) to stop everything on the computer at once.</p>
       </div>
 
-      <details className="settings-card computer-advanced">
-        <summary><h3>Link without the app</h3><ChevronDown size={15} /></summary>
-        <p className="muted small">Create a one-time token to link the app by hand, or run the small Python connector instead (no folders, no built-in browser).</p>
-        <div className="pair-row">
-          <input className="input" placeholder="Name, for example Work laptop" value={name} onChange={(e) => setName(e.target.value)} maxLength={60} />
-          <button className="btn btn-brand" disabled={busy} onClick={pair}><Plus size={15} />Link a computer</button>
-        </div>
-        {pairing && (
-          <div className="pair-steps">
-            <p className="small"><a className="btn btn-primary btn-sm" href={"forkwise://pair?token=" + encodeURIComponent(pairing.token) + "&server=" + encodeURIComponent(pairing.server)}>Open in the Forkwise app</a> <span className="faint">If nothing happens, the app is not installed.</span></p>
-            <div className="seg-choice" role="radiogroup">
-              <button type="button" className={os === "windows" ? "on" : ""} onClick={() => setOs("windows")}>Windows (PowerShell)</button>
-              <button type="button" className={os === "unix" ? "on" : ""} onClick={() => setOs("unix")}>macOS / Linux</button>
-            </div>
-            <p className="faint small">Python connector instead:</p>
-            <ol className="small">
-              <li>Install <a href="https://www.python.org/downloads/" target="_blank" rel="noreferrer">Python 3.9+</a> if you do not have it.</li>
-              <li>Run this in {os === "windows" ? "PowerShell" : "a terminal"}. The token is shown only once:</li>
-            </ol>
-            <CopyBox text={command} />
-          </div>
-        )}
-      </details>
     </div>
   )
 }
@@ -729,6 +679,7 @@ export default function Settings() {
           {current === "security" && <Security />}
           {current === "connections" && <Connections />}
           {current === "secrets" && <Secrets />}
+          {current === "api-keys" && <ApiKeys />}
           {current === "schedules" && <Schedules />}
           {current === "computer" && <ComputerTab />}
           {current === "usage" && <Usage />}

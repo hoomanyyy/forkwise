@@ -480,3 +480,47 @@
 .builtin-skill code {
   flex: none;
 }
+
+/* API keys */
+.key-fresh {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--ok) 40%, var(--line));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--ok) 6%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.key-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 8px 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--bg);
+}
+.key-box code {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 12.5px;
+}
+.key-box .icon-btn.done {
+  color: var(--ok);
+}
+.key-example {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 9px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  font-size: 12px;
+  overflow-x: auto;
+}
+.key-rules {
+  margin: 0;
+  padding-left: 18px;
+  line-height: 1.8;
+}

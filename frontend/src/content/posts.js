@@ -1,5 +1,105 @@
 export const POSTS = [
   {
+    slug: "forkwise-2-2-built-to-finish",
+    title: "Forkwise 2.2: built to finish",
+    summary: "An automatic review before the agent may say done, runs that no longer stop half way, the API and a new website.",
+    date: "November 9, 2026",
+    tag: "Product",
+    minutes: 4,
+    body: `The most common complaint about AI builders is simple: they stop. Sometimes in the middle of a task, sometimes with a single file that looks good in a screenshot and falls apart the moment you click something. Forkwise 2.2 is about finishing.
+
+## It checks its own work
+
+Before the agent may write its final summary, Forkwise now looks at what actually happened in the run. Not what the model says, but facts: which files it wrote and how big they are, whether it ever started the app, whether the last build passed, and what is still open on the task list.
+
+If the project is crammed into one giant file, has no pages, was never opened in a browser, or the build failed, the agent gets that list and keeps working. You see a short note, *Checking the work before finishing*, and then a project that actually runs.
+
+## It does not stop half way
+
+We traced every way a run could end early and closed them:
+
+- Some open models write their tool call as plain text instead of calling it. Forkwise now recognises that, runs the call, and keeps the garbled text out of your chat.
+- When a model says "now I will start the server" and then does nothing, it is sent back to do it.
+- When a model is busy or cannot be reached, the next model takes over.
+- If a run still stops, the chat tells you why, even after a refresh, and **continue** picks it up.
+
+## Stronger instructions for real projects
+
+The agent now plans every page, the data model and the API before it writes code, and builds the way a team would: a router and a pages folder, components, services, a real database and real sign in. It installs missing runtimes like .NET or Go by itself.
+
+## The API
+
+Create a key in **Settings, API keys** and drive Forkwise from scripts, CI and your own product. Read the [API guide](/docs/api).
+
+## A new website
+
+We rebuilt forkwiseai.com from scratch: clearer pages, real screenshots, a new docs layout with search, and a design that works on every screen size.`,
+  },
+  {
+    slug: "get-complete-projects-from-an-ai-agent",
+    title: "How to get complete projects from an AI agent",
+    summary: "Five habits that turn a one page demo into a real, working product.",
+    date: "November 8, 2026",
+    tag: "Guide",
+    minutes: 6,
+    body: `An AI agent can build a real product, but the first message you send shapes the result more than anything else. These habits help, with Forkwise or any other agent.
+
+## 1. Brief it like a colleague
+
+"Build a social app" gives the agent nothing to aim for. "A photo sharing app for my running club, in English, with profiles, posts, likes, comments, an explore page and chat between members" gives it pages, features and an audience. Names, audience and language shape every decision.
+
+## 2. List the pages and the must haves
+
+Agents finish what is on their list. Forkwise turns your list into its task list and is not allowed to finish while an item is open, so the more concrete the list, the more complete the result.
+
+## 3. Ask for a real backend
+
+Say "with a real database and sign in" if you want them. Forkwise defaults to real data, but being explicit removes any doubt and keeps it away from mock data.
+
+## 4. Pick a strong model for big jobs
+
+Small free models are fine for questions and scripts. For a twenty page app they lose track, repeat themselves or stop early. Use a strong coding model for the build, and a fast one for small follow ups.
+
+## 5. Build in rounds
+
+Ask for the core first: sign up, the main page and one feature end to end. Look at it, then ask for the next round. Each round is checkpointed, so you can always go back.
+
+## What Forkwise does on its side
+
+It plans pages and data first, builds in slices, runs the build after each one, clicks through the app in a browser and runs an automatic review before it finishes. You can read the details in [How Forkwise finishes projects](/docs/finishing-projects).`,
+  },
+  {
+    slug: "your-own-browser-safely",
+    title: "Your own browser, safely: how Forkwise for Chrome works",
+    summary: "Why the agent gets its own tab group, asks per site, and never types your passwords.",
+    date: "November 6, 2026",
+    tag: "Browser",
+    minutes: 5,
+    body: `Some of the most useful work happens behind a login: your store admin, your analytics, your CMS. Forkwise for Chrome lets the agent help there, in your own browser, where you are already signed in. Giving an AI your browser deserves care, so here is how it is designed.
+
+## Its own tab group
+
+The agent only works in tabs of a purple **Forkwise** tab group. It cannot see or touch your other tabs. If you want it to help with a page you already have open, you hand that tab over yourself from the toolbar popup.
+
+## Permission per site
+
+The first time the agent wants to use a site, a small window asks you: allow this time, always allow, or don't allow. Always allowed sites are listed in the popup, where you can remove them.
+
+## A visible, instant stop
+
+While it controls a tab, Chrome shows a bar at the top of the window. Press Cancel on it, or Stop now in the popup, and the agent lets go at once. Pause blocks everything until you resume.
+
+## Rules the agent follows
+
+- It never types passwords, card numbers or one time codes itself. When a login appears, it asks you to complete it.
+- It never buys, sends, posts, deletes or accepts terms without your clear yes for that exact action.
+- It treats text on web pages as data, not as instructions.
+
+## Getting started
+
+Install the [desktop app](/download), open Settings, Computer, Your own Chrome and press Set up. The guide is in the [docs](/docs/chrome-extension).`,
+  },
+  {
     slug: "introducing-forkwise-2",
     title: "Introducing Forkwise 2.0: an engineer with its own computer",
     summary: "Forkwise is now a chat that does the work: it builds, runs, checks, remembers and grows new abilities.",
@@ -113,6 +213,23 @@ So Forkwise became an engineer. It still checks its own work, now by running the
 ]
 
 export const RELEASES = [
+  {
+    version: "2.2",
+    date: "November 9, 2026",
+    title: "Built to finish",
+    items: [
+      ["new", "An automatic review before finishing: unfinished tasks, giant single files, apps never started and failed builds send the agent back to work"],
+      ["new", "API keys and the Forkwise API: start chats, send tasks and stream events from your own code"],
+      ["new", "A new website with real screenshots, use cases, a developer page, an about page and docs with search"],
+      ["better", "The agent plans pages and data first and builds real project structure with a real database and sign in"],
+      ["better", "Missing runtimes like .NET, Go and Rust are installed by the agent instead of giving up"],
+      ["better", "Docs for the API, live events, skills, models, Forkwise for Chrome and how projects get finished"],
+      ["fixed", "Runs no longer stop when a model writes its tool call as text, promises a step without doing it, or ends a turn empty"],
+      ["fixed", "When a model cannot be reached, the next model takes over instead of the run stopping"],
+      ["fixed", "The reason a run stopped stays visible after a refresh"],
+      ["fixed", "The website now fits phones: no more sideways scrolling"],
+    ],
+  },
   {
     version: "2.1",
     date: "November 6, 2026",

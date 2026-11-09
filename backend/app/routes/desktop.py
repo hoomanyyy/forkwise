@@ -4,12 +4,10 @@ import itertools
 import json
 import secrets
 from fastapi import HTTPException, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 from app import db, config
 from app.routes.auth import current_user
 
-AGENT_FILE = config.ROOT / "desktop" / "forkwise_desktop.py"
 ONLINE = {}
 COUNTER = itertools.count(1)
 
@@ -85,7 +83,7 @@ def pair(body: PairBody, request: Request):
         "created_at": db.now(),
         "last_seen": 0,
     })
-    return {"id": device_id, "name": name, "token": token, "server": config.API_URL, "agent_url": config.API_URL + "/api/desktop/agent.py"}
+    return {"id": device_id, "name": name, "token": token, "server": config.API_URL}
 
 
 async def remove(device_id: str, request: Request):
@@ -98,15 +96,6 @@ async def remove(device_id: str, request: Request):
         except Exception:
             pass
     return {"ok": True}
-
-
-def agent_script():
-    return PlainTextResponse(AGENT_FILE.read_text(encoding="utf-8"), media_type="text/x-python", headers={"Content-Disposition": "attachment; filename=forkwise_desktop.py"})
-
-
-def browser_script():
-    path = config.ROOT / "desktop" / "browser_cdp.py"
-    return PlainTextResponse(path.read_text(encoding="utf-8"), media_type="text/x-python", headers={"Content-Disposition": "attachment; filename=browser_cdp.py"})
 
 
 def pick(user_id, wanted, exact=False):
@@ -230,7 +219,5 @@ async def desktop_socket(websocket: WebSocket):
 def register_routes(app):
     app.add_api_route("/api/desktop", list_devices, methods=["GET"])
     app.add_api_route("/api/desktop/pair", pair, methods=["POST"])
-    app.add_api_route("/api/desktop/agent.py", agent_script, methods=["GET"])
-    app.add_api_route("/api/desktop/browser_cdp.py", browser_script, methods=["GET"])
     app.add_api_route("/api/desktop/{device_id}", remove, methods=["DELETE"])
     app.add_api_websocket_route("/api/ws/desktop", desktop_socket)

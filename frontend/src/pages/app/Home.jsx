@@ -91,6 +91,16 @@ export default function Home({ kind }) {
     const template = TEMPLATES.find((item) => item.slug === params.get("template"))
     if (template) setSeed({ value: template.prompt })
     else if (params.get("prompt")) setSeed({ value: params.get("prompt") })
+    else {
+      let saved = ""
+      try {
+        saved = localStorage.getItem("fw-pending-prompt") || ""
+        localStorage.removeItem("fw-pending-prompt")
+      } catch (problem) {
+        saved = ""
+      }
+      if (saved) setSeed({ value: saved })
+    }
   }, [params])
 
   async function ensureChat() {

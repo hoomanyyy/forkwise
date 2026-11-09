@@ -9,7 +9,7 @@ import "./styles/flat.css"
 import "./styles/upgrade.css"
 import { StoreProvider, useStore } from "./lib/store"
 import { ConfirmProvider } from "./components/ui/Modal"
-import { SiteLayout } from "./components/site/parts"
+import { MkLayout } from "./mk/ui"
 import { AppSkeleton, PageSkeleton } from "./components/ui/Skeleton"
 import 'katex/dist/katex.min.css';
 
@@ -17,19 +17,22 @@ function named(loader, name) {
   return lazy(() => loader().then((module) => ({ default: module[name] })))
 }
 
-const Home = lazy(() => import("./pages/site/Home"))
-const Product = named(() => import("./pages/site/Product"), "Product")
-const Download = named(() => import("./pages/site/Product"), "Download")
-const Pricing = named(() => import("./pages/site/Solutions"), "Pricing")
-const Docs = named(() => import("./pages/site/Resources"), "Docs")
-const DocPage = named(() => import("./pages/site/Resources"), "DocPage")
-const Blog = named(() => import("./pages/site/Resources"), "Blog")
-const BlogPost = named(() => import("./pages/site/Resources"), "BlogPost")
-const Changelog = named(() => import("./pages/site/Resources"), "Changelog")
-const Contact = named(() => import("./pages/site/Company"), "Contact")
-const Security = named(() => import("./pages/site/Company"), "Security")
-const Legal = named(() => import("./pages/site/Company"), "Legal")
-const NotFound = named(() => import("./pages/site/Company"), "NotFound")
+const Home = lazy(() => import("./mk/pages/Home"))
+const Product = named(() => import("./mk/pages/Marketing"), "Product")
+const UseCases = named(() => import("./mk/pages/Marketing"), "UseCases")
+const Pricing = named(() => import("./mk/pages/Marketing"), "Pricing")
+const Download = named(() => import("./mk/pages/Company"), "Download")
+const Developers = named(() => import("./mk/pages/Company"), "Developers")
+const Security = named(() => import("./mk/pages/Company"), "Security")
+const About = named(() => import("./mk/pages/Company"), "About")
+const Contact = named(() => import("./mk/pages/Company"), "Contact")
+const NotFound = named(() => import("./mk/pages/Company"), "NotFound")
+const Docs = named(() => import("./mk/pages/Read"), "Docs")
+const DocPage = named(() => import("./mk/pages/Read"), "DocPage")
+const Blog = named(() => import("./mk/pages/Read"), "Blog")
+const BlogPost = named(() => import("./mk/pages/Read"), "BlogPost")
+const Changelog = named(() => import("./mk/pages/Read"), "Changelog")
+const Legal = named(() => import("./mk/pages/Read"), "Legal")
 const Login = named(() => import("./pages/auth/Auth"), "Login")
 const Register = named(() => import("./pages/auth/Auth"), "Register")
 const Verify = named(() => import("./pages/auth/Auth"), "Verify")
@@ -72,12 +75,17 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route element={<SiteLayout />}>
+        <Route element={<MkLayout />}>
           <Route path="/" element={<Page><Home /></Page>} />
           <Route path="/product" element={<Page><Product /></Page>} />
           <Route path="/download" element={<Page><Download /></Page>} />
+          <Route path="/use-cases" element={<Page><UseCases /></Page>} />
+          <Route path="/developers" element={<Page><Developers /></Page>} />
+          <Route path="/api" element={<Navigate to="/developers" replace />} />
+          <Route path="/about" element={<Page><About /></Page>} />
           <Route path="/pricing" element={<Page><Pricing /></Page>} />
           <Route path="/docs" element={<Page><Docs /></Page>} />
+          <Route path="/docs/self-hosting" element={<Navigate to="/docs" replace />} />
           <Route path="/docs/:slug" element={<Page><DocPage /></Page>} />
           <Route path="/blog" element={<Page><Blog /></Page>} />
           <Route path="/blog/:slug" element={<Page><BlogPost /></Page>} />
@@ -89,14 +97,12 @@ function App() {
           <Route path="/product/computer" element={<Navigate to="/download" replace />} />
           <Route path="/product/abilities" element={<Navigate to="/product" replace />} />
           <Route path="/product/control" element={<Navigate to="/product" replace />} />
-          <Route path="/use-cases" element={<Navigate to="/product" replace />} />
-          <Route path="/use-cases/:slug" element={<Navigate to="/product" replace />} />
-          <Route path="/templates" element={<Navigate to="/product" replace />} />
+          <Route path="/use-cases/:slug" element={<Navigate to="/use-cases" replace />} />
+          <Route path="/templates" element={<Navigate to="/use-cases" replace />} />
           <Route path="/teams" element={<Navigate to="/pricing" replace />} />
           <Route path="/compare" element={<Navigate to="/product" replace />} />
           <Route path="/faq" element={<Navigate to="/pricing" replace />} />
           <Route path="/status" element={<Navigate to="/" replace />} />
-          <Route path="/about" element={<Navigate to="/contact" replace />} />
           <Route path="/brand" element={<Navigate to="/contact" replace />} />
           <Route path="*" element={<Page><NotFound /></Page>} />
         </Route>

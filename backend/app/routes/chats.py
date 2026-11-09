@@ -243,6 +243,8 @@ def get_chat(chat_id: str, request: Request):
         if last_run["status"] == "running" and not run_info["active"]:
             db.update("runs", "id", last_run["id"], {"status": "stopped"})
             run_info["status"] = "stopped"
+        if run_info["status"] == "error" and not run_info["active"]:
+            run_info["error"] = runs.friendly_error(last_run["error"] or "The run stopped because of an error.")[:600] + " Send a message such as \"continue\" and the agent picks up where it stopped."
     summary = chat_summary(chat)
     summary["workspace_id"] = chat["workspace_id"]
     summary["todos"] = db.load_json(chat["todos"], [])

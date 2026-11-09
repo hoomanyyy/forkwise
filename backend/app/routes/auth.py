@@ -77,6 +77,13 @@ def user_from_token(token):
 
 
 def current_user(request: Request):
+    from app.routes import keys
+    key = keys.bearer(request)
+    if key:
+        user = keys.user_from_key(key)
+        if user is None:
+            raise HTTPException(status_code=401, detail="That API key is not valid. Create a new one in Settings, API keys.")
+        return user
     user = user_from_token(request.cookies.get(COOKIE))
     if user is None:
         raise HTTPException(status_code=401, detail="Please sign in.")
