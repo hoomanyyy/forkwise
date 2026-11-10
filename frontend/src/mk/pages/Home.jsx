@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { Link } from "react-router-dom"
-import { ArrowRight, BarChart3, Check, ChevronRight, Chrome, ClipboardCheck, Cpu, FolderTree, History, Laptop, Layers, LayoutDashboard, ListChecks, MonitorPlay, Plane, Scissors, ShieldCheck, ShoppingBag, Smartphone, Sparkles, Undo2, Workflow } from "lucide-react"
+import { ArrowRight, BarChart3, Check, ChevronRight, ClipboardCheck, KeyRound, Cpu, FolderTree, History, Laptop, Layers, LayoutDashboard, ListChecks, MonitorPlay, Plane, Scissors, ShieldCheck, ShoppingBag, Smartphone, Sparkles, Undo2, Workflow } from "lucide-react"
 import { CheckList, CodeTabs, Cta, DownloadButton, Faq, Makers, PromptBox, SectionHead, rememberPrompt, startLink, useSeo } from "../ui"
 import { useStore } from "../../lib/store"
 import { HOME_FAQ, API_TABS } from "../content"
@@ -26,7 +26,7 @@ const REVIEW = [
 const FEATURES = [
   { icon: Cpu, title: "A real computer for every chat", text: "Installs packages, runs servers, opens a browser and fixes what breaks." },
   { icon: Laptop, title: "Your folders and terminal", text: "The desktop app edits files in place and runs your own shell." },
-  { icon: Chrome, title: "Your own browser, safely", text: "Works signed in as you, in its own tab group, only on sites you allow." },
+  { icon: KeyRound, title: "API keys and schedules", text: "Run the agent from your own code, CI or a daily schedule." },
   { icon: Sparkles, title: "24 expert skills", text: "Full stack apps, design, debugging, reviews, security, deploys and more." },
   { icon: Undo2, title: "Undo anything", text: "Every message is a checkpoint. Go back and your files come back too." },
   { icon: ShieldCheck, title: "You stay in control", text: "Pushing code, sending email and risky commands always ask first." },
@@ -41,7 +41,7 @@ export default function Home() {
       <section className="mk-hero2">
         <div className="mk-aurora" aria-hidden="true"><i /><i /><i /></div>
         <div className="mk-wrap">
-          <Link to="/blog/forkwise-2-2-built-to-finish" className="mk-badge"><b>NEW</b>Forkwise 2.2: built to finish<ChevronRight size={14} /></Link>
+          <Link to="/changelog" className="mk-badge"><b>NEW</b>Forkwise 2.3: a fresh new look<ChevronRight size={14} /></Link>
           <h1>Build complete apps<br />by chatting with AI</h1>
           <p className="mk-lead">Forkwise is an AI coding agent. Describe the app, site or fix you want, and it plans, writes the code, runs it and tests it until the job is done.</p>
           <PromptBox value={value} setValue={setValue} autoFocus />
@@ -137,7 +137,7 @@ export default function Home() {
             <div>
               <span className="mk-kicker">Desktop app</span>
               <h3>Works on your machine when you need it to</h3>
-              <p>Open a folder and the agent reads, edits and runs your real project in your own terminal. Add Forkwise for Chrome and it can use your signed in browser, only on sites you allow.</p>
+              <p>Open a folder and the agent reads, edits and runs your real project in your own folders and terminal, with live output and an emergency stop.</p>
               <div className="mk-actions">
                 <DownloadButton className="mk-btn go" />
                 <Link to="/download" className="mk-btn ghost">All platforms</Link>

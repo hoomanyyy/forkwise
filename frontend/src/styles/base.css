@@ -787,13 +787,14 @@ code, pre, kbd {
   }
 }
 
-option, optgroup {
+[data-theme="dark"] option, [data-theme="dark"] optgroup {
   background-color: #252422;
   color: #f7f7f6;
 }
 
-select {
-  color-scheme: dark;
+[data-theme="light"] option, [data-theme="light"] optgroup {
+  background-color: #ffffff;
+  color: #21201e;
 }
 
 .dd {
@@ -958,8 +959,11 @@ textarea:-webkit-autofill {
   color: #fff;
 }
 
-input[type="date"], input[type="time"], input[type="file"] {
-  color-scheme: dark;
+input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:focus, textarea:-webkit-autofill {
+  -webkit-text-fill-color: var(--text);
+  caret-color: var(--text);
+  -webkit-box-shadow: inset 0 0 0 1000px var(--bg-raised);
+  transition: background-color 999999s ease-out 0s;
 }
 
 

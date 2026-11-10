@@ -56,7 +56,8 @@
     </script>
     <script>
       try {
-        var dark = location.pathname.indexOf("/app") === 0 && localStorage.getItem("fw-theme-v2") === "dark"
+        var inApp = location.pathname.indexOf("/app") === 0 || location.pathname.indexOf("/welcome") === 0
+        var dark = inApp && localStorage.getItem("fw-theme-v2") !== "light"
         document.documentElement.setAttribute("data-theme", dark ? "dark" : "light")
         document.documentElement.style.background = dark ? "#11110f" : "#fcfbf8"
       } catch (problem) {

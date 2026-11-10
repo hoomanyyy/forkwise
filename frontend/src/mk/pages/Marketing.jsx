@@ -103,14 +103,6 @@ export function Product() {
         <div className="mk-actions"><DownloadButton className="mk-btn go" /><Link to="/download" className="mk-btn ghost">All platforms</Link></div>
       </Split>
 
-      <Split
-        id="chrome"
-        kicker="Forkwise for Chrome"
-        title="Your own browser, on your terms"
-        text="Some work needs your accounts: an admin panel, an analytics dashboard, a store backend. With Forkwise for Chrome the agent opens tabs in its own purple tab group in your browser, signed in as you. It asks before each new site, never sees your other tabs and stops the moment you press Pause."
-        points={["Works with Chrome, Edge and Brave", "Allow once, always, or never, per site", "Never types passwords or pays without you", "Pause or stop from the toolbar"]}
-        shot={<div style={{ display: "grid", gap: 16, gridTemplateColumns: "1fr 1fr", alignItems: "start" }}><div className="mk-frame"><img src="/site/chrome-allow.webp" alt="Permission prompt" loading="lazy" width="500" height="440" /></div><div className="mk-frame"><img src="/site/chrome-popup.webp" alt="Toolbar popup" loading="lazy" width="320" height="420" /></div></div>}
-      />
 
       <section className="mk-section band">
         <div className="mk-wrap">
@@ -233,7 +225,7 @@ export function Pricing() {
   const [yearly, setYearly] = useState(true)
   return (
     <>
-      <PageHero center kicker="Pricing" title={<>Start free. <span className="mk-grad">Grow when you need to.</span></>} lead="Every plan has every feature, including the desktop app, Forkwise for Chrome, skills and the API. Paid plans give you more usage and faster support." />
+      <PageHero center kicker="Pricing" title={<>Start free. <span className="mk-grad">Grow when you need to.</span></>} lead="Every plan has every feature, including the desktop app, skills and the API. Paid plans give you more usage and faster support." />
       <section className="mk-section tight" style={{ paddingTop: 0 }}>
         <div className="mk-wrap" style={{ textAlign: "center" }}>
           <div className="mk-billing" role="tablist">

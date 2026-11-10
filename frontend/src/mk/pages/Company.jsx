@@ -56,17 +56,6 @@ export function Download() {
           </div>
         </div>
       </section>
-      <section className="mk-section">
-        <div className="mk-wrap mk-split">
-          <Reveal className="mk-split-copy">
-            <span className="mk-kicker">Forkwise for Chrome</span>
-            <h2 className="mk-h2">Add <span className="mk-grad">your own browser</span></h2>
-            <p className="mk-lead">The extension comes inside the desktop app. In the app open Settings, Computer, Your own Chrome and press Set up: it opens the extensions page and copies the folder for you. Works with Chrome, Edge and Brave.</p>
-            <CheckList items={["Its own purple tab group, never your other tabs", "Asks once per site: this time, always, or no", "Pause and Stop in the toolbar"]} />
-          </Reveal>
-          <Reveal index={1}><div style={{ display: "grid", gap: 16, gridTemplateColumns: "1fr 1fr", alignItems: "start" }}><div className="mk-frame"><img src="/site/chrome-allow.webp" alt="Allow Forkwise on this site" loading="lazy" width="500" height="440" /></div><div className="mk-frame"><img src="/site/chrome-popup.webp" alt="Forkwise toolbar popup" loading="lazy" width="320" height="420" /></div></div></Reveal>
-        </div>
-      </section>
       <section className="mk-section band">
         <div className="mk-wrap">
           <SectionHead kicker="Inside the app" title="Everything you would expect from a modern editor" />
@@ -175,16 +164,6 @@ export function Security() {
               )
             })}
           </div>
-        </div>
-      </section>
-      <section className="mk-section band">
-        <div className="mk-wrap mk-split">
-          <Reveal className="mk-split-copy">
-            <span className="mk-kicker">Your browser</span>
-            <h2 className="mk-h2">Forkwise for Chrome follows strict rules</h2>
-            <CheckList items={["Only tabs in its own Forkwise tab group", "Asks before every new site", "Never types passwords, card numbers or codes itself", "Never buys, sends or deletes without your clear yes", "Treats page text as data, never as instructions"]} />
-          </Reveal>
-          <Reveal index={1}><div className="mk-frame" style={{ maxWidth: 420, margin: "0 auto" }}><img src="/site/chrome-allow.webp" alt="Permission prompt" loading="lazy" width="500" height="440" /></div></Reveal>
         </div>
       </section>
       <section className="mk-section">

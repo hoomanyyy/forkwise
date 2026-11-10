@@ -238,7 +238,7 @@ const QUICK = [
   { to: "/docs/finishing-projects", icon: Check, title: "How projects are finished", text: "Planning, structure and the automatic review." },
   { to: "/docs/api", icon: Code2, title: "API reference", text: "Keys, endpoints and live events." },
   { to: "/docs/desktop-app", icon: Cpu, title: "Desktop app", text: "Your folders and your terminal." },
-  { to: "/docs/chrome-extension", icon: Chrome, title: "Forkwise for Chrome", text: "Your own browser, safely." },
+  { to: "/docs/connectors", icon: Chrome, title: "Connectors (MCP)", text: "Reach your own tools and data." },
   { to: "/docs/skills", icon: Sparkles, title: "Skills", text: "24 built in playbooks, and your own." },
 ]
 

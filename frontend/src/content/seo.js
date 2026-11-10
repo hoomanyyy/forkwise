@@ -10,7 +10,7 @@ export const SEO = {
   },
   "/product": {
     title: "AI Software Engineer With Its Own Computer · Forkwise",
-    description: "How the Forkwise AI software engineer works: it plans, writes code, runs and tests it on its own computer, your computer or your own browser, then checks its work.",
+    description: "How the Forkwise AI software engineer works: it plans, writes code, runs and tests it on its own computer or your computer, then checks its work.",
     h1: "An AI software engineer that does the whole job",
   },
   "/use-cases": {
@@ -25,7 +25,7 @@ export const SEO = {
   },
   "/download": {
     title: "Download Forkwise for Windows, macOS and Linux",
-    description: "Download the Forkwise desktop app so the AI coding agent can work in your own folders and terminal, and add Forkwise for Chrome for your own browser.",
+    description: "Download the Forkwise desktop app so the AI coding agent can work in your own folders and terminal, with live output and an emergency stop.",
     h1: "Download Forkwise",
   },
   "/developers": {
@@ -50,7 +50,7 @@ export const SEO = {
   },
   "/docs": {
     title: "Forkwise Docs: Guides for the AI Coding Agent",
-    description: "Guides for every part of Forkwise: your first project, how projects get finished, models, skills, the desktop app, Forkwise for Chrome and the API.",
+    description: "Guides for every part of Forkwise: your first project, how projects get finished, models, skills, the desktop app and the API.",
     h1: "Forkwise documentation",
   },
   "/blog": {

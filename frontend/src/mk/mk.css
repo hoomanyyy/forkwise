@@ -3150,3 +3150,11 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* saved logins and autofill keep the light input colors */
+.mk input:-webkit-autofill, .mk input:-webkit-autofill:hover, .mk input:-webkit-autofill:focus, .mk textarea:-webkit-autofill {
+  -webkit-text-fill-color: var(--text);
+  caret-color: var(--text);
+  -webkit-box-shadow: inset 0 0 0 1000px var(--bg);
+  transition: background-color 999999s ease-out 0s;
+}

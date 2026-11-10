@@ -214,6 +214,17 @@ So Forkwise became an engineer. It still checks its own work, now by running the
 
 export const RELEASES = [
   {
+    version: "2.3.1",
+    date: "November 10, 2026",
+    title: "Polish",
+    items: [
+      ["fixed", "Picking a saved login no longer turns the input black; autofill keeps the page colors everywhere"],
+      ["better", "The app is back to its dark look, while the website and sign in stay light"],
+      ["fixed", "Dropdowns and date fields now follow the page theme instead of always being dark"],
+      ["better", "Outdated browser-extension sections were removed from the site"],
+    ],
+  },
+  {
     version: "2.3",
     date: "November 10, 2026",
     title: "A new face",

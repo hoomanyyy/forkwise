@@ -31,7 +31,6 @@ export function MkLogo({ size = 26, word = true }) {
 const PRODUCT = [
   { to: "/product", icon: Bot, title: "The agent", text: "Plans, builds, runs and checks real projects" },
   { to: "/download", icon: Laptop, title: "Desktop app", text: "Your folders and your terminal" },
-  { to: "/product#chrome", icon: Chrome, title: "Forkwise for Chrome", text: "Your own browser, only where you allow" },
   { to: "/product#skills", icon: Sparkles, title: "Skills", text: "24 expert playbooks built in" },
   { to: "/developers", icon: Code2, title: "API", text: "Run the agent from your own code" },
   { to: "/use-cases", icon: Briefcase, title: "Use cases", text: "What people build with Forkwise" },
@@ -181,7 +180,6 @@ export function MkFooter() {
               <li><Link to="/use-cases">Use cases</Link></li>
               <li><Link to="/pricing">Pricing</Link></li>
               <li><Link to="/download">Desktop app</Link></li>
-              <li><Link to="/product#chrome">Forkwise for Chrome</Link></li>
             </ul>
           </div>
           <div>
