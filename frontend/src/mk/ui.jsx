@@ -1,16 +1,22 @@
 import { useEffect, useRef, useState } from "react"
-import { Link, NavLink, Outlet, useLocation } from "react-router-dom"
-import { ArrowRight, Bot, Check, ChevronDown, Chrome, Code2, Copy, Cpu, Download, Laptop, Menu, Plus, Sparkles, X, Briefcase } from "lucide-react"
+import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom"
+import { ArrowRight, ArrowUp, Bot, Check, ChevronDown, Chrome, Code2, Copy, Cpu, Download, Laptop, Menu, Plus, Sparkles, X, Briefcase, Paperclip } from "lucide-react"
 import { useStore } from "../lib/store"
 import { LogoMark } from "../components/ui/Logo"
+import { SEO, fullTitle } from "../content/seo"
 import "./mk.css"
 
 export function usePage(title, description) {
   useEffect(() => {
-    document.title = title ? title + " · Forkwise" : "Forkwise · The AI engineer that finishes the job"
+    document.title = fullTitle(title)
     const tag = document.querySelector('meta[name="description"]')
     if (tag && description) tag.setAttribute("content", description)
   }, [title, description])
+}
+
+export function useSeo(path) {
+  const page = SEO[path]
+  usePage(page.title, page.description)
 }
 
 export function MkLogo({ size = 26, word = true }) {
@@ -223,7 +229,7 @@ export function MkLayout() {
   const location = useLocation()
   const docs = location.pathname === "/docs" || location.pathname.startsWith("/docs/")
   useEffect(() => {
-    document.documentElement.dataset.theme = "dark"
+    document.documentElement.dataset.theme = "light"
   }, [])
   useEffect(() => {
     if (location.hash) {
@@ -251,37 +257,9 @@ export function MkLayout() {
   )
 }
 
-let watcher = null
-
-function watch(node) {
-  if (!("IntersectionObserver" in window) || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    node.setAttribute("data-mkr", "1")
-    return function () {}
-  }
-  if (!watcher) {
-    watcher = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          entry.target.setAttribute("data-mkr", "1")
-          watcher.unobserve(entry.target)
-        }
-      })
-    }, { rootMargin: "0px 0px -6% 0px", threshold: 0.04 })
-  }
-  watcher.observe(node)
-  return function () {
-    if (watcher) watcher.unobserve(node)
-  }
-}
-
-export function Reveal({ children, index = 0, as = "div", className, style, ...rest }) {
+export function Reveal({ children, index, as = "div", className, style, ...rest }) {
   const Tag = as
-  const ref = useRef(null)
-  useEffect(() => {
-    if (!ref.current) return undefined
-    return watch(ref.current)
-  }, [])
-  return <Tag ref={ref} data-mkr="0" style={Object.assign({ "--mkd": index }, style || {})} className={className} {...rest}>{children}</Tag>
+  return <Tag style={style} className={className} {...rest}>{children}</Tag>
 }
 
 export function Glow() {
@@ -413,6 +391,108 @@ export function Makers() {
     <div className="mk-marquee" aria-label="Model makers Forkwise works with">
       <div className="mk-marquee-track">
         {list.map((item, index) => <span className="mk-maker" key={index} aria-hidden={index >= MAKERS.length}>{item}</span>)}
+      </div>
+    </div>
+  )
+}
+
+export const EXAMPLES = [
+  "Build a SaaS dashboard with sign in, billing and team roles",
+  "Make an online store for handmade candles with a cart and checkout",
+  "Create a booking app for a barbershop with reminders",
+  "Fix the failing tests in my repo and open a pull request",
+  "Build a mobile friendly habit tracker with streaks and charts",
+  "Turn this CSV of sales into an interactive report",
+]
+
+function useTyping(list, paused) {
+  const [text, setText] = useState("")
+  useEffect(() => {
+    if (paused) return undefined
+    let item = 0
+    let char = 0
+    let deleting = false
+    let timer = null
+    function tick() {
+      const full = list[item]
+      if (!deleting) {
+        char = char + 1
+        setText(full.slice(0, char))
+        if (char >= full.length) {
+          deleting = true
+          timer = setTimeout(tick, 1800)
+          return
+        }
+        timer = setTimeout(tick, 34)
+        return
+      }
+      char = char - 2
+      if (char <= 0) {
+        char = 0
+        deleting = false
+        item = (item + 1) % list.length
+        setText("")
+        timer = setTimeout(tick, 300)
+        return
+      }
+      setText(full.slice(0, char))
+      timer = setTimeout(tick, 14)
+    }
+    timer = setTimeout(tick, 500)
+    return () => clearTimeout(timer)
+  }, [list, paused])
+  return text
+}
+
+export function PromptBox({ value, setValue, autoFocus }) {
+  const { user } = useStore()
+  const navigate = useNavigate()
+  const [focused, setFocused] = useState(false)
+  const box = useRef(null)
+  const typing = useTyping(EXAMPLES, focused || value.length > 0)
+
+  useEffect(() => {
+    const node = box.current
+    if (!node) return
+    node.style.height = "auto"
+    node.style.height = Math.min(node.scrollHeight, 260) + "px"
+  }, [value])
+
+  useEffect(() => {
+    if (autoFocus && box.current && window.innerWidth > 900) box.current.focus({ preventScroll: true })
+  }, [autoFocus])
+
+  function send() {
+    const prompt = value.trim() || typing.trim() || EXAMPLES[0]
+    rememberPrompt(user, prompt)
+    navigate(startLink(user, prompt))
+  }
+
+  function onKey(event) {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault()
+      send()
+    }
+  }
+
+  return (
+    <div className="mk-prompt">
+      <textarea
+        ref={box}
+        rows={3}
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+        onKeyDown={onKey}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        placeholder={focused ? "Describe the app, site or fix you want…" : typing ? typing + "▍" : "Ask Forkwise to build…"}
+        aria-label="Describe what you want Forkwise to build"
+      />
+      <div className="mk-prompt-bar">
+        <button type="button" className="mk-round" aria-label="Attach files" onClick={send}><Paperclip size={16} /></button>
+        <button type="button" className="mk-pillbtn" onClick={send}><Bot size={15} /><span>Agent</span></button>
+        <button type="button" className="mk-pillbtn" onClick={send}><Sparkles size={15} /><span>Skills</span></button>
+        <button type="button" className="mk-send" aria-label="Start building" onClick={send}><ArrowUp size={18} /></button>
       </div>
     </div>
   )

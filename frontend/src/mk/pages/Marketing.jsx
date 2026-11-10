@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { Link } from "react-router-dom"
 import { ArrowRight, Brain, Check, Chrome, Clock, Cpu, FileDiff, FolderTree, Github, Globe, Hand, KeyRound, Laptop, ListChecks, Map as MapIcon, MonitorPlay, Plug, Sparkles, SquareTerminal, Undo2, Users, X, Zap } from "lucide-react"
-import { CheckList, Cta, DownloadButton, Faq, Frame, PageHero, Reveal, SectionHead, rememberPrompt, startLink, usePage } from "../ui"
+import { CheckList, Cta, DownloadButton, Faq, Frame, PageHero, Reveal, SectionHead, rememberPrompt, startLink, usePage, useSeo } from "../ui"
 import { COMPARE, PLANS, PRICING_FAQ, USE_CASES } from "../content"
 import { useStore } from "../../lib/store"
 
@@ -23,7 +23,7 @@ function Split({ id, kicker, title, text, points, shot, label, flip, children })
 }
 
 export function Product() {
-  usePage("Product", "Forkwise plans, builds, runs and checks complete projects with its own computer, your computer through the desktop app, or your own browser.")
+  useSeo("/product")
   const { user } = useStore()
   return (
     <>
@@ -168,7 +168,7 @@ export function Product() {
 }
 
 export function UseCases() {
-  usePage("Use cases", "What people build and fix with Forkwise: stores, social apps, dashboards, bots, mobile apps, bug fixes, reviews, research, data and documents.")
+  useSeo("/use-cases")
   const { user } = useStore()
   const [group, setGroup] = useState("All")
   const groups = ["All", "Build", "Fix", "Research"]
@@ -229,7 +229,7 @@ function Cell({ value }) {
 }
 
 export function Pricing() {
-  usePage("Pricing", "Forkwise pricing: start free with every feature, upgrade for more usage, API keys and priority.")
+  useSeo("/pricing")
   const [yearly, setYearly] = useState(true)
   return (
     <>

@@ -1,26 +1,17 @@
 import { useState } from "react"
 import { Link } from "react-router-dom"
-import { ArrowRight, Check, ChevronRight, Chrome, ClipboardCheck, Cpu, FolderTree, History, Laptop, Layers, ListChecks, MonitorPlay, ShieldCheck, Sparkles, Undo2, Workflow } from "lucide-react"
-import Demo from "../Demo"
-import { CheckList, CodeTabs, Cta, DownloadButton, Faq, Frame, Glow, Makers, Reveal, SectionHead, usePage } from "../ui"
+import { ArrowRight, BarChart3, Check, ChevronRight, Chrome, ClipboardCheck, Cpu, FolderTree, History, Laptop, Layers, LayoutDashboard, ListChecks, MonitorPlay, Plane, Scissors, ShieldCheck, ShoppingBag, Smartphone, Sparkles, Undo2, Workflow } from "lucide-react"
+import { CheckList, CodeTabs, Cta, DownloadButton, Faq, Makers, PromptBox, SectionHead, rememberPrompt, startLink, useSeo } from "../ui"
 import { useStore } from "../../lib/store"
 import { HOME_FAQ, API_TABS } from "../content"
 
-const SHOTS = [
-  { key: "chat", label: "Chat", src: "/site/app-chat.webp", text: "Ask in plain words. Every step shows up live, and the result runs next to the chat." },
-  { key: "workspace", label: "Workspace", src: "/site/app-workspace.webp", text: "Preview, files, changes, terminals and the plan, in tabs you add with + and arrange yourself." },
-  { key: "models", label: "Models", src: "/site/app-models.webp", text: "Pick the right model for each job, grouped by maker, with search and your recent picks." },
-  { key: "skills", label: "Skills", src: "/site/app-skills.webp", text: "Add an expert playbook to any message with + or by typing /. The agent also picks them by itself." },
-  { key: "desktop", label: "Desktop", src: "/site/desktop-chat.webp", text: "The desktop app works in your own folders and terminal, with a full editor and live output." },
-]
-
-const FEATURES = [
-  { icon: Cpu, title: "A real computer for every chat", text: "Installs packages, runs servers, opens a browser and fixes what breaks." },
-  { icon: Laptop, title: "Your folders and terminal", text: "The desktop app edits files in place and runs your own shell." },
-  { icon: Chrome, title: "Your own browser, safely", text: "Works signed in as you, in its own tab group, only on sites you allow." },
-  { icon: Sparkles, title: "24 expert skills", text: "Full stack apps, design, debugging, reviews, security, deploys and more." },
-  { icon: Undo2, title: "Undo anything", text: "Every message is a checkpoint. Go back and your files come back too." },
-  { icon: ShieldCheck, title: "You stay in control", text: "Pushing code, sending email and risky commands always ask first." },
+const GALLERY = [
+  { img: "/site/projects/nimbus.webp", icon: LayoutDashboard, title: "SaaS dashboard", time: "Built in one chat", text: "Sign in, live charts, billing and team roles on a real database.", prompt: "Build a SaaS analytics dashboard with sign in, charts, billing and team roles" },
+  { img: "/site/projects/wick.webp", icon: ShoppingBag, title: "Online store", time: "Built in one chat", text: "Product pages, a cart and checkout for a candle studio.", prompt: "Build an online store for handmade candles with a cart and checkout" },
+  { img: "/site/projects/fade.webp", icon: Scissors, title: "Booking app", time: "Built in one chat", text: "Services, open time slots and confirmations for a barbershop.", prompt: "Build a booking app for a barbershop with services, time slots and confirmations" },
+  { img: "/site/projects/habitly.webp", icon: Smartphone, title: "Mobile habit tracker", time: "Built in one chat", text: "Streaks, reminders and weekly charts, phone first.", prompt: "Build a mobile friendly habit tracker with streaks, reminders and weekly charts" },
+  { img: "/site/projects/ledger.webp", icon: BarChart3, title: "Sales report", time: "From a CSV", text: "A quarter of messy sales data turned into an interactive report.", prompt: "Turn this CSV of sales into an interactive report with charts and a summary" },
+  { img: "/site/projects/atlas.webp", icon: Plane, title: "Travel site", time: "Built in one chat", text: "A landing page with search, destination cards and a clean design.", prompt: "Build a travel site landing page with a search box and destination cards" },
 ]
 
 const REVIEW = [
@@ -32,85 +23,145 @@ const REVIEW = [
   [History, "README", "install and run"],
 ]
 
+const FEATURES = [
+  { icon: Cpu, title: "A real computer for every chat", text: "Installs packages, runs servers, opens a browser and fixes what breaks." },
+  { icon: Laptop, title: "Your folders and terminal", text: "The desktop app edits files in place and runs your own shell." },
+  { icon: Chrome, title: "Your own browser, safely", text: "Works signed in as you, in its own tab group, only on sites you allow." },
+  { icon: Sparkles, title: "24 expert skills", text: "Full stack apps, design, debugging, reviews, security, deploys and more." },
+  { icon: Undo2, title: "Undo anything", text: "Every message is a checkpoint. Go back and your files come back too." },
+  { icon: ShieldCheck, title: "You stay in control", text: "Pushing code, sending email and risky commands always ask first." },
+]
+
 export default function Home() {
-  usePage("", "Forkwise is the AI engineer that plans, builds, runs and checks complete projects on its own computer, your computer or your own browser.")
+  useSeo("/")
   const { user } = useStore()
-  const [shot, setShot] = useState(0)
-  const start = user ? "/app" : "/register"
+  const [value, setValue] = useState("")
   return (
     <>
-      <section className="mk-hero">
-        <Glow />
-        <div className="mk-wrap mk-hero-in">
-          <Reveal><Link to="/blog/forkwise-2-2-built-to-finish" className="mk-eyebrow"><b>NEW</b>Forkwise 2.2: built to finish<ChevronRight size={14} /></Link></Reveal>
-          <Reveal index={1} as="h1" className="mk-h1">The AI engineer<br />that finishes the job</Reveal>
-          <Reveal index={2} as="p" className="mk-lead">Describe what you want. Forkwise plans it, builds it as a real project, runs it, tests it and checks its own work before it tells you it is done.</Reveal>
-          <Reveal index={3} className="mk-actions">
-            <Link to={start} className="mk-btn go lg">{user ? "Open Forkwise" : "Get started free"}<ArrowRight size={17} /></Link>
-            <DownloadButton />
-          </Reveal>
-          <Reveal index={4} as="p" className="mk-note">Free plan, no card needed. Works in English, Persian and more.</Reveal>
-          <Reveal index={5} style={{ width: "100%" }}><Demo /></Reveal>
+      <section className="mk-hero2">
+        <div className="mk-aurora" aria-hidden="true"><i /><i /><i /></div>
+        <div className="mk-wrap">
+          <Link to="/blog/forkwise-2-2-built-to-finish" className="mk-badge"><b>NEW</b>Forkwise 2.2: built to finish<ChevronRight size={14} /></Link>
+          <h1>Build complete apps<br />by chatting with AI</h1>
+          <p className="mk-lead">Forkwise is an AI coding agent. Describe the app, site or fix you want, and it plans, writes the code, runs it and tests it until the job is done.</p>
+          <PromptBox value={value} setValue={setValue} autoFocus />
+          <div className="mk-chips">
+            {GALLERY.slice(0, 4).map((item) => {
+              const Icon = item.icon
+              return <button type="button" key={item.title} onClick={() => setValue(item.prompt)}><Icon size={14} />{item.title}</button>
+            })}
+          </div>
+          <p className="mk-trust">Free to start · No card needed · Nothing to install for the web app</p>
         </div>
       </section>
 
       <section className="mk-section tight">
         <div className="mk-wrap">
-          <Reveal as="p" className="mk-faint" style={{ textAlign: "center", margin: "0 0 22px", fontSize: 14 }}>Use the right model for every job</Reveal>
+          <p className="mk-faint" style={{ textAlign: "center", margin: "0 0 22px", fontSize: 14 }}>Powered by the best coding models, picked per job</p>
           <Makers />
         </div>
       </section>
 
-      <section className="mk-section" id="how">
-        <div className="mk-wrap mk-split">
-          <Reveal className="mk-split-copy">
-            <span className="mk-kicker">Built to finish</span>
-            <h2 className="mk-h2">Complete projects, <span className="mk-grad">not demos.</span></h2>
-            <p className="mk-lead">Most AI tools stop at one file that looks good in a screenshot. Forkwise plans every page, builds real structure and is checked by an automatic review before it is allowed to say done.</p>
-            <CheckList items={[
-              "Plans pages, the data model and the API first",
-              "Router, pages, components, services and a database",
-              "Real sign in and real data, not mock data",
-              "Runs the build and opens the app in a browser",
-            ]} />
-            <div className="mk-actions"><Link to="/docs/finishing-projects" className="mk-btn ghost">How it works<ArrowRight size={16} /></Link></div>
-          </Reveal>
-          <Reveal index={1}>
-            <div className="mk-frame">
-              <div className="mk-frame-bar"><ClipboardCheck size={14} />Checking the work before finishing</div>
-              <div style={{ padding: 18, display: "grid", gap: 8 }}>
-                {REVIEW.map((row) => {
-                  const Icon = row[0]
-                  return (
-                    <div key={row[1]} className="mk-step on">
-                      <span className="ic"><Icon size={14} /></span>
-                      <span>{row[1]} <code>{row[2]}</code></span>
-                      <span className="ok"><Check size={14} /></span>
-                    </div>
-                  )
-                })}
-                <p className="mk-faint" style={{ fontSize: 12.5, margin: "6px 2px 0" }}>Example of the review on a finished build.</p>
-              </div>
-            </div>
-          </Reveal>
+      <section className="mk-section" id="gallery">
+        <div className="mk-wrap">
+          <SectionHead center kicker="Built with Forkwise" title="Tell it what you want. Get the whole thing." text="Each of these came from one conversation: planned, built, run and tested." />
+          <div className="mk-gallery">
+            {GALLERY.map((item) => (
+              <Link key={item.title} to={startLink(user, item.prompt)} onClick={() => rememberPrompt(user, item.prompt)} className="mk-shot">
+                <span className="mk-shot-img"><img src={item.img} alt={item.title + " built with Forkwise"} loading="lazy" decoding="async" width="1120" height="700" /></span>
+                <span className="mk-shot-meta"><strong>{item.title}</strong><span>{item.time}</span></span>
+                <p>{item.text}</p>
+              </Link>
+            ))}
+          </div>
         </div>
       </section>
 
-      <section className="mk-section band">
-        <div className="mk-wrap mk-showcase">
-          <SectionHead center kicker="The product" title="Everything the agent does, in plain sight" text="Real screenshots of Forkwise as it ships today." />
-          <div className="mk-tabs" role="tablist">
-            {SHOTS.map((item, index) => <button type="button" role="tab" aria-selected={index === shot} key={item.key} className={index === shot ? "on" : ""} onClick={() => setShot(index)}>{item.label}</button>)}
+      <section className="mk-section band" id="how">
+        <div className="mk-wrap">
+          <SectionHead center kicker="How it works" title="From one sentence to a finished project" />
+          <div className="mk-steps4">
+            <div><span>01</span><h3>Describe it</h3><p>Plain words are enough. Attach files, data or screenshots if you have them.</p></div>
+            <div><span>02</span><h3>It plans</h3><p>Pages, data model and API first, so the project has real structure.</p></div>
+            <div><span>03</span><h3>It builds and runs</h3><p>Writes the code on a real computer, installs what it needs, runs the app and fixes errors.</p></div>
+            <div><span>04</span><h3>It checks its work</h3><p>An automatic review blocks "done" until the build passes and nothing is left half finished.</p></div>
           </div>
-          <p className="mk-showcase-text">{SHOTS[shot].text}</p>
-          <Frame key={SHOTS[shot].key} src={SHOTS[shot].src} alt={SHOTS[shot].label} label={SHOTS[shot].label} />
         </div>
       </section>
 
       <section className="mk-section">
+        <div className="mk-wrap mk-rows">
+          <div className="mk-row">
+            <div>
+              <span className="mk-kicker">Built to finish</span>
+              <h3>Complete projects, not demos</h3>
+              <p>Most AI tools stop at one file that looks good in a screenshot. Forkwise builds real structure, runs the result and is checked by an automatic review before it may say done.</p>
+              <CheckList items={[
+                "Router, pages, components, services and a database",
+                "Real sign in and real data, not mock data",
+                "Runs the build and opens the app in a browser",
+              ]} />
+              <div className="mk-actions"><Link to="/docs/finishing-projects" className="mk-btn ghost">How the review works<ArrowRight size={16} /></Link></div>
+            </div>
+            <div className="mk-backdrop mint">
+              <div style={{ background: "#fff", borderRadius: 12, border: "1px solid rgba(28,28,26,0.1)", boxShadow: "0 30px 60px -30px rgba(28,28,26,0.45)", overflow: "hidden" }}>
+                <div className="mk-frame-bar"><ClipboardCheck size={14} />Checking the work before finishing</div>
+                <div style={{ padding: 18, display: "grid", gap: 8 }}>
+                  {REVIEW.map((row) => {
+                    const Icon = row[0]
+                    return (
+                      <div key={row[1]} className="mk-step on" style={{ background: "#fff" }}>
+                        <span className="ic"><Icon size={14} /></span>
+                        <span>{row[1]} <code>{row[2]}</code></span>
+                        <span className="ok"><Check size={14} /></span>
+                      </div>
+                    )
+                  })}
+                  <p className="mk-faint" style={{ fontSize: 12.5, margin: "6px 2px 0" }}>Example of the review on a finished build.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mk-row flip">
+            <div>
+              <span className="mk-kicker">In plain sight</span>
+              <h3>Watch it work, step by step</h3>
+              <p>Every command, file and test shows up live next to the chat: preview, files, terminals and the plan, in tabs you arrange yourself. Nothing happens behind your back.</p>
+              <div className="mk-actions"><Link to="/product" className="mk-btn ghost">See the product<ArrowRight size={16} /></Link></div>
+            </div>
+            <div className="mk-backdrop"><img src="/site/app-workspace.webp" alt="The Forkwise workspace with preview, files and terminals" loading="lazy" decoding="async" width="1440" height="900" /></div>
+          </div>
+
+          <div className="mk-row">
+            <div>
+              <span className="mk-kicker">Desktop app</span>
+              <h3>Works on your machine when you need it to</h3>
+              <p>Open a folder and the agent reads, edits and runs your real project in your own terminal. Add Forkwise for Chrome and it can use your signed in browser, only on sites you allow.</p>
+              <div className="mk-actions">
+                <DownloadButton className="mk-btn go" />
+                <Link to="/download" className="mk-btn ghost">All platforms</Link>
+              </div>
+            </div>
+            <div className="mk-backdrop sky"><img src="/site/desktop-chat.webp" alt="The Forkwise desktop app" loading="lazy" decoding="async" width="1440" height="900" /></div>
+          </div>
+
+          <div className="mk-row flip">
+            <div>
+              <span className="mk-kicker">For developers</span>
+              <h3>Put the agent in your own code</h3>
+              <p>Create an API key, send a task and stream every step. Run fixes from CI, reports from a cron job, or add an AI engineer to your own product.</p>
+              <div className="mk-actions"><Link to="/developers" className="mk-btn ghost">Explore the API<ArrowRight size={16} /></Link></div>
+            </div>
+            <div><CodeTabs tabs={API_TABS} /></div>
+          </div>
+        </div>
+      </section>
+
+      <section className="mk-section band">
         <div className="mk-wrap">
-          <SectionHead kicker="Capabilities" title={<>One agent. <span className="mk-grad">Every part of the job.</span></>} />
-          <Reveal className="mk-features">
+          <SectionHead kicker="Capabilities" title="One agent. Every part of the job." />
+          <div className="mk-features">
             {FEATURES.map((item) => {
               const Icon = item.icon
               return (
@@ -121,49 +172,18 @@ export default function Home() {
                 </div>
               )
             })}
-          </Reveal>
-        </div>
-      </section>
-
-      <section className="mk-section band" id="desktop">
-        <div className="mk-wrap mk-split flip">
-          <Reveal className="mk-split-copy">
-            <span className="mk-kicker">Desktop app</span>
-            <h2 className="mk-h2">Works on your machine <span className="mk-grad">when you need it to.</span></h2>
-            <p className="mk-lead">Open a folder and the agent reads, edits and runs your real project in your own terminal. Add Forkwise for Chrome and it can use your signed in browser, only on the sites you allow.</p>
-            <CheckList items={["Only folders you open or approve", "Per site permission in your browser", "Emergency stop with one shortcut"]} />
-            <div className="mk-actions">
-              <DownloadButton className="mk-btn go" />
-              <Link to="/download" className="mk-btn ghost">All platforms</Link>
-            </div>
-          </Reveal>
-          <Reveal index={1}><Frame src="/site/desktop-chat.webp" alt="The Forkwise desktop app" label="Forkwise Desktop" /></Reveal>
+          </div>
         </div>
       </section>
 
       <section className="mk-section">
-        <div className="mk-wrap mk-split">
-          <Reveal className="mk-split-copy">
-            <span className="mk-kicker">For developers</span>
-            <h2 className="mk-h2">Put the agent <span className="mk-grad">in your own code.</span></h2>
-            <p className="mk-lead">Create an API key, send a task and stream every step. Run fixes from CI, reports from a cron job, or add an AI engineer to your own product.</p>
-            <div className="mk-actions">
-              <Link to="/developers" className="mk-btn ghost">Explore the API<ArrowRight size={16} /></Link>
-            </div>
-          </Reveal>
-          <Reveal index={1}><CodeTabs tabs={API_TABS} /></Reveal>
-        </div>
-      </section>
-
-      <section className="mk-section band">
         <div className="mk-wrap mk-narrow">
           <SectionHead center title="Questions" />
           <Faq items={HOME_FAQ.slice(0, 6)} />
         </div>
       </section>
 
-      <div style={{ paddingTop: 96 }}><Cta /></div>
+      <Cta />
     </>
   )
 }
-

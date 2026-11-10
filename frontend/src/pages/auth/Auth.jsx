@@ -33,7 +33,7 @@ function Shell({ children }) {
   const { pathname } = useLocation()
   const onLogin = pathname === "/login"
   useEffect(() => {
-    document.documentElement.dataset.theme = "dark"
+    document.documentElement.dataset.theme = "light"
   }, [])
   return (
     <div className="auth auth-center">

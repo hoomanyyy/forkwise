@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { Link, useSearchParams } from "react-router-dom"
 import { Apple, ArrowRight, Box, Code2, Cpu, EyeOff, FolderLock, Globe2, Hand, Heart, KeyRound, Laptop, Lock, Mail, MessageCircle, Monitor, Network, OctagonX, Radio, Rocket, Scale, ShieldCheck, Sparkles, Terminal, Undo2, Webhook } from "lucide-react"
-import { CheckList, CodeTabs, Cta, Frame, Glow, PageHero, Reveal, SectionHead, downloadUrl, usePage, MkLogo } from "../ui"
+import { CheckList, CodeTabs, Cta, Frame, Glow, PageHero, Reveal, SectionHead, downloadUrl, usePage, useSeo, MkLogo } from "../ui"
 import { API_TABS } from "../content"
 import { api } from "../../lib/api"
 import { useStore } from "../../lib/store"
@@ -13,7 +13,7 @@ const PLATFORMS = [
 ]
 
 export function Download() {
-  usePage("Download", "Download Forkwise Desktop for Windows, macOS and Linux, and add Forkwise for Chrome.")
+  useSeo("/download")
   const mine = navigator.userAgent.includes("Windows") ? "windows" : navigator.userAgent.includes("Mac") ? "macos" : "linux"
   return (
     <>
@@ -98,7 +98,7 @@ export function Download() {
 }
 
 export function Developers() {
-  usePage("API", "The Forkwise API: start chats, send tasks and stream every step the agent takes from your own code.")
+  useSeo("/developers")
   const { user } = useStore()
   return (
     <>
@@ -147,7 +147,7 @@ export function Developers() {
 }
 
 export function Security() {
-  usePage("Security", "How Forkwise isolates your work, protects your accounts and keeps you in control.")
+  useSeo("/security")
   return (
     <>
       <PageHero center kicker="Security" title={<>Your work <span className="mk-grad">stays yours</span></>} lead="Forkwise runs real code and can act on real accounts, so safety is built into every layer, not added on top." />
@@ -198,7 +198,7 @@ export function Security() {
 }
 
 export function About() {
-  usePage("About", "Why we build Forkwise: an AI engineer that does the work and finishes it.")
+  useSeo("/about")
   return (
     <>
       <PageHero center kicker="About" title={<>We build the engineer <span className="mk-grad">we wanted to hire</span></>} lead="Forkwise started from a simple frustration: AI tools that write code you still have to run, debug and finish yourself. We wanted one that does the whole job and is honest about what it did." />
@@ -241,7 +241,7 @@ export function About() {
 const TOPICS = ["General", "Sales", "Teams", "Support", "Billing", "Press"]
 
 export function Contact() {
-  usePage("Contact", "Talk to the Forkwise team.")
+  useSeo("/contact")
   const [params] = useSearchParams()
   const [topic, setTopic] = useState(TOPICS.indexOf(params.get("topic")) !== -1 ? params.get("topic") : "General")
   const [name, setName] = useState("")

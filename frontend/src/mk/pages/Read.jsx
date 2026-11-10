@@ -6,7 +6,7 @@ import { ArrowLeft, ArrowRight, BookOpen, Bot, Check, ChevronRight, Chrome, Code
 import { Prose, headings } from "../../components/site/Cover"
 import { DOCS, DOC_GROUPS } from "../../content/docs"
 import { LEGAL, POSTS, RELEASES } from "../../content/posts"
-import { Cta, MkLogo, PageHero, Reveal, usePage } from "../ui"
+import { Cta, MkLogo, PageHero, Reveal, usePage, useSeo } from "../ui"
 import { useStore } from "../../lib/store"
 
 function allDocs() {
@@ -243,7 +243,7 @@ const QUICK = [
 ]
 
 export function Docs() {
-  usePage("Docs", "Guides for every part of Forkwise: the agent, projects, skills, the desktop app, Forkwise for Chrome and the API.")
+  useSeo("/docs")
   const [searching, setSearching] = useState(false)
   return (
     <DocsChrome current="" wide>
@@ -361,7 +361,7 @@ export function Art({ post }) {
 }
 
 export function Blog() {
-  usePage("Blog", "Product news, guides and engineering notes from the Forkwise team.")
+  useSeo("/blog")
   const [tag, setTag] = useState("All")
   const tags = ["All"].concat(Array.from(new Set(POSTS.map((post) => post.tag))))
   const shown = POSTS.filter((post) => tag === "All" || post.tag === tag)
@@ -435,7 +435,7 @@ export function BlogPost() {
 }
 
 export function Changelog() {
-  usePage("Changelog", "Every Forkwise release, newest first.")
+  useSeo("/changelog")
   const labels = { new: "New", better: "Improved", fixed: "Fixed" }
   return (
     <>

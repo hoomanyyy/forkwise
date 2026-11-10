@@ -214,6 +214,18 @@ So Forkwise became an engineer. It still checks its own work, now by running the
 
 export const RELEASES = [
   {
+    version: "2.3",
+    date: "November 10, 2026",
+    title: "A new face",
+    items: [
+      ["new", "A new light design across the website, docs, sign in and the app, in the style people expect from an AI product"],
+      ["new", "The home page opens with a prompt box: type what you want and you land in the app with it ready to run"],
+      ["new", "A gallery of real projects built with Forkwise, with one click to start from any of them"],
+      ["better", "Search engines now get a real page for every route, with proper titles, descriptions and a sitemap"],
+      ["better", "Fresh screenshots of the web and desktop apps in the light theme"],
+    ],
+  },
+  {
     version: "2.2.1",
     date: "November 9, 2026",
     title: "One look everywhere",

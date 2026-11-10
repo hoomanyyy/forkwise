@@ -70,7 +70,7 @@ export function StoreProvider({ children }) {
 
   useEffect(() => {
     try {
-      localStorage.setItem("fw-theme", theme)
+      localStorage.setItem("fw-theme-v2", theme)
     } catch (problem) {
       return
     }
@@ -137,10 +137,10 @@ function writeHint(value) {
 
 function readTheme() {
   try {
-    const saved = localStorage.getItem("fw-theme")
-    return saved === "light" ? "light" : "dark"
+    const saved = localStorage.getItem("fw-theme-v2")
+    return saved === "dark" ? "dark" : "light"
   } catch (problem) {
-    return "dark"
+    return "light"
   }
 }
 
