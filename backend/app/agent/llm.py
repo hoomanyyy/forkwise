@@ -430,10 +430,60 @@ async def find_bad_message(model, body, stop_flag):
     return {"start": points[low], "worked": worked, "refused": refused}
 
 
+SKIP_SIGNATURE = "skip_thought_signature_validator"
+
+
+def has_signature(call):
+    extra = call.get("extra_content")
+    if not isinstance(extra, dict):
+        return False
+    google = extra.get("google")
+    if not isinstance(google, dict):
+        return False
+    return bool(google.get("thought_signature"))
+
+
+# Gemini 3 wants the thought signature it returned on the first function call of every step
+# sent back. A call it did not make (failover to another model, a model switch, old history)
+# has none, so it gets the bypass value Google documents. Other providers do not know the field.
+def sign_calls(messages, model):
+    gemini = "gemini" in str(model.get("id") or "").lower()
+    last_user = -1
+    for index in range(len(messages)):
+        if messages[index].get("role") == "user":
+            last_user = index
+    result = []
+    filled = 0
+    filled_now = 0
+    for index in range(len(messages)):
+        message = messages[index]
+        calls = message.get("tool_calls")
+        if message.get("role") != "assistant" or not calls:
+            result.append(message)
+            continue
+        copy = dict(message)
+        fixed = []
+        for position in range(len(calls)):
+            call = dict(calls[position])
+            if not gemini:
+                call.pop("extra_content", None)
+            elif position == 0 and not has_signature(call):
+                call["extra_content"] = {"google": {"thought_signature": SKIP_SIGNATURE}}
+                filled = filled + 1
+                if index > last_user:
+                    filled_now = filled_now + 1
+            fixed.append(call)
+        copy["tool_calls"] = fixed
+        result.append(copy)
+    if filled_now > 0:
+        print("MODEL SIGNATURE", model.get("key"), "had no thought signature on", filled_now, "call(s) of the current turn; sent the skip value", flush=True)
+    return result
+
+
 async def stream_single(model, messages, tools, on_delta, max_tokens, temperature, stop_flag, attempts, effort=""):
     body = {
         "model": model["id"],
-        "messages": for_plain_models(with_cache(clean_messages(messages), model), model),
+        "messages": for_plain_models(with_cache(sign_calls(clean_messages(messages), model), model), model),
         "stream": True,
         "max_tokens": max_tokens,
         "stream_options": {"include_usage": True},
@@ -469,6 +519,8 @@ async def stream_single(model, messages, tools, on_delta, max_tokens, temperatur
                         name = (tool.get("function") or {}).get("name") or ""
                         if name.startswith("my_") or name.startswith("mcp__"):
                             print("MODEL 400 user tool", name, json.dumps(tool.get("function", {}).get("parameters"), ensure_ascii=False)[:600], flush=True)
+                if "thought_signature" in last_problem:
+                    raise ModelError(last_problem)
                 label = next_degrade(body, state)
                 if label is not None:
                     print("MODEL 400 retrying", label, flush=True)
